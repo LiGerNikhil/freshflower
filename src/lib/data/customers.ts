@@ -1,0 +1,82 @@
+import type { Customer } from "@/lib/types";
+
+// PHASE 2 INTEGRATION — not active in preview.
+export const customers: Customer[] = [
+  {
+    id: "cust-1",
+    name: "Ananya Malhotra",
+    email: "ananya.malhotra@example.com",
+    phone: "+91 98100 11223",
+    addresses: [
+      {
+        id: "addr-1",
+        label: "Home",
+        line1: "B-42, South Extension Part 1",
+        city: "New Delhi",
+        areaId: "area-south-ext",
+        pincode: "110049",
+        landmark: "Near Ring Road market",
+        isDefault: true,
+      },
+    ],
+    createdAt: "2025-11-02T09:12:00.000Z",
+    totalOrders: 6,
+  },
+  {
+    id: "cust-2",
+    name: "Rohan Kapoor",
+    email: "rohan.kapoor@example.com",
+    phone: "+91 98111 22334",
+    addresses: [
+      {
+        id: "addr-2",
+        label: "Office",
+        line1: "Tower B, DLF Cyber City",
+        city: "Gurgaon",
+        areaId: "area-gurgaon",
+        pincode: "122002",
+        isDefault: true,
+      },
+    ],
+    createdAt: "2025-12-14T14:40:00.000Z",
+    totalOrders: 2,
+  },
+  {
+    id: "cust-3",
+    name: "Priya Nair",
+    email: "priya.nair@example.com",
+    phone: "+91 98222 33445",
+    addresses: [
+      {
+        id: "addr-3",
+        label: "Home",
+        line1: "Flat 12C, Sector 50",
+        city: "Noida",
+        areaId: "area-noida",
+        pincode: "201301",
+        isDefault: true,
+      },
+    ],
+    createdAt: "2026-01-20T11:05:00.000Z",
+    totalOrders: 1,
+  },
+  {
+    id: "cust-4",
+    name: "Vikram Singh",
+    email: "vikram.singh@example.com",
+    phone: "+91 98333 44556",
+    addresses: [
+      {
+        id: "addr-4",
+        label: "Home",
+        line1: "204 Vasant Enclave",
+        city: "New Delhi",
+        areaId: "area-vasant-kunj",
+        pincode: "110070",
+        isDefault: true,
+      },
+    ],
+    createdAt: "2026-02-08T08:30:00.000Z",
+    totalOrders: 4,
+  },
+];

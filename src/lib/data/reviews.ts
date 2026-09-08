@@ -1,0 +1,142 @@
+import type { Review } from "@/lib/types";
+
+// PHASE 2 INTEGRATION — not active in preview.
+export const reviews: Review[] = [
+  {
+    id: "rev-1",
+    productId: "fl-red-rose-bunch",
+    productType: "flower",
+    customerName: "Ananya M.",
+    rating: 5,
+    comment:
+      "Roses were fresh and lasted almost 8 days. Delivery was right on time for our anniversary. The kraft wrap was a lovely touch — felt premium without being overdone.",
+    photoUrl: "gradient-blush",
+    createdAt: "2026-08-20T10:00:00.000Z",
+    verifiedPurchase: true,
+  },
+  {
+    id: "rev-2",
+    productId: "fl-mogra-string",
+    productType: "flower",
+    customerName: "Sunita R.",
+    rating: 5,
+    comment:
+      "So fragrant, exactly like the ones from the local market but delivered to my door at 6am. Perfect for the morning puja. Will order again every week.",
+    createdAt: "2026-07-11T06:30:00.000Z",
+    verifiedPurchase: true,
+  },
+  {
+    id: "rev-3",
+    productId: "bq-sunny-cheer",
+    productType: "bouquet",
+    customerName: "Rohan K.",
+    rating: 4,
+    comment:
+      "Lovely bright bouquet — the sunflowers were gorgeous. One gerbera had a slightly bent stem but overall very happy with the arrangement.",
+    photoUrl: "gradient-gold",
+    createdAt: "2026-06-02T13:15:00.000Z",
+    verifiedPurchase: true,
+  },
+  {
+    id: "rev-4",
+    productId: "fl-orchid-phalaenopsis",
+    productType: "flower",
+    customerName: "Priya N.",
+    rating: 5,
+    comment:
+      "Gifted this to my mother for her birthday. The ceramic pot alone felt premium. The orchid is still blooming after 3 weeks — she absolutely loves it.",
+    createdAt: "2026-05-27T09:45:00.000Z",
+    verifiedPurchase: true,
+  },
+  {
+    id: "rev-5",
+    productId: "fl-gerbera-mixed",
+    productType: "flower",
+    customerName: "Vikram S.",
+    rating: 4,
+    comment:
+      "Good value, colours were vivid and cheerful. Ordered for my sister's housewarming. Would order again for casual gifting.",
+    createdAt: "2026-04-15T17:20:00.000Z",
+    verifiedPurchase: false,
+  },
+  {
+    id: "rev-6",
+    productId: "fl-red-rose-bunch",
+    productType: "flower",
+    customerName: "Meera T.",
+    rating: 5,
+    comment:
+      "Ordered red roses for Valentine's Day and they arrived beautifully wrapped, still dewy. My partner was thrilled. The early morning slot meant the surprise was ready before breakfast.",
+    photoUrl: "gradient-blush",
+    createdAt: "2026-02-14T08:00:00.000Z",
+    verifiedPurchase: true,
+  },
+  {
+    id: "rev-7",
+    productId: "bq-blush-romance",
+    productType: "bouquet",
+    customerName: "Arjun P.",
+    rating: 5,
+    comment:
+      "Used FreshFlower for my parents' anniversary. The Blush Romance bouquet was stunning — roses, lilies, and baby's breath in perfect harmony. Delivery was exactly on time.",
+    createdAt: "2026-03-12T11:30:00.000Z",
+    verifiedPurchase: true,
+  },
+  {
+    id: "rev-8",
+    productId: "fl-sunflower-bunch",
+    productType: "flower",
+    customerName: "Nisha G.",
+    rating: 5,
+    comment:
+      "The sunflowers were massive and so bright! My kitchen table looks like a farm stand. Lasted a full week in water. Absolutely worth it.",
+    photoUrl: "gradient-gold",
+    createdAt: "2026-07-22T14:00:00.000Z",
+    verifiedPurchase: true,
+  },
+  {
+    id: "rev-9",
+    productId: "fl-carnation-mixed",
+    productType: "flower",
+    customerName: "Deepak R.",
+    rating: 4,
+    comment:
+      "Ordered mixed carnations for Mother's Day. Good quality stems, nice colours. Delivery was a bit late but the flowers were fresh. Would recommend.",
+    createdAt: "2026-05-11T10:15:00.000Z",
+    verifiedPurchase: true,
+  },
+  {
+    id: "rev-10",
+    productId: "fl-white-rose-bunch",
+    productType: "flower",
+    customerName: "Shreya K.",
+    rating: 5,
+    comment:
+      "White roses for a friend's engagement — elegant and pristine. The presentation was lovely, and the care card was a nice touch. Saved the brand for future orders.",
+    createdAt: "2026-06-18T09:00:00.000Z",
+    verifiedPurchase: true,
+  },
+  {
+    id: "rev-11",
+    productId: "fl-rajnigandha",
+    productType: "flower",
+    customerName: "Kavita B.",
+    rating: 5,
+    comment:
+      "Ordered rajnigandha for a family puja. The fragrance filled the entire room — brought back memories of my grandmother's garden. So authentic and fresh.",
+    createdAt: "2026-08-05T07:30:00.000Z",
+    verifiedPurchase: true,
+  },
+  {
+    id: "rev-12",
+    productId: "bq-sunny-cheer",
+    productType: "bouquet",
+    customerName: "Rahul D.",
+    rating: 5,
+    comment:
+      "Sent this to a colleague who was unwell. She said it completely brightened her day. Great combination of sunflowers and gerberas. Reliable delivery too.",
+    photoUrl: "gradient-sage",
+    createdAt: "2026-04-28T16:00:00.000Z",
+    verifiedPurchase: true,
+  },
+];

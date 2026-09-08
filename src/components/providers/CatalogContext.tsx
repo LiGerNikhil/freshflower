@@ -1,0 +1,379 @@
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import type { Category, Flower, FlowerStockStatus } from "@/lib/types";
+import {
+  categories as seedCategories,
+  flowers as seedFlowers,
+} from "@/lib/data";
+import { slugify } from "@/lib/utils";
+
+/**
+ * Admin catalogue store (Phase 13).
+ *
+ * This is a session-only, in-memory replacement for the future Mongoose layer.
+ * Every mutation below updates local state and ends with a `TODO(Phase 14)`
+ * comment naming the real create/update/delete call that replaces it once the
+ * admin API routes exist. Nothing here touches the static dummy arrays that
+ * still power the public pages in /lib/data.
+ */
+
+export const LOW_STOCK_THRESHOLD = 15;
+
+export const FLOWER_STATUS_LABELS: Record<FlowerStockStatus, string> = {
+  "in-stock": "In Stock",
+  limited: "Limited Stock",
+  "sold-out": "Sold Out",
+  "pre-order": "Pre-order",
+};
+
+export const FLOWER_UNITS = [
+  "Stems",
+  "Bunch",
+  "Box",
+  "Bouquet",
+  "Plant",
+  "String",
+  "Dozen",
+  "Meter",
+] as const;
+
+export interface ProductDraft {
+  name: string;
+  slug: string;
+  categoryId: string;
+  description: string;
+  shortDescription: string;
+  price: number;
+  salePrice: number;
+  quantity: number;
+  unit: string;
+  stock: number;
+  sku: string;
+  stockStatus: FlowerStockStatus;
+  featured: boolean;
+  bestSeller: boolean;
+  newArrival: boolean;
+  colors: string[];
+  images: string[];
+  seoTitle: string;
+  metaDescription: string;
+  keywords: string[];
+}
+
+function hash(value: string): number {
+  let h = 0;
+  for (let i = 0; i < value.length; i++) {
+    h = (h * 31 + value.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+function unitForCategory(categoryId: string): string {
+  if (categoryId === "cat-mogra") return "String";
+  if (categoryId === "cat-orchid") return "Plant";
+  return "Stems";
+}
+
+/** Deterministic pseudo-stock so the seed shows a realistic low/high mix. */
+function seedFlower(base: Flower): Flower {
+  const stock = base.inStock ? 6 + (hash(base.slug) % 45) : 0;
+  let stockStatus: FlowerStockStatus;
+  if (!base.inStock) stockStatus = "sold-out";
+  else if (!base.availableToday) stockStatus = "pre-order";
+  else if (stock < LOW_STOCK_THRESHOLD) stockStatus = "limited";
+  else stockStatus = "in-stock";
+  return {
+    ...base,
+    sku: `SKU-${base.slug.slice(0, 10).toUpperCase().replace(/-/g, "")}`,
+    quantity: base.stemCount ?? 1,
+    unit: unitForCategory(base.categoryId),
+    stock,
+    stockStatus,
+    active: true,
+    bestSeller: base.featured,
+    newArrival: false,
+    seoTitle: base.name,
+    metaDescription: base.shortDescription,
+    keywords: [base.categoryId.replace("cat-", "")],
+  };
+}
+
+/** Keep the public availability flags in step with the admin stock status. */
+function availabilityFromStatus(
+  stockStatus: FlowerStockStatus,
+): Pick<Flower, "inStock" | "availableToday"> {
+  return {
+    inStock: stockStatus !== "sold-out",
+    availableToday:
+      stockStatus === "in-stock" || stockStatus === "limited",
+  };
+}
+
+interface CatalogValue {
+  products: Flower[];
+  categories: Category[];
+  addProduct: (draft: ProductDraft) => void;
+  updateProduct: (id: string, draft: ProductDraft) => void;
+  deleteProduct: (id: string) => void;
+  setProductActive: (id: string, active: boolean) => void;
+  setStockStatus: (id: string, status: FlowerStockStatus) => void;
+  /** Direct stock-number edit; re-derives the status automatically. */
+  adjustStock: (id: string, value: number) => void;
+  /** Bulk status toggle applied to every selected product. */
+  bulkSetStatus: (ids: string[], status: FlowerStockStatus) => void;
+  addCategory: (input: {
+    name: string;
+    description: string;
+  }) => Category | { error: string };
+  updateCategory: (
+    id: string,
+    patch: { name: string; description: string },
+  ) => void;
+  /** Returns an error string when the category still has products, else null. */
+  deleteCategory: (id: string) => string | null;
+  moveCategory: (id: string, direction: "up" | "down") => void;
+  productCountForCategory: (categoryId: string) => number;
+}
+
+const CatalogContext = createContext<CatalogValue | null>(null);
+
+export function CatalogProvider({ children }: { children: ReactNode }) {
+  const [products, setProducts] = useState<Flower[]>(() =>
+    seedFlowers.map(seedFlower),
+  );
+  const [categories, setCategories] = useState<Category[]>(() =>
+    seedCategories.map((category) => ({ ...category })),
+  );
+
+  const applyStatus = useCallback((flower: Flower, status: FlowerStockStatus): Flower => {
+    const stock =
+      status === "sold-out"
+        ? 0
+        : status === "limited"
+          ? Math.min(flower.stock || 15, LOW_STOCK_THRESHOLD - 1) || 8
+          : status === "pre-order"
+            ? Math.max(flower.stock || 8, 8)
+            : Math.max(flower.stock || 0, 1) || 25;
+    return { ...flower, stock, stockStatus: status, ...availabilityFromStatus(status) };
+  }, []);
+
+  const draftToFlower = useCallback(
+    (draft: ProductDraft): Flower => ({
+      id: draft.slug,
+      name: draft.name,
+      slug: draft.slug,
+      categoryId: draft.categoryId,
+      occasionIds: [],
+      description: draft.description,
+      shortDescription: draft.shortDescription,
+      price: draft.price,
+      compareAtPrice: draft.salePrice > 0 ? draft.salePrice : undefined,
+      colors: draft.colors.length ? draft.colors : ["mixed"],
+      images: draft.images.length ? draft.images : ["gradient-ivory"],
+      featured: draft.featured,
+      rating: 0,
+      reviewCount: 0,
+      careInstructions: "",
+      sku: draft.sku,
+      quantity: draft.quantity,
+      unit: draft.unit,
+      stock: draft.stock,
+      ...availabilityFromStatus(draft.stockStatus),
+      stockStatus: draft.stockStatus,
+      active: true,
+      bestSeller: draft.bestSeller,
+      newArrival: draft.newArrival,
+      seoTitle: draft.seoTitle,
+      metaDescription: draft.metaDescription,
+      keywords: draft.keywords,
+    }),
+    [],
+  );
+
+  const addProduct = useCallback(
+    (draft: ProductDraft) => {
+      // TODO(Phase 14): replace with `new FlowerModel(draft).save()` (Mongoose create).
+      setProducts((prev) => [draftToFlower(draft), ...prev]);
+    },
+    [draftToFlower],
+  );
+
+  const updateProduct = useCallback(
+    (id: string, draft: ProductDraft) => {
+      // TODO(Phase 14): replace with `FlowerModel.findByIdAndUpdate(id, draft)` (Mongoose update).
+      setProducts((prev) =>
+        prev.map((flower) => (flower.id === id ? draftToFlower(draft) : flower)),
+      );
+    },
+    [draftToFlower],
+  );
+
+  const deleteProduct = useCallback((id: string) => {
+    // TODO(Phase 14): replace with `FlowerModel.findByIdAndDelete(id)` (Mongoose delete).
+    setProducts((prev) => prev.filter((flower) => flower.id !== id));
+  }, []);
+
+  const setProductActive = useCallback((id: string, active: boolean) => {
+    // TODO(Phase 14): replace with `FlowerModel.updateOne({ _id: id }, { active })`.
+    setProducts((prev) =>
+      prev.map((flower) => (flower.id === id ? { ...flower, active } : flower)),
+    );
+  }, []);
+
+  const setStockStatus = useCallback(
+    (id: string, status: FlowerStockStatus) => {
+      // TODO(Phase 14): replace with `FlowerModel.updateOne({ _id: id }, { stock, stockStatus, inStock, availableToday })`.
+      setProducts((prev) =>
+        prev.map((flower) => (flower.id === id ? applyStatus(flower, status) : flower)),
+      );
+    },
+    [applyStatus],
+  );
+
+  const adjustStock = useCallback((id: string, value: number) => {
+    // TODO(Phase 14): replace with `FlowerModel.updateOne({ _id: id }, { stock: value, ... })`.
+    setProducts((prev) =>
+      prev.map((flower) => {
+        if (flower.id !== id) return flower;
+        const quantity = Math.max(0, Math.round(value));
+        if (quantity === 0) return applyStatus(flower, "sold-out");
+        const status: FlowerStockStatus =
+          flower.stockStatus === "pre-order"
+            ? "pre-order"
+            : quantity < LOW_STOCK_THRESHOLD
+              ? "limited"
+              : "in-stock";
+        return applyStatus({ ...flower, stock: quantity }, status);
+      }),
+    );
+  }, [applyStatus]);
+
+  const bulkSetStatus = useCallback(
+    (ids: string[], status: FlowerStockStatus) => {
+      // TODO(Phase 14): replace with `FlowerModel.updateMany({ _id: { $in: ids } }, { ...stockFields })`.
+      setProducts((prev) =>
+        prev.map((flower) => (ids.includes(flower.id) ? applyStatus(flower, status) : flower)),
+      );
+    },
+    [applyStatus],
+  );
+
+  const addCategory = useCallback(
+    (input: { name: string; description: string }): Category | { error: string } => {
+      const name = input.name.trim();
+      const slug = slugify(name);
+      if (!name) return { error: "Category name is required." };
+      if (categories.some((category) => category.slug === slug)) {
+        return { error: `A category called "${name}" already exists.` };
+      }
+      // TODO(Phase 14): replace with `new CategoryModel(input).save()` (Mongoose create).
+      const category: Category = {
+        id: `cat-${slug}`,
+        name,
+        slug,
+        description: input.description.trim(),
+        heroImage: "gradient-ivory",
+      };
+      setCategories((prev) => [...prev, category]);
+      return category;
+    },
+    [categories],
+  );
+
+  const updateCategory = useCallback(
+    (id: string, patch: { name: string; description: string }) => {
+      // TODO(Phase 14): replace with `CategoryModel.findByIdAndUpdate(id, patch)`.
+      setCategories((prev) =>
+        prev.map((category) =>
+          category.id === id
+            ? { ...category, name: patch.name.trim(), description: patch.description.trim() }
+            : category,
+        ),
+      );
+    },
+    [],
+  );
+
+  const deleteCategory = useCallback(
+    (id: string): string | null => {
+      if (products.some((flower) => flower.categoryId === id)) {
+        return "Category still has products — move or delete them first.";
+      }
+      // TODO(Phase 14): replace with `CategoryModel.findByIdAndDelete(id)` (Mongoose delete).
+      setCategories((prev) => prev.filter((category) => category.id !== id));
+      return null;
+    },
+    [products],
+  );
+
+  const moveCategory = useCallback((id: string, direction: "up" | "down") => {
+    // TODO(Phase 14): replace with a `sortOrder` update + `CategoryModel.updateMany({ _id: { $in: ids } }, { sortOrder })`.
+    setCategories((prev) => {
+      const index = prev.findIndex((category) => category.id === id);
+      const swapWith = direction === "up" ? index - 1 : index + 1;
+      if (index < 0 || swapWith < 0 || swapWith >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[swapWith]] = [next[swapWith], next[index]];
+      return next;
+    });
+  }, []);
+
+  const productCountForCategory = useCallback(
+    (categoryId: string) =>
+      products.filter((flower) => flower.categoryId === categoryId).length,
+    [products],
+  );
+
+  const value = useMemo<CatalogValue>(
+    () => ({
+      products,
+      categories,
+      addProduct,
+      updateProduct,
+      deleteProduct,
+      setProductActive,
+      setStockStatus,
+      adjustStock,
+      bulkSetStatus,
+      addCategory,
+      updateCategory,
+      deleteCategory,
+      moveCategory,
+      productCountForCategory,
+    }),
+    [
+      products,
+      categories,
+      addProduct,
+      updateProduct,
+      deleteProduct,
+      setProductActive,
+      setStockStatus,
+      adjustStock,
+      bulkSetStatus,
+      addCategory,
+      updateCategory,
+      deleteCategory,
+      moveCategory,
+      productCountForCategory,
+    ],
+  );
+
+  return <CatalogContext.Provider value={value}>{children}</CatalogContext.Provider>;
+}
+
+export function useCatalog(): CatalogValue {
+  const context = useContext(CatalogContext);
+  if (!context) {
+    throw new Error("useCatalog must be used within a CatalogProvider.");
+  }
+  return context;
+}
