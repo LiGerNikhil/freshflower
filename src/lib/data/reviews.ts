@@ -13,6 +13,7 @@ export const reviews: Review[] = [
     photoUrl: "gradient-blush",
     createdAt: "2026-08-20T10:00:00.000Z",
     verifiedPurchase: true,
+    status: "approved",
   },
   {
     id: "rev-2",
@@ -24,6 +25,7 @@ export const reviews: Review[] = [
       "So fragrant, exactly like the ones from the local market but delivered to my door at 6am. Perfect for the morning puja. Will order again every week.",
     createdAt: "2026-07-11T06:30:00.000Z",
     verifiedPurchase: true,
+    status: "approved",
   },
   {
     id: "rev-3",
@@ -36,6 +38,7 @@ export const reviews: Review[] = [
     photoUrl: "gradient-gold",
     createdAt: "2026-06-02T13:15:00.000Z",
     verifiedPurchase: true,
+    status: "pending",
   },
   {
     id: "rev-4",
@@ -47,6 +50,7 @@ export const reviews: Review[] = [
       "Gifted this to my mother for her birthday. The ceramic pot alone felt premium. The orchid is still blooming after 3 weeks — she absolutely loves it.",
     createdAt: "2026-05-27T09:45:00.000Z",
     verifiedPurchase: true,
+    status: "approved",
   },
   {
     id: "rev-5",
@@ -58,6 +62,7 @@ export const reviews: Review[] = [
       "Good value, colours were vivid and cheerful. Ordered for my sister's housewarming. Would order again for casual gifting.",
     createdAt: "2026-04-15T17:20:00.000Z",
     verifiedPurchase: false,
+    status: "pending",
   },
   {
     id: "rev-6",
@@ -70,6 +75,7 @@ export const reviews: Review[] = [
     photoUrl: "gradient-blush",
     createdAt: "2026-02-14T08:00:00.000Z",
     verifiedPurchase: true,
+    status: "featured",
   },
   {
     id: "rev-7",
@@ -81,6 +87,7 @@ export const reviews: Review[] = [
       "Used FreshFlower for my parents' anniversary. The Blush Romance bouquet was stunning — roses, lilies, and baby's breath in perfect harmony. Delivery was exactly on time.",
     createdAt: "2026-03-12T11:30:00.000Z",
     verifiedPurchase: true,
+    status: "approved",
   },
   {
     id: "rev-8",
@@ -93,6 +100,7 @@ export const reviews: Review[] = [
     photoUrl: "gradient-gold",
     createdAt: "2026-07-22T14:00:00.000Z",
     verifiedPurchase: true,
+    status: "approved",
   },
   {
     id: "rev-9",
@@ -104,6 +112,7 @@ export const reviews: Review[] = [
       "Ordered mixed carnations for Mother's Day. Good quality stems, nice colours. Delivery was a bit late but the flowers were fresh. Would recommend.",
     createdAt: "2026-05-11T10:15:00.000Z",
     verifiedPurchase: true,
+    status: "pending",
   },
   {
     id: "rev-10",
@@ -115,6 +124,7 @@ export const reviews: Review[] = [
       "White roses for a friend's engagement — elegant and pristine. The presentation was lovely, and the care card was a nice touch. Saved the brand for future orders.",
     createdAt: "2026-06-18T09:00:00.000Z",
     verifiedPurchase: true,
+    status: "approved",
   },
   {
     id: "rev-11",
@@ -126,6 +136,7 @@ export const reviews: Review[] = [
       "Ordered rajnigandha for a family puja. The fragrance filled the entire room — brought back memories of my grandmother's garden. So authentic and fresh.",
     createdAt: "2026-08-05T07:30:00.000Z",
     verifiedPurchase: true,
+    status: "approved",
   },
   {
     id: "rev-12",
@@ -138,5 +149,6 @@ export const reviews: Review[] = [
     photoUrl: "gradient-sage",
     createdAt: "2026-04-28T16:00:00.000Z",
     verifiedPurchase: true,
+    status: "featured",
   },
 ];

@@ -3,16 +3,18 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { OrderStatusStepper } from "@/components/sections/OrderStatusStepper";
 import { AccountShell } from "@/components/sections/AccountShell";
-import { customers, orders } from "@/lib/data";
+import { getCustomers, getOrderById, getOrders } from "@/lib/db/repositories";
 
 export const metadata = {
   robots: { index: false, follow: false },
 };
+export const dynamic = "force-dynamic";
 
 interface OrderDetailProps {
   params: Promise<{ orderId: string }>;
 }
-export function generateStaticParams() {
+export async function generateStaticParams() {
+  const orders = await getOrders();
   return orders
     .filter((order) => order.customerId === "cust-1")
     .map((order) => ({ orderId: order.id }));
@@ -21,10 +23,9 @@ export default async function AccountOrderDetailPage({
   params,
 }: OrderDetailProps) {
   const { orderId } = await params;
-  const order = orders.find(
-    (item) => item.id === orderId && item.customerId === customers[0].id,
-  );
-  if (!order) notFound();
+  const customers = await getCustomers();
+  const order = await getOrderById(orderId);
+  if (!order || order.customerId !== customers[0].id) notFound();
   return (
     <AccountShell title={`Order ${order.orderNumber}`} eyebrow="Order detail">
       <Link

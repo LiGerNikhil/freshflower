@@ -2,6 +2,7 @@ import type { DeliveryArea, OrderStatus, PaymentStatus } from "@/lib/types";
 
 export const STATUS_OVERRIDE_KEY = "ff-order-status-overrides-v1";
 export const DELIVERY_CONFIG_KEY = "ff-delivery-config-v1";
+export const PHASE15_KEY = "ff-phase15-entities-v1";
 export const DEFAULT_MAX_ORDERS = 3;
 
 export interface StatusOverride {
@@ -51,4 +52,12 @@ export function loadDeliveryConfig(): DeliveryConfig {
 
 export function saveDeliveryConfig(config: DeliveryConfig): void {
   saveJSON(DELIVERY_CONFIG_KEY, config);
+}
+
+export function loadPhase15<T>(fallback: T): T {
+  return loadJSON<T>(PHASE15_KEY, fallback);
+}
+
+export function savePhase15(value: unknown): void {
+  saveJSON(PHASE15_KEY, value);
 }

@@ -53,7 +53,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   { label: "Products", href: "/admin/products", icon: Package, roles: [AdminRole.InventoryManager], group: "Catalogue" },
   { label: "Categories", href: "/admin/categories", icon: FolderKanban, roles: [AdminRole.InventoryManager], group: "Catalogue" },
   { label: "Inventory", href: "/admin/inventory", icon: ClipboardList, roles: [AdminRole.InventoryManager], group: "Catalogue" },
-  { label: "Coupons", href: "/admin/coupons", icon: Wallet, roles: [], group: "Catalogue" },
+  { label: "Coupons", href: "/admin/coupons", icon: Wallet, roles: [AdminRole.ContentManager, AdminRole.OrderManager], group: "Catalogue" },
   { label: "Blog / CMS", href: "/admin/blog", icon: BookOpen, roles: [AdminRole.ContentManager], group: "Content" },
   { label: "Homepage Management", href: "/admin/homepage", icon: Home, roles: [AdminRole.ContentManager], group: "Content" },
   { label: "SEO Manager", href: "/admin/seo", icon: Search, roles: [AdminRole.ContentManager], group: "Content" },

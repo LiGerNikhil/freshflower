@@ -13,7 +13,7 @@ export function AdminThumb({
   return (
     <div
       role="img"
-      aria-label={`${name} — preview artwork`}
+      aria-label={`${name} — artwork`}
       className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-md ${className}`}
       style={{
         background:

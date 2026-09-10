@@ -107,7 +107,7 @@ useEffect(() => {
 
   const Sidebar =
     <div className="flex h-16 shrink-0 items-center justify-center border-b border-ivory/10 px-4">
-      <Link href="/admin" className="flex items-center gap-0.5 font-display text-lg">
+      <Link href="/admin" className="flex items-center gap-0.5 font-display text-lg text-ivory">
         freshflower
         <span className="block h-2 w-2 rounded-full bg-gold" />
         <span className="text-gold">admin</span>
@@ -173,7 +173,7 @@ useEffect(() => {
           />
           <aside className="absolute inset-y-0 left-0 flex w-72 flex-col bg-ink">
             <div className="flex h-16 items-center justify-between border-b border-ivory/10 px-4">
-              <Link href="/admin" className="font-display text-lg">
+              <Link href="/admin" className="font-display text-lg text-ivory">
                 freshflower<span className="text-gold">.admin</span>
               </Link>
               <button
@@ -236,7 +236,7 @@ useEffect(() => {
               <PanelLeft size={18} />
             </button>
             <span className="rounded-md bg-ink px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-gold">
-              Preview only
+              Live
             </span>
           </div>
           <div className="flex items-center gap-2 md:gap-4">

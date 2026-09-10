@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 import {
   ArrowDown,
   ArrowRight,
-  Camera as Instagram,
   Check,
   ChevronDown,
   Clock3,
@@ -20,6 +19,8 @@ import {
 } from "lucide-react";
 import { ProductCard } from "@/components/sections/ProductCard";
 import { QuickViewDialog } from "@/components/sections/QuickViewDialog";
+import { InstagramFeed } from "@/components/sections/InstagramFeed";
+import { useSiteContent } from "@/components/providers/SiteContentProvider";
 import { faqs, type FAQ } from "@/lib/data/faqs";
 import { GRADIENT_TOKENS } from "@/lib/utils";
 import type {
@@ -72,14 +73,6 @@ const occasionImages: Record<string, string> = {
   Romance:
     "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQf1zIeg72YRU-2UpC9augotGSullilxqdUPj7rOrDc6PqMRNkwtFWHjY4L&s=10",
 };
-const galleryTokens = [
-  "https://content.jdmagicbox.com/comp/srinagar/d7/9999px194.x194.190617094002.n2d7/catalogue/flower-gallery-srinagar-0kfk0kiokt.jpg",
-  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQndDdXFvkhtyUjrTmPaskzwfxmcBToh4R7EIpKHYq_O7bM86U3c0KaH3cS&s=10",
-  "https://png.pngtree.com/thumb_back/fh260/background/20240704/pngtree-beautiful-flowers-in-the-garden-image_15852403.jpg",
-  "https://fiorellaindia.com/images/decor/decor_5.webp",
-  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTRueA0blnNs5R7kEsyhUAQoBp09Y3ujrX6kXaA2a2fK8G_VMTeXtzL9z1t&s=10",
-  "https://assets.simpleviewinc.com/simpleview/image/upload/c_fill,f_jpg,h_555,q_65,w_639/v1/crm/manitowocwi/IMG_4252_CD42D96E-035A-48F4-88102AA393E2B7C2-cd42d112a8b53a9_cd42dde4-b4a7-0178-ca9f9bdddd812226.jpg",
-];
 
 function Reveal({
   children,
@@ -192,7 +185,26 @@ export default function HomepageClient({
 }: HomepageClientProps) {
   const [quickView, setQuickView] = useState<Flower | null>(null);
   const [openFaq, setOpenFaq] = useState<string | null>(faqs[0]?.id ?? null);
-  const bestSellers = flowers.filter((flower) => flower.featured);
+  const { homepage } = useSiteContent();
+
+  // Featured selection & testimonials come from the Phase 16 homepage config
+  // (seeded identically on server + client, so hydration is safe). Unknown
+  // ids fall back to the legacy `featured` flag / first reviews.
+  const featured = useMemo(() => {
+    const ids = homepage.featuredFlowerIds;
+    const selected = ids
+      .map((id) => flowers.find((flower) => flower.id === id))
+      .filter((flower): flower is Flower => Boolean(flower));
+    return selected.length > 0 ? selected : flowers.filter((flower) => flower.featured);
+  }, [homepage.featuredFlowerIds, flowers]);
+
+  const heroReviews = useMemo(() => {
+    const selected = homepage.testimonialReviewIds
+      .map((id) => reviews.find((review) => review.id === id))
+      .filter((review): review is Review => Boolean(review));
+    return selected.length > 0 ? selected : reviews.slice(0, 3);
+  }, [homepage.testimonialReviewIds, reviews]);
+
   const freshToday = flowers.filter((flower) => flower.availableToday);
   const findOccasion = (name: string) =>
     occasions.find((occasion) => occasion.name === name) ??
@@ -227,32 +239,40 @@ export default function HomepageClient({
         <div className="relative mx-auto grid max-w-7xl items-end gap-14 md:grid-cols-[1.1fr_0.9fr]">
           <Reveal>
             <p className="mb-5 text-xs font-bold uppercase tracking-[0.25em] text-sage-ink">
-              Same morning flower delivery · Delhi NCR
+              {homepage.hero.eyebrow}
             </p>
             <h1 className="max-w-4xl text-5xl leading-[0.98] text-ink md:text-7xl lg:text-[5.8rem]">
-              Fresh Flowers.
-              <br />
-              <em className="text-gold">Fresh Mornings.</em>
-              <br />
-              Delivered to
-              <br className="md:hidden" /> Your Door.
+              {homepage.hero.titleLines.map((line, lineIndex) => (
+                <span key={line}>
+                  {lineIndex === homepage.hero.accentLineIndex ? (
+                    <>
+                      <em className="text-gold">{line}</em>
+                      <br />
+                    </>
+                  ) : (
+                    <>
+                      {line}
+                      <br className={lineIndex === homepage.hero.titleLines.length - 1 ? "md:hidden" : ""} />
+                    </>
+                  )}
+                </span>
+              ))}
             </h1>
             <p className="mt-7 max-w-md text-base leading-7 text-ink-soft">
-              Thoughtfully gathered blooms, delivered across Delhi NCR while the
-              city is still waking up.
+              {homepage.hero.subtitle}
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
               <Link
-                href="#shop"
+                href={homepage.hero.ctaPrimaryHref}
                 className="inline-flex items-center gap-2 rounded-md bg-ink px-6 py-3.5 text-sm font-semibold text-ivory"
               >
-                Shop Flowers <ArrowRight size={16} />
+                {homepage.hero.ctaPrimaryLabel} <ArrowRight size={16} />
               </Link>
               <Link
-                href="/checkout"
+                href={homepage.hero.ctaSecondaryHref}
                 className="inline-flex items-center gap-2 rounded-md border border-ink/20 bg-white/35 px-6 py-3.5 text-sm font-semibold text-ink"
               >
-                Book a Delivery <Clock3 size={16} />
+                {homepage.hero.ctaSecondaryLabel} <Clock3 size={16} />
               </Link>
             </div>
           </Reveal>
@@ -363,7 +383,7 @@ export default function HomepageClient({
             viewport={{ once: true, amount: 0.08 }}
             className="grid gap-x-5 gap-y-12 sm:grid-cols-2 lg:grid-cols-4"
           >
-            {bestSellers.map((flower) => (
+            {featured.map((flower) => (
               <ProductCard
                 key={flower.id}
                 flower={flower}
@@ -374,34 +394,36 @@ export default function HomepageClient({
         </div>
       </section>
 
-      <section className="px-5 py-24 md:px-10 md:py-32">
-        <div className="mx-auto max-w-7xl">
-          <Reveal>
-            <SectionIntro
-              eyebrow="Picked this morning"
-              title="Today's fresh flowers"
-              copy="The best of today's harvest, ready to leave our studio and arrive at yours."
-              href="/flowers"
-              linkLabel="See all flowers"
-            />
-          </Reveal>
-          <motion.div
-            variants={stagger}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.08 }}
-            className="grid gap-x-5 gap-y-12 sm:grid-cols-2 lg:grid-cols-4"
-          >
-            {freshToday.slice(0, 4).map((flower) => (
-              <ProductCard
-                key={flower.id}
-                flower={flower}
-                onQuickView={setQuickView}
+      {homepage.showsFreshToday && (
+        <section className="px-5 py-24 md:px-10 md:py-32">
+          <div className="mx-auto max-w-7xl">
+            <Reveal>
+              <SectionIntro
+                eyebrow="Picked this morning"
+                title="Today's fresh flowers"
+                copy="The best of today's harvest, ready to leave our studio and arrive at yours."
+                href="/flowers"
+                linkLabel="See all flowers"
               />
-            ))}
-          </motion.div>
-        </div>
-      </section>
+            </Reveal>
+            <motion.div
+              variants={stagger}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, amount: 0.08 }}
+              className="grid gap-x-5 gap-y-12 sm:grid-cols-2 lg:grid-cols-4"
+            >
+              {freshToday.slice(0, 4).map((flower) => (
+                <ProductCard
+                  key={flower.id}
+                  flower={flower}
+                  onQuickView={setQuickView}
+                />
+              ))}
+            </motion.div>
+          </div>
+        </section>
+      )}
 
       <Reveal>
         <section
@@ -580,26 +602,37 @@ export default function HomepageClient({
         </div>
       </section>
 
-      <Reveal>
-        <section className="mx-5 overflow-hidden rounded-xl bg-gold px-7 py-12 md:mx-10 md:px-16 md:py-16">
-          <div className="mx-auto flex max-w-7xl flex-col justify-between gap-8 md:flex-row md:items-center">
-            <div>
-              <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-ink/60">
-                For hotels, offices & celebrations
-              </p>
-              <h2 className="max-w-2xl text-4xl text-ink md:text-5xl">
-                A lot of flowers? Let&apos;s make it effortless.
-              </h2>
-            </div>
-            <Link
-              href="/wholesale"
-              className="inline-flex shrink-0 items-center gap-2 rounded-md bg-ink px-6 py-3.5 text-sm font-semibold text-ivory"
-            >
-              Request a quote <ArrowRight size={16} />
-            </Link>
-          </div>
+      {homepage.offers.length > 0 && (
+        <section className="mx-5 grid gap-4 md:mx-10 md:grid-cols-2">
+          {homepage.offers.map((offer) => (
+            <Reveal key={offer.id}>
+              <div className="overflow-hidden rounded-xl bg-gold px-7 py-12 md:px-16 md:py-16">
+                <div className="flex flex-col justify-between gap-8 md:flex-row md:items-center">
+                  <div>
+                    <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-ink/60">
+                      {offer.badge}
+                    </p>
+                    <h2 className="max-w-2xl text-4xl text-ink md:text-5xl">
+                      {offer.title}
+                    </h2>
+                    {offer.copy && (
+                      <p className="mt-4 max-w-lg text-sm leading-6 text-ink/70">
+                        {offer.copy}
+                      </p>
+                    )}
+                  </div>
+                  <Link
+                    href={offer.ctaHref}
+                    className="inline-flex shrink-0 items-center gap-2 rounded-md bg-ink px-6 py-3.5 text-sm font-semibold text-ivory"
+                  >
+                    {offer.ctaLabel} <ArrowRight size={16} />
+                  </Link>
+                </div>
+              </div>
+            </Reveal>
+          ))}
         </section>
-      </Reveal>
+      )}
 
       <section className="px-5 py-24 md:px-10 md:py-32">
         <div className="mx-auto max-w-7xl">
@@ -618,7 +651,7 @@ export default function HomepageClient({
             viewport={{ once: true, amount: 0.1 }}
             className="grid gap-4 md:grid-cols-3"
           >
-            {reviews.slice(0, 3).map((review) => (
+            {heroReviews.map((review) => (
               <motion.div
                 variants={reveal}
                 key={review.id}
@@ -652,44 +685,7 @@ export default function HomepageClient({
         </div>
       </section>
 
-      <section className="bg-lavender px-5 py-24 md:px-10 md:py-32">
-        <div className="mx-auto max-w-7xl">
-          <Reveal>
-            <SectionIntro
-              eyebrow="From our studio"
-              title="A little flower joy for your feed"
-            />
-          </Reveal>
-          <motion.div
-            variants={stagger}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.1 }}
-            className="grid grid-cols-2 gap-3 md:grid-cols-3"
-          >
-            {galleryTokens.map((token, index) => (
-              <motion.div
-                variants={reveal}
-                key={`${token}-${index}`}
-                className={`relative flex aspect-square items-center justify-center overflow-hidden rounded-lg ${index === 1 ? "md:row-span-2 md:aspect-auto" : ""}`}
-              >
-                <Image
-                  src={token}
-                  alt={`FreshFlower.zone on Instagram ${index + 1}`}
-                  fill
-                  sizes="(max-width: 768px) 50vw, 33vw"
-                  className="object-cover"
-                />
-                {index === 0 && (
-                  <div className="absolute bottom-4 left-4 flex items-center gap-2 rounded-full bg-ivory/75 px-3 py-2 text-xs text-ink">
-                    <Instagram size={13} /> @freshflower.zone
-                  </div>
-                )}
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
+      <InstagramFeed />
 
       <section id="faq" className="px-5 py-24 md:px-10 md:py-32">
         <div className="mx-auto grid max-w-5xl gap-12 md:grid-cols-[0.7fr_1.3fr]">

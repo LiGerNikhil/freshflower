@@ -3,9 +3,9 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save, Trash2, WandSparkles } from "lucide-react";
+import { ArrowLeft, Save, WandSparkles } from "lucide-react";
 import { useCatalog, FLOWER_STATUS_LABELS, FLOWER_UNITS } from "@/components/providers/CatalogContext";
-import { AdminThumb } from "@/components/admin/AdminThumb";
+import { CloudinaryUpload } from "@/components/admin/CloudinaryUpload";
 import { slugify } from "@/lib/utils";
 import type { FlowerStockStatus } from "@/lib/types";
 
@@ -158,13 +158,6 @@ export function ProductForm({ productId }: { productId?: string }) {
     window.setTimeout(() => router.push("/admin/products"), 450);
   };
 
-  const handleFiles = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
-    const urls = files.map((file) => URL.createObjectURL(file));
-    setImages((prev) => [...prev, ...urls]);
-    event.target.value = "";
-  };
-
   const fieldClass =
     "w-full rounded-md border border-ink/10 bg-white/70 px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft/60 focus:border-transparent focus:ring-2 focus:ring-gold/60 focus:outline-none";
 
@@ -179,8 +172,8 @@ export function ProductForm({ productId }: { productId?: string }) {
             {productId ? "Edit product" : "New product"}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-soft">
-            Everything here is a session-only in-memory write — the real Mongoose
-            create/update lives at the mutation call site in CatalogContext.
+            Saves persist straight to MongoDB via the admin API, so a refresh
+            keeps your changes.
           </p>
         </div>
         {saved && (
@@ -399,39 +392,14 @@ export function ProductForm({ productId }: { productId?: string }) {
       <section className="mb-6 rounded-xl border border-ink/10 bg-white/80 p-5 shadow-sm">
         <h2 className="mb-4 font-display text-lg">Images</h2>
         <p className="mb-3 text-sm text-ink-soft">
-          Dummy uploader for the preview — picked files render locally as object
-          URLs and last for the session. Phase 2 swaps this for a real upload API.
+          Uploads go straight to Cloudinary via /api/admin/upload and are stored
+          with the product on the next save.
         </p>
-        {images.length > 0 && (
-          <div className="mb-3 flex flex-wrap gap-3">
-            {images.map((image, index) => (
-              <div key={`${image}-${index}`} className="relative">
-                {image.startsWith("gradient-") || image.startsWith("data:") ? (
-                  <AdminThumb token={image} name={name} className="h-16 w-16 rounded-lg" />
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={image}
-                    alt={`Upload preview ${index + 1}`}
-                    className="h-16 w-16 rounded-lg object-cover"
-                  />
-                )}
-                <button
-                  type="button"
-                  onClick={() => setImages((prev) => prev.filter((_, i) => i !== index))}
-                  aria-label={`Remove image ${index + 1}`}
-                  className="absolute -right-1.5 -top-1.5 rounded-full bg-ink p-1 text-ivory shadow hover:bg-ink-soft"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-ink/25 px-4 py-2.5 text-sm font-semibold text-ink-soft hover:border-gold hover:text-ink">
-          Add images
-          <input type="file" accept="image/*" multiple onChange={handleFiles} className="sr-only" />
-        </label>
+        <CloudinaryUpload
+          value={images}
+          onChange={setImages}
+          label="Add images"
+        />
       </section>
 
       {/* SEO */}

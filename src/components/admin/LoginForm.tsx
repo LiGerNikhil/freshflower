@@ -38,7 +38,7 @@ export function LoginForm() {
         <h1 className="mt-2 font-display text-3xl">Admin access</h1>
         <div className="mx-auto mt-3 inline-flex items-center gap-1.5 rounded-full bg-blush px-3 py-1 text-[11px] font-semibold text-ink-soft">
           <ShieldAlert size={13} className="text-gold" />
-          Preview build — dummy auth only
+          Demo credentials — client-side auth only
         </div>
       </div>
 

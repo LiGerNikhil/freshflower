@@ -59,11 +59,12 @@ const emptyForm: CheckoutForm = {
 
 export default function CheckoutClient() {
   const router = useRouter();
-  const { items, subtotal, itemCount } = useCart();
+  const { items, subtotal, itemCount, clearCart } = useCart();
   const [step, setStep] = useState(1);
   const [sameWhatsapp, setSameWhatsapp] = useState(true);
   const [form, setForm] = useState<CheckoutForm>(emptyForm);
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [deliveryConfig, setDeliveryConfig] = useState<DeliveryConfig | null>(
     null,
   );
@@ -158,45 +159,92 @@ export default function CheckoutClient() {
       );
     setStep(Math.min(3, step + 1));
   };
-  const placeOrder = () => {
+  const placeOrder = async () => {
     if (!items.length)
       return setError(
         "Your cart is empty. Add flowers before placing an order.",
       );
-    const orderId = `FF-${Date.now().toString(36).toUpperCase()}`;
-    const order = {
-      id: orderId,
-      items,
-      customer: {
-        name: form.name,
-        mobile: form.mobile,
-        email: form.email,
-        whatsapp: sameWhatsapp ? form.mobile : form.whatsapp,
-      },
-      delivery: {
-        address: form.address,
-        areaId: form.areaId,
-        areaName: selectedArea?.name,
-        city: form.city,
-        pincode: form.pincode,
-        landmark: form.landmark,
-        instructions: form.instructions,
-        date: form.date,
-        slotId: form.slotId,
-        slotLabel: deliverySlots.find((slot) => slot.id === form.slotId)?.label,
-      },
-      payment: form.payment,
-      subtotal,
-      deliveryFee: 0,
-      total: subtotal,
-      deliveryNote: DELIVERY_NOTE,
-      createdAt: new Date().toISOString(),
-    };
-    sessionStorage.setItem(
-      `freshflower-order-${orderId}`,
-      JSON.stringify(order),
-    ); // TODO Phase 8: replace temporary sessionStorage save with POST /api/orders backed by MongoDB.
-    router.push(`/order-confirmation/${orderId}`);
+    setError("");
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer: {
+            name: form.name,
+            phone: form.mobile,
+            email: form.email,
+            address: {
+              line: `${form.address}${form.landmark ? ` (${form.landmark})` : ""}`,
+              city: form.city,
+              pincode: form.pincode,
+            },
+            notes: form.instructions,
+          },
+          items: items.map((item) => ({
+            productId: item.productId,
+            productType: item.productType,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          deliverySlotId: form.slotId,
+          deliveryDate: form.date,
+          subtotal,
+          discount: 0,
+          deliveryFee: 0,
+          total: subtotal,
+          paymentMethod: form.payment,
+          agreedToTos: true,
+        }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? "Something went wrong, please try again.");
+      const orderId: string = body.orderId;
+      // Keep the confirmation-page preview payload (its shape is unchanged).
+      const order = {
+        id: orderId,
+        items,
+        customer: {
+          name: form.name,
+          mobile: form.mobile,
+          email: form.email,
+          whatsapp: sameWhatsapp ? form.mobile : form.whatsapp,
+        },
+        delivery: {
+          address: form.address,
+          areaId: form.areaId,
+          areaName: selectedArea?.name,
+          city: form.city,
+          pincode: form.pincode,
+          landmark: form.landmark,
+          instructions: form.instructions,
+          date: form.date,
+          slotId: form.slotId,
+          slotLabel: deliverySlots.find((slot) => slot.id === form.slotId)?.label,
+        },
+        payment: form.payment,
+        subtotal,
+        deliveryFee: 0,
+        total: subtotal,
+        deliveryNote: DELIVERY_NOTE,
+        createdAt: new Date().toISOString(),
+      };
+      sessionStorage.setItem(
+        `freshflower-order-${orderId}`,
+        JSON.stringify(order),
+      );
+      clearCart();
+      router.push(`/order-confirmation/${orderId}`);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong, please try again.",
+      );
+      setSubmitting(false);
+    }
   };
 if (!items.length)
     return (
@@ -441,8 +489,8 @@ if (!items.length)
                         checked={form.payment === "online"}
                         onChange={() => update("payment", "online")}
                       />{" "}
-                      Online · UPI / Card / Netbanking{" "}
-                      <Badge tone="sage">Preview</Badge>
+Online · UPI / Card / Netbanking{" "}
+                       <Badge tone="sage">Coming soon</Badge>
                     </label>
                     <label className="mt-2 flex items-center gap-3 rounded-md border border-ink/10 bg-white/60 p-4 text-sm">
                       <input
@@ -480,8 +528,8 @@ if (!items.length)
                   Continue <ArrowRight size={17} />
                 </Button>
               ) : (
-                <Button size="lg" variant="gold" onClick={placeOrder}>
-                  Place Order <Check size={17} />
+                <Button size="lg" variant="gold" onClick={() => void placeOrder()} disabled={submitting}>
+                  {submitting ? "Placing order…" : "Place Order"} {!submitting && <Check size={17} />}
                 </Button>
               )}
             </div>
@@ -505,7 +553,7 @@ if (!items.length)
               </div>
             </div>
             <div className="mt-6 flex items-center gap-2 text-xs text-ink-soft">
-              <ShieldCheck size={15} className="text-sage-ink" /> Secure preview
+              <ShieldCheck size={15} className="text-sage-ink" /> Secure
               booking
             </div>
           </aside>

@@ -28,7 +28,7 @@ export const wholesaleEnquiries: WholesaleEnquiry[] = [
     message:
       "Weekly table flowers for a 40-seat café, plus seasonal window displays.",
     createdAt: "2026-09-05T11:05:00.000Z",
-    status: "contacted",
+    status: "inDiscussion",
   },
   {
     id: "weq-2003",
@@ -39,7 +39,7 @@ export const wholesaleEnquiries: WholesaleEnquiry[] = [
     monthlyVolumeEstimate: "5,000+ stems",
     message: "Wholesale sourcing for our retail counter — mixed bunches weekly.",
     createdAt: "2026-08-28T09:40:00.000Z",
-    status: "closed",
+    status: "converted",
   },
 ];
 
@@ -69,7 +69,7 @@ export const weddingEnquiries: WeddingEnquiry[] = [
     budgetRange: "₹3–4L",
     message: "Intimate garden wedding — table florals and a simple arch.",
     createdAt: "2026-09-06T13:25:00.000Z",
-    status: "new",
+    status: "inDiscussion",
   },
   {
     id: "weq-3003",
@@ -82,7 +82,7 @@ export const weddingEnquiries: WeddingEnquiry[] = [
     budgetRange: "₹10L+",
     message: "Three-day event — sangeet, wedding, reception. Coordinated team needed.",
     createdAt: "2026-08-30T10:00:00.000Z",
-    status: "contacted",
+    status: "converted",
   },
 ];
 
@@ -107,7 +107,7 @@ export const contactEnquiries: ContactEnquiry[] = [
     message:
       "Do you still have a 5–7 AM express slot open tomorrow for South Extension?",
     createdAt: "2026-09-06T18:30:00.000Z",
-    status: "new",
+    status: "inDiscussion",
   },
   {
     id: "ceq-4003",
@@ -118,6 +118,6 @@ export const contactEnquiries: ContactEnquiry[] = [
     message:
       "Monthly desk florals for our Noida office — 15 locations. Please share options.",
     createdAt: "2026-08-27T12:10:00.000Z",
-    status: "responded",
+    status: "converted",
   },
 ];

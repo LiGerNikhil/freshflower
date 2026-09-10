@@ -406,12 +406,12 @@ export function LegalPage({
       <EditorialHeader
         eyebrow="Important information"
         title={title}
-        copy="Preview/draft legal content — must be reviewed by the client or a qualified professional before launch."
+        copy="Draft legal content — review with the client or a qualified professional before publishing."
       />
       <article className="mx-auto max-w-3xl px-5 py-16 md:px-10 md:py-24 prose prose-stone">
         <div className="rounded-md border border-gold/40 bg-gold-soft/20 p-4 text-sm font-semibold text-ink">
-          Preview/draft legal content — must be reviewed by the client/a
-          professional before launch.
+          Draft legal content — review with the client or a qualified
+          professional before publishing.
         </div>
         {children}
       </article>

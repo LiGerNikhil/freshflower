@@ -188,6 +188,8 @@ export interface Customer {
 // Content
 // ---------------------------------------------------------------------------
 
+export type ReviewStatus = "pending" | "approved" | "rejected" | "featured";
+
 export interface Review {
   id: string;
   productId: string;
@@ -198,6 +200,7 @@ export interface Review {
   photoUrl?: string; // gradient token or image path, optional
   createdAt: string;
   verifiedPurchase: boolean;
+  status?: ReviewStatus;
 }
 
 export interface BlogSection {
@@ -205,6 +208,8 @@ export interface BlogSection {
   paragraphs: string[];
   bullets?: string[];
 }
+
+export type BlogPostStatus = "draft" | "published";
 
 export interface BlogPost {
   id: string;
@@ -218,6 +223,11 @@ export interface BlogPost {
   publishedAt: string;
   tags: string[];
   sections: BlogSection[];
+  // ---- Admin CMS fields (Phase 16; optional until a post is edited) ----
+  status?: BlogPostStatus;
+  seoTitle?: string;
+  metaDescription?: string;
+  keywords?: string[];
 }
 
 export interface Coupon {
@@ -227,6 +237,9 @@ export interface Coupon {
   discountType: "percentage" | "flat";
   discountValue: number;
   minOrderValue?: number;
+  maxDiscountCap?: number;
+  usageLimit?: number;
+  perUserLimit?: number;
   validFrom: string;
   validUntil: string;
   active: boolean;
@@ -235,6 +248,8 @@ export interface Coupon {
 // ---------------------------------------------------------------------------
 // Enquiries (contact-style forms, not full orders)
 // ---------------------------------------------------------------------------
+
+export type EnquiryStatus = "new" | "contacted" | "inDiscussion" | "converted" | "closed";
 
 export interface WholesaleEnquiry {
   id: string;
@@ -245,7 +260,7 @@ export interface WholesaleEnquiry {
   monthlyVolumeEstimate: string;
   message: string;
   createdAt: string;
-  status: "new" | "contacted" | "closed";
+  status: EnquiryStatus;
 }
 
 export interface WeddingEnquiry {
@@ -259,7 +274,7 @@ export interface WeddingEnquiry {
   budgetRange?: string;
   message: string;
   createdAt: string;
-  status: "new" | "contacted" | "closed";
+  status: EnquiryStatus;
 }
 
 export interface ContactEnquiry {
@@ -270,7 +285,7 @@ export interface ContactEnquiry {
   subject: string;
   message: string;
   createdAt: string;
-  status: "new" | "responded" | "closed";
+  status: EnquiryStatus;
 }
 
 // ---------------------------------------------------------------------------
@@ -292,4 +307,59 @@ export interface AdminUser {
   role: AdminRole;
   active: boolean;
   createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 16 — CMS / marketing / settings
+// ---------------------------------------------------------------------------
+
+/** A configurable homepage offer / highlight banner (admin → live homepage). */
+export interface OfferBanner {
+  id: string;
+  badge: string;
+  title: string;
+  copy?: string;
+  ctaLabel: string;
+  ctaHref: string;
+}
+
+/** Editable homepage hero copy. */
+export interface HomepageHeroConfig {
+  eyebrow: string;
+  titleLines: string[];
+  accentLineIndex: number; // line rendered in the gold italic
+  subtitle: string;
+  ctaPrimaryLabel: string;
+  ctaPrimaryHref: string;
+  ctaSecondaryLabel: string;
+  ctaSecondaryHref: string;
+}
+
+/** The parts of the homepage the admin can control (single source of truth). */
+export interface HomepageConfig {
+  hero: HomepageHeroConfig;
+  featuredFlowerIds: string[];
+  showsFreshToday: boolean;
+  offers: OfferBanner[];
+  testimonialReviewIds: string[];
+}
+
+/** Business-level contact + delivery settings (single source of truth). */
+export interface BusinessSettings {
+  phoneNumber: string; // display + tel: (+91 85069 51873)
+  whatsappNumber: string; // wa.me target
+  email: string;
+  addressLine: string;
+  businessHours: { label: string; value: string }[];
+  porterNote: string; // delivery/Porter note shown in cart/checkout
+  deliveryChargeNote: string;
+  instagramHandle: string;
+  instagramUrl: string; // full Instagram profile URL (follow link)
+}
+
+/** Per-route title/description/keywords override applied client-side. */
+export interface SeoRouteOverride {
+  title?: string;
+  description?: string;
+  keywords?: string;
 }

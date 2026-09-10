@@ -15,7 +15,7 @@ export function ArtCover({
   return (
     <div
       role="img"
-      aria-label={`${name} — preview artwork`}
+      aria-label={`${name} — artwork`}
       className={`relative flex items-center justify-center overflow-hidden ${className}`}
       style={{ background: GRADIENT_TOKENS[token] ?? GRADIENT_TOKENS["gradient-ivory"] }}
     >

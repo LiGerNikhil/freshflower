@@ -131,13 +131,60 @@ export function LeadForm({
   kind?: "wholesale" | "wedding";
 }) {
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const fields = kind === "wedding" ? weddingFields : wholesaleFields;
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const payload = Object.fromEntries(new FormData(event.currentTarget));
-    console.log(`TODO Phase 9: POST ${kind} enquiry to the real API`, payload);
-    setSubmitted(true);
-    event.currentTarget.reset();
+    setSending(true);
+    setError(null);
+    try {
+      const body =
+        kind === "wedding"
+          ? {
+              clientName: payload.name,
+              phone: String(payload.phone).replace(/\D/g, "").slice(-10),
+              email: payload.email,
+              eventDate: String(payload.deliveryDate ?? ""),
+              venue: payload.location,
+              guestCount: payload.quantity
+                ? Number(payload.quantity)
+                : undefined,
+              budgetRange: String(payload.budget ?? ""),
+              message: `Event: ${payload.occasion ?? ""}${
+                payload.requirements ? `. ${payload.requirements}` : ""
+              }`,
+            }
+          : {
+              businessName: payload.businessName,
+              contactName: payload.name,
+              phone: String(payload.phone).replace(/\D/g, "").slice(-10),
+              email: payload.email,
+              monthlyVolumeEstimate: `${
+                payload.quantity ?? ""
+              } — ${payload.requiredFlowers ?? ""}`.trim(),
+              message: `Delivery: ${payload.deliveryDate ?? ""}, ${
+                payload.location ?? ""
+              }${payload.requirements ? `. Requirements: ${payload.requirements}` : ""}`,
+            };
+      const res = await fetch(`/api/enquiry/${kind}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const response = await res.json();
+      if (!res.ok || response.error) {
+        setError(response.error ?? "We couldn't submit your enquiry. Please try again.");
+        return;
+      }
+      setSubmitted(true);
+      event.currentTarget.reset();
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setSending(false);
+    }
   };
   if (submitted)
     return (
@@ -177,8 +224,9 @@ export function LeadForm({
           />
         </label>
       ))}
-      <Button type="submit" size="lg" className="md:col-span-2">
-        Request a quote
+      {error && <p className="text-sm text-red-600 md:col-span-2">{error}</p>}
+      <Button type="submit" size="lg" className="md:col-span-2" disabled={sending}>
+        {sending ? "Submitting…" : "Request a quote"}
       </Button>
     </form>
   );

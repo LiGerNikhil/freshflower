@@ -2,21 +2,24 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import BouquetDetailClient from "@/components/sections/BouquetDetailClient";
 import { JsonLd } from "@/components/ui/JsonLd";
-import { bouquets, flowers } from "@/lib/data";
+import { getBouquets, getBouquetBySlug, getFlowers } from "@/lib/db/repositories";
 import { buildBreadcrumb, canonical, openGraphImage } from "@/lib/seo";
+
+export const dynamic = "force-dynamic";
 
 interface BouquetPageProps {
   params: Promise<{ slug: string }>;
 }
-export function generateStaticParams() {
+export async function generateStaticParams() {
+  const bouquets = await getBouquets();
   return bouquets.map((bouquet) => ({ slug: bouquet.slug }));
 }
 export async function generateMetadata({
   params,
 }: BouquetPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const bouquet = bouquets.find((item) => item.slug === slug);
-  const url = bouquets.some((item) => item.slug === slug)
+  const bouquet = await getBouquetBySlug(slug);
+  const url = bouquet
     ? canonical(`/bouquets/${slug}`)
     : undefined;
   return {
@@ -39,8 +42,10 @@ export async function generateMetadata({
 }
 export default async function BouquetPage({ params }: BouquetPageProps) {
   const { slug } = await params;
-  const bouquet = bouquets.find((item) => item.slug === slug);
+  const bouquet = await getBouquetBySlug(slug);
   if (!bouquet) notFound();
+  const bouquets = await getBouquets();
+  const flowers = await getFlowers();
 
   const breadcrumb = buildBreadcrumb([
     { name: "Home", href: "/" },

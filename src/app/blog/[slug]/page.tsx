@@ -5,23 +5,26 @@ import { ArrowLeft, CalendarDays, Clock3, Feather } from "lucide-react";
 import { ArtCover } from "@/components/sections/ArtCover";
 import { ShareButtons } from "@/components/sections/ShareButtons";
 import { JsonLd } from "@/components/ui/JsonLd";
-import { blogs } from "@/lib/data";
+import { getBlogPostBySlug, getBlogPosts } from "@/lib/db/repositories";
 import { formatPostDate, readingMinutes, relatedPosts } from "@/lib/blog";
 import { buildBreadcrumb, canonical, SITE_URL } from "@/lib/seo";
+
+export const dynamic = "force-dynamic";
 
 interface BlogPostPageProps {
   params: Promise<{ slug: string }>;
 }
 
-export function generateStaticParams() {
-  return blogs.map((post) => ({ slug: post.slug }));
+export async function generateStaticParams() {
+  const posts = await getBlogPosts();
+  return posts.map((p) => ({ slug: p.slug }));
 }
 
 export async function generateMetadata({
   params,
 }: BlogPostPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const post = blogs.find((item) => item.slug === slug);
+  const post = await getBlogPostBySlug(slug);
   if (!post) return { title: "Post not found | FreshFlower.zone" };
   return {
     title: post.title,
@@ -46,9 +49,10 @@ export async function generateMetadata({
 
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { slug } = await params;
-  const post = blogs.find((item) => item.slug === slug);
+  const post = await getBlogPostBySlug(slug);
   if (!post) notFound();
 
+  const blogs = await getBlogPosts();
   const related = relatedPosts(blogs, post);
 
   const postingLd = {

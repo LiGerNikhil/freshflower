@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { BlogIndexClient } from "@/components/sections/BlogIndexClient";
 import { EditorialHeader } from "@/components/sections/ContentPages";
 import { JsonLd } from "@/components/ui/JsonLd";
-import { blogs } from "@/lib/data";
+import { getBlogPosts } from "@/lib/db/repositories";
 import { canonical } from "@/lib/seo";
 
 interface BlogIndexPageProps {
@@ -22,10 +22,12 @@ export const metadata: Metadata = {
     type: "website",
   },
 };
+export const dynamic = "force-dynamic";
 
 export default async function BlogIndexPage({
   searchParams,
 }: BlogIndexPageProps) {
+  const blogs = await getBlogPosts();
   const query = await searchParams;
   const requestedTag = Array.isArray(query.tag) ? query.tag[0] : query.tag;
   const requestedCategory = Array.isArray(query.category)
@@ -70,7 +72,6 @@ export default async function BlogIndexPage({
         </div>
       </div>
       <BlogIndexClient
-        posts={blogs}
         initialTag={requestedTag}
         initialCategory={requestedCategory}
       />

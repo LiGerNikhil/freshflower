@@ -1,17 +1,12 @@
 import type { Metadata } from "next";
 import { ContactForm } from "@/components/sections/ContactForm";
+import { ContactInfoCards } from "@/components/sections/ContactInfoCards";
 import { EditorialHeader } from "@/components/sections/ContentPages";
-import { deliveryAreas } from "@/lib/data";
+import { InstagramFeed } from "@/components/sections/InstagramFeed";
+import { getDeliveryAreas } from "@/lib/db/repositories";
 import { canonical } from "@/lib/seo";
 import Link from "next/link";
-import {
-  Phone,
-  MessageCircle,
-  Mail,
-  Clock,
-  MapPin,
-  ExternalLink,
-} from "lucide-react";
+import { MapPin, ExternalLink } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Contact FreshFlower.zone",
@@ -26,8 +21,10 @@ export const metadata: Metadata = {
     type: "website",
   },
 };
+export const dynamic = "force-dynamic";
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const deliveryAreas = await getDeliveryAreas();
   return (
     <main className="bg-ivory">
       <EditorialHeader
@@ -39,71 +36,7 @@ export default function ContactPage() {
       />
       <section className="mx-auto grid max-w-7xl gap-12 px-5 py-16 md:px-10 lg:grid-cols-[0.75fr_1.25fr]">
         <div className="space-y-5">
-          {/* Phone / WhatsApp */}
-          <div className="rounded-lg bg-white/70 p-6">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-sage-ink">
-              Call or WhatsApp
-            </p>
-            <p className="mt-3 text-2xl font-semibold">+91 99999 99999</p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <a
-                href="tel:+919999999999"
-                className="inline-flex items-center gap-2 rounded-md bg-ink px-4 py-2.5 text-xs font-semibold text-ivory transition hover:bg-ink-soft"
-              >
-                <Phone size={14} /> Call now
-              </a>
-              <a
-                href="https://wa.me/919999999999"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-md bg-sage px-4 py-2.5 text-xs font-semibold text-sage-ink transition hover:bg-sage/70"
-              >
-                <MessageCircle size={14} /> WhatsApp
-              </a>
-            </div>
-          </div>
-
-          {/* Email */}
-          <div className="rounded-lg bg-blush p-6">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-sage-ink">
-              Email
-            </p>
-            <p className="mt-3 text-2xl font-semibold">
-              hello@freshflower.zone
-            </p>
-            <a
-              href="mailto:hello@freshflower.zone"
-              className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-ink-soft transition hover:text-ink"
-            >
-              <Mail size={14} /> Send an email
-            </a>
-          </div>
-
-          {/* Business hours */}
-          <div className="rounded-lg bg-lavender p-6">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-sage-ink">
-              Business hours
-            </p>
-            <div className="mt-4 space-y-2 text-sm text-ink-soft">
-              <div className="flex items-center gap-2">
-                <Clock size={14} className="shrink-0 text-lavender-ink" />
-                <span>
-                  <strong className="text-ink">Mon – Sat:</strong> 6 AM – 8 PM
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Clock size={14} className="shrink-0 text-lavender-ink" />
-                <span>
-                  <strong className="text-ink">Sunday:</strong> 7 AM – 2 PM
-                  (limited slots)
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Phone size={14} className="shrink-0 text-lavender-ink" />
-                <span>WhatsApp available during all business hours</span>
-              </div>
-            </div>
-          </div>
+          <ContactInfoCards />
 
           {/* Service area */}
           <div className="rounded-lg bg-ivory-deep p-6">
@@ -155,6 +88,12 @@ export default function ContactPage() {
           </div>
         </div>
       </section>
+
+      {/* Instagram */}
+      <InstagramFeed
+        title="Fresh blooms, every day."
+        copy="Follow our feed for daily arrangements, new arrivals, and a look at what leaves the studio each morning."
+      />
     </main>
   );
 }

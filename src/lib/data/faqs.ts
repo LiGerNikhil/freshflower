@@ -79,7 +79,7 @@ export const faqs: FAQ[] = [
   {
     id: "faq-payment",
     question: "Can I pay online and at delivery?",
-    answer: "This preview supports the complete ordering flow with payment integration to be connected in the next phase. In the final version, you will be able to pay online via UPI, cards, or net banking, or choose cash-on-delivery where available.",
+    answer: "The ordering flow is complete, with cash-on-delivery available today. Online payment via UPI, cards, or net banking connects in the next phase — after that you can pay either way at checkout.",
     category: "Pricing & Payment",
   },
   {

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { FilteredFlowerCollection } from "@/components/sections/FilteredFlowerCollection";
 import { JsonLd } from "@/components/ui/JsonLd";
-import { categories, flowers } from "@/lib/data";
+import { getCategoryBySlug, getCategories, getFlowers } from "@/lib/db/repositories";
 import { parseList, type CatalogState } from "@/lib/catalog";
 import { buildBreadcrumb, canonical, openGraphImage } from "@/lib/seo";
 
@@ -61,14 +61,15 @@ function stateFromParams(
   };
 }
 
-export function generateStaticParams() {
+export async function generateStaticParams() {
+  const categories = await getCategories();
   return categories.map((category) => ({ slug: category.slug }));
 }
 export async function generateMetadata({
   params,
 }: CategoryPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const category = categories.find((item) => item.slug === slug);
+  const category = await getCategoryBySlug(slug);
   if (!category) {
     return {
       title: "Category not found | FreshFlower.zone",
@@ -91,12 +92,16 @@ export async function generateMetadata({
   };
 }
 
+export const dynamic = "force-dynamic";
+
 export default async function CategoryPage({
   params,
   searchParams,
 }: CategoryPageProps) {
   const { slug } = await params;
   const query = await searchParams;
+  const categories = await getCategories();
+  const flowers = await getFlowers();
   const category = categories.find((item) => item.slug === slug);
   if (!category) notFound();
   const categoryFlowers = flowers.filter(

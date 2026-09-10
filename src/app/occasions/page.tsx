@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { OccasionDirectory } from "@/components/sections/DirectoryGrid";
-import { occasions } from "@/lib/data";
+import { getOccasions } from "@/lib/db/repositories";
 import { canonical } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   alternates: { canonical: canonical("/occasions") },
 };
 
-export default function OccasionsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function OccasionsPage() {
+  const occasions = await getOccasions();
   return <OccasionDirectory occasions={occasions} />;
 }

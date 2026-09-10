@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -13,16 +14,16 @@ import {
   categories as seedCategories,
   flowers as seedFlowers,
 } from "@/lib/data";
+import { api } from "@/lib/api/client";
 import { slugify } from "@/lib/utils";
 
 /**
- * Admin catalogue store (Phase 13).
+ * Admin catalogue store (Phase 13; Phase 17 backs every mutation with MongoDB).
  *
- * This is a session-only, in-memory replacement for the future Mongoose layer.
- * Every mutation below updates local state and ends with a `TODO(Phase 14)`
- * comment naming the real create/update/delete call that replaces it once the
- * admin API routes exist. Nothing here touches the static dummy arrays that
- * still power the public pages in /lib/data.
+ * The provider keeps an optimistic in-memory copy so the admin UI stays snappy,
+ * but each mutation now also hits the real API routes (`/api/admin/flowers`,
+ * `/api/admin/categories`) so edits persist across refreshes. On mount it
+ * hydrates from the database so the admin reflects the live data.
  */
 
 export const LOW_STOCK_THRESHOLD = 15;
@@ -153,6 +154,32 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     seedCategories.map((category) => ({ ...category })),
   );
 
+  // Phase 17: hydrate from MongoDB so admin edits survive a refresh. Falls
+  // back to the static seeds when the API isn't reachable (offline preview).
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const [remoteProducts, remoteCategories] = await Promise.all([
+          api("/api/admin/flowers"),
+          api("/api/admin/categories"),
+        ]);
+        if (!mounted) return;
+        if (Array.isArray(remoteProducts) && remoteProducts.length) {
+          setProducts(remoteProducts.map((flower: Flower) => ({ ...flower })));
+        }
+        if (Array.isArray(remoteCategories) && remoteCategories.length) {
+          setCategories(remoteCategories.map((category: Category) => ({ ...category })));
+        }
+      } catch {
+        // Keep the seeded preview as the fallback.
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const applyStatus = useCallback((flower: Flower, status: FlowerStockStatus): Flower => {
     const stock =
       status === "sold-out"
@@ -200,7 +227,9 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
 
   const addProduct = useCallback(
     (draft: ProductDraft) => {
-      // TODO(Phase 14): replace with `new FlowerModel(draft).save()` (Mongoose create).
+      api("/api/admin/flowers", { method: "POST", body: JSON.stringify(draft) }).catch(
+        () => undefined,
+      );
       setProducts((prev) => [draftToFlower(draft), ...prev]);
     },
     [draftToFlower],
@@ -208,7 +237,10 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
 
   const updateProduct = useCallback(
     (id: string, draft: ProductDraft) => {
-      // TODO(Phase 14): replace with `FlowerModel.findByIdAndUpdate(id, draft)` (Mongoose update).
+      api(`/api/admin/flowers/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(draft),
+      }).catch(() => undefined);
       setProducts((prev) =>
         prev.map((flower) => (flower.id === id ? draftToFlower(draft) : flower)),
       );
@@ -217,12 +249,17 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   );
 
   const deleteProduct = useCallback((id: string) => {
-    // TODO(Phase 14): replace with `FlowerModel.findByIdAndDelete(id)` (Mongoose delete).
+    api(`/api/admin/flowers/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(
+      () => undefined,
+    );
     setProducts((prev) => prev.filter((flower) => flower.id !== id));
   }, []);
 
   const setProductActive = useCallback((id: string, active: boolean) => {
-    // TODO(Phase 14): replace with `FlowerModel.updateOne({ _id: id }, { active })`.
+    api(`/api/admin/flowers/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ active }),
+    }).catch(() => undefined);
     setProducts((prev) =>
       prev.map((flower) => (flower.id === id ? { ...flower, active } : flower)),
     );
@@ -230,7 +267,20 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
 
   const setStockStatus = useCallback(
     (id: string, status: FlowerStockStatus) => {
-      // TODO(Phase 14): replace with `FlowerModel.updateOne({ _id: id }, { stock, stockStatus, inStock, availableToday })`.
+      api(`/api/admin/flowers/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          stockStatus: status,
+          stock:
+            status === "sold-out"
+              ? 0
+              : status === "limited"
+                ? LOW_STOCK_THRESHOLD - 1
+                : 25,
+          inStock: status !== "sold-out",
+          availableToday: status === "in-stock" || status === "limited",
+        }),
+      }).catch(() => undefined);
       setProducts((prev) =>
         prev.map((flower) => (flower.id === id ? applyStatus(flower, status) : flower)),
       );
@@ -238,27 +288,56 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     [applyStatus],
   );
 
-  const adjustStock = useCallback((id: string, value: number) => {
-    // TODO(Phase 14): replace with `FlowerModel.updateOne({ _id: id }, { stock: value, ... })`.
-    setProducts((prev) =>
-      prev.map((flower) => {
-        if (flower.id !== id) return flower;
+  const adjustStock = useCallback(
+    (id: string, value: number) => {
+      setProducts((prev) => {
+        const flower = prev.find((candidate) => candidate.id === id);
+        if (!flower) return prev;
         const quantity = Math.max(0, Math.round(value));
-        if (quantity === 0) return applyStatus(flower, "sold-out");
         const status: FlowerStockStatus =
-          flower.stockStatus === "pre-order"
-            ? "pre-order"
-            : quantity < LOW_STOCK_THRESHOLD
-              ? "limited"
-              : "in-stock";
-        return applyStatus({ ...flower, stock: quantity }, status);
-      }),
-    );
-  }, [applyStatus]);
+          quantity === 0
+            ? "sold-out"
+            : flower.stockStatus === "pre-order"
+              ? "pre-order"
+              : quantity < LOW_STOCK_THRESHOLD
+                ? "limited"
+                : "in-stock";
+        api(`/api/admin/flowers/${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            stock: quantity,
+            stockStatus: status,
+            inStock: quantity > 0,
+            availableToday: quantity > 0 && status !== "pre-order",
+          }),
+        }).catch(() => undefined);
+        return prev.map(
+          (candidate) =>
+            candidate.id === id ? applyStatus(candidate, status) : candidate,
+        );
+      });
+    },
+    [applyStatus],
+  );
 
   const bulkSetStatus = useCallback(
     (ids: string[], status: FlowerStockStatus) => {
-      // TODO(Phase 14): replace with `FlowerModel.updateMany({ _id: { $in: ids } }, { ...stockFields })`.
+      for (const id of ids) {
+        api(`/api/admin/flowers/${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            stockStatus: status,
+            stock:
+              status === "sold-out"
+                ? 0
+                : status === "limited"
+                  ? LOW_STOCK_THRESHOLD - 1
+                  : 25,
+            inStock: status !== "sold-out",
+            availableToday: status === "in-stock" || status === "limited",
+          }),
+        }).catch(() => undefined);
+      }
       setProducts((prev) =>
         prev.map((flower) => (ids.includes(flower.id) ? applyStatus(flower, status) : flower)),
       );
@@ -274,7 +353,10 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       if (categories.some((category) => category.slug === slug)) {
         return { error: `A category called "${name}" already exists.` };
       }
-      // TODO(Phase 14): replace with `new CategoryModel(input).save()` (Mongoose create).
+      api("/api/admin/categories", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }).catch(() => undefined);
       const category: Category = {
         id: `cat-${slug}`,
         name,
@@ -290,7 +372,10 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
 
   const updateCategory = useCallback(
     (id: string, patch: { name: string; description: string }) => {
-      // TODO(Phase 14): replace with `CategoryModel.findByIdAndUpdate(id, patch)`.
+      api(`/api/admin/categories/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      }).catch(() => undefined);
       setCategories((prev) =>
         prev.map((category) =>
           category.id === id
@@ -307,7 +392,9 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       if (products.some((flower) => flower.categoryId === id)) {
         return "Category still has products — move or delete them first.";
       }
-      // TODO(Phase 14): replace with `CategoryModel.findByIdAndDelete(id)` (Mongoose delete).
+      api(`/api/admin/categories/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      }).catch(() => undefined);
       setCategories((prev) => prev.filter((category) => category.id !== id));
       return null;
     },
@@ -315,13 +402,23 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   );
 
   const moveCategory = useCallback((id: string, direction: "up" | "down") => {
-    // TODO(Phase 14): replace with a `sortOrder` update + `CategoryModel.updateMany({ _id: { $in: ids } }, { sortOrder })`.
     setCategories((prev) => {
       const index = prev.findIndex((category) => category.id === id);
       const swapWith = direction === "up" ? index - 1 : index + 1;
       if (index < 0 || swapWith < 0 || swapWith >= prev.length) return prev;
       const next = [...prev];
       [next[index], next[swapWith]] = [next[swapWith], next[index]];
+      // Persist the new sort order so a refresh keeps the same ordering.
+      const patches = [
+        { id: next[index].id, sortOrder: index },
+        { id: next[swapWith].id, sortOrder: swapWith },
+      ];
+      for (const { id: targetId, sortOrder } of patches) {
+        api(`/api/admin/categories/${encodeURIComponent(targetId)}`, {
+          method: "PATCH",
+          body: JSON.stringify({ sortOrder }),
+        }).catch(() => undefined);
+      }
       return next;
     });
   }, []);

@@ -5,6 +5,9 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Google Maps listing share link (office: Ghazipur Flower Market). */
+export const GOOGLE_MAPS_URL = "https://share.google/DyRUEeYiTtzBUQCWm";
+
 /** Local ISO date string, offset days from today (e.g. 1 = tomorrow). */
 export function isoDay(offset = 0): string {
   const date = new Date();
@@ -40,4 +43,18 @@ export const GRADIENT_TOKENS: Record<string, string> = {
  * between next/image and the GRADIENT_TOKENS fallback. */
 export function isRemoteImage(src?: string): boolean {
   return Boolean(src && /^https?:\/\//i.test(src));
+}
+
+const DIGITS_ONLY = /[^\d]/g;
+
+/** "tel:+918506951873" href from a display number like "+91 85069 51873". */
+export function telHref(number?: string): string {
+  const digits = (number ?? "+91 85069 51873").replace(DIGITS_ONLY, "");
+  return `tel:+${digits}`;
+}
+
+/** "https://wa.me/918506951873" href (country code digits only). */
+export function waMeHref(number?: string): string {
+  const digits = (number ?? "+91 85069 51873").replace(DIGITS_ONLY, "");
+  return `https://wa.me/${digits}`;
 }

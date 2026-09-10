@@ -1,7 +1,8 @@
 "use client";
 
-import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
 import {
+  ArrowRight,
   CalendarRange,
   CheckCircle2,
   Clock,
@@ -14,96 +15,18 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
+import { useDashboardData } from "@/components/admin/useDashboardData";
 import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
-  computeDashboardStats,
-  dailySeries,
-  formatINR,
-  statusBreakdown,
-  topSellingFlowers,
-} from "@/lib/admin/analytics";
-import {
-  contactEnquiries,
-  customers,
-  orders,
-  weddingEnquiries,
-  wholesaleEnquiries,
-} from "@/lib/data";
-
-const CHART_COLORS = ["#C9A24B", "#7C8A6B", "#9285A8", "#EECFC4", "#2B2620"];
-
-function StatCard({
-  label,
-  value,
-  hint,
-  icon: Icon,
-  accent,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  icon: LucideIcon;
-  accent: string;
-}) {
-  return (
-    <div className="rounded-xl border border-ink/10 bg-white/80 p-5 shadow-sm">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-soft">
-          {label}
-        </p>
-        <span className={`rounded-lg p-2 ${accent}`}>
-          <Icon size={15} />
-        </span>
-      </div>
-      <p className="mt-3 font-display text-3xl text-ink">{value}</p>
-      {hint && <p className="mt-1 text-xs text-ink-soft">{hint}</p>}
-    </div>
-  );
-}
-
-function ChartCard({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-xl border border-ink/10 bg-white/80 p-5 shadow-sm">
-      <h3 className="font-display text-lg">{title}</h3>
-      {subtitle && <p className="mt-0.5 text-xs text-ink-soft">{subtitle}</p>}
-      <div className="mt-4">{children}</div>
-    </div>
-  );
-}
+  DailyOrdersChart,
+  LiveBadge,
+  RevenueTrendChart,
+  StatCard,
+} from "@/components/admin/AnalyticsCharts";
+import { formatINR } from "@/lib/admin/analytics";
 
 export function Dashboard() {
-  const newEnquiries =
-    wholesaleEnquiries.filter((e) => e.status === "new").length +
-    weddingEnquiries.filter((e) => e.status === "new").length +
-    contactEnquiries.filter((e) => e.status === "new").length;
-
-  const stats = computeDashboardStats(orders, customers.length, newEnquiries);
-  const series = dailySeries(orders, 7);
-  const breakdown = statusBreakdown(orders);
-  const topProducts = topSellingFlowers(orders, 6);
-
-  const revenuePeak = Math.max(...series.map((point) => point.revenue), 1);
+  const { data, syncing, syncedAt } = useDashboardData();
+  const { stats, series } = data;
 
   return (
     <div>
@@ -115,9 +38,10 @@ export function Dashboard() {
           Good morning, here&apos;s today.
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-soft">
-          Live preview of order flow, revenue, and catalogue performance from
-          the dummy dataset (latest order day: {stats.todayKey}).
+          Live order flow, revenue, and catalogue performance from the
+          connected database (latest order day: {stats.todayKey}).
         </p>
+        <LiveBadge syncing={syncing} syncedAt={syncedAt} />
       </div>
 
       {/* Stat cards */}
@@ -128,6 +52,7 @@ export function Dashboard() {
           hint={`day of ${stats.todayKey}`}
           icon={ShoppingBag}
           accent="bg-sage text-sage-ink"
+          href="/admin/orders"
         />
         <StatCard
           label="Pending Orders"
@@ -135,6 +60,7 @@ export function Dashboard() {
           hint="received"
           icon={Clock}
           accent="bg-blush text-ink-soft"
+          href="/admin/orders"
         />
         <StatCard
           label="Confirmed Orders"
@@ -142,6 +68,7 @@ export function Dashboard() {
           hint="confirmed → ready"
           icon={CheckCircle2}
           accent="bg-lavender text-lavender-ink"
+          href="/admin/orders"
         />
         <StatCard
           label="Out for Delivery"
@@ -149,6 +76,7 @@ export function Dashboard() {
           hint="on the road"
           icon={Truck}
           accent="bg-gold-soft/60 text-sage-ink"
+          href="/admin/orders"
         />
         <StatCard
           label="Completed"
@@ -156,6 +84,7 @@ export function Dashboard() {
           hint="delivered"
           icon={PackageCheck}
           accent="bg-sage text-sage-ink"
+          href="/admin/orders"
         />
         <StatCard
           label="Cancelled"
@@ -163,6 +92,7 @@ export function Dashboard() {
           hint="cancelled"
           icon={XCircle}
           accent="bg-blush-deep/50 text-ink-soft"
+          href="/admin/orders"
         />
         <StatCard
           label="Today's Revenue"
@@ -170,6 +100,7 @@ export function Dashboard() {
           hint={formatINR(stats.totalRevenue)}
           icon={IndianRupee}
           accent="bg-gold/15 text-gold"
+          href="/admin/orders"
         />
         <StatCard
           label="Monthly Revenue"
@@ -177,6 +108,7 @@ export function Dashboard() {
           hint={stats.monthLabel}
           icon={CalendarRange}
           accent="bg-gold/15 text-gold"
+          href="/admin/orders"
         />
         <StatCard
           label="Total Customers"
@@ -184,6 +116,7 @@ export function Dashboard() {
           hint="all-time"
           icon={Users}
           accent="bg-lavender text-lavender-ink"
+          href="/admin/customers"
         />
         <StatCard
           label="New Enquiries"
@@ -191,202 +124,27 @@ export function Dashboard() {
           hint="wholesale · wedding · contact"
           icon={Inbox}
           accent="bg-gold-soft/60 text-gold"
+          href="/admin/enquiries"
         />
       </div>
 
-      {/* Charts row 1 */}
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <ChartCard
-          title="Daily orders"
-          subtitle={`Orders created per day, last 7 days (peaks at ${Math.max(
-            ...series.map((point) => point.orders),
-            0,
-          )})`}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink/10 bg-white/60 px-4 py-3 text-sm">
+        <p className="text-ink-soft">
+          Deeper pipeline, best sellers and business insights are on the full
+          analytics view.
+        </p>
+        <Link
+          href="/admin/analytics"
+          className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3.5 py-2 text-sm font-semibold text-ivory transition hover:bg-ink-soft"
         >
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={series}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2B262010" />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: "#5A5248" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  tick={{ fontSize: 11, fill: "#5A5248" }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={24}
-                />
-                <Tooltip
-                  cursor={{ fill: "#F4EDE1" }}
-                  contentStyle={{
-                    borderRadius: 10,
-                    border: "1px solid #2B262022",
-                    fontSize: 12,
-                  }}
-                />
-                <Bar dataKey="orders" name="Orders" fill="#7C8A6B" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </ChartCard>
-
-        <ChartCard
-          title="Revenue trend"
-          subtitle={`Total order value per day, last 7 days (peak ${formatINR(
-            revenuePeak,
-          )})`}
-        >
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={series}>
-                <defs>
-                  <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#C9A24B" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#C9A24B" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2B262010" />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: "#5A5248" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "#5A5248" }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={44}
-                  tickFormatter={(value: number) => `₹${value}`}
-                />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 10,
-                    border: "1px solid #2B262022",
-                    fontSize: 12,
-                  }}
-                  formatter={(value) => [formatINR(Number(value)), "Revenue"]}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  name="Revenue"
-                  stroke="#C9A24B"
-                  strokeWidth={2}
-                  fill="url(#revenueFill)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </ChartCard>
+          Open analytics <ArrowRight size={15} />
+        </Link>
       </div>
 
-      {/* Charts row 2 */}
+      {/* Charts row */}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <ChartCard
-          title="Order status breakdown"
-          subtitle="Current pipeline across the dummy dataset"
-        >
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={breakdown}
-                  dataKey="count"
-                  nameKey="label"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={52}
-                  outerRadius={82}
-                  paddingAngle={2}
-                >
-                  {breakdown.map((entry, index) => (
-                    <Cell
-                      key={entry.status}
-                      fill={CHART_COLORS[index % CHART_COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 10,
-                    border: "1px solid #2B262022",
-                    fontSize: 12,
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1.5">
-            {breakdown.map((entry, index) => (
-              <span
-                key={entry.status}
-                className="flex items-center gap-1.5 text-xs text-ink-soft"
-              >
-                <span
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{
-                    backgroundColor:
-                      CHART_COLORS[index % CHART_COLORS.length],
-                  }}
-                />
-                {entry.label} · {entry.count}
-              </span>
-            ))}
-          </div>
-        </ChartCard>
-
-        <ChartCard
-          title="Top-selling flowers"
-          subtitle="Units sold across all orders"
-        >
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={topProducts}
-                layout="vertical"
-                margin={{ left: 8, right: 16 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#2B262010" />
-                <XAxis
-                  type="number"
-                  allowDecimals={false}
-                  tick={{ fontSize: 11, fill: "#5A5248" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  width={150}
-                  tick={{ fontSize: 11, fill: "#5A5248" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip
-                  cursor={{ fill: "#F4EDE1" }}
-                  contentStyle={{
-                    borderRadius: 10,
-                    border: "1px solid #2B262022",
-                    fontSize: 12,
-                  }}
-                  formatter={(value, name) => [String(value), name === "quantity" ? "Units" : "Revenue"]}
-                />
-                <Bar
-                  dataKey="quantity"
-                  name="quantity"
-                  fill="#9285A8"
-                  radius={[0, 6, 6, 0]}
-                  barSize={18}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </ChartCard>
+        <DailyOrdersChart series={series} />
+        <RevenueTrendChart series={series} />
       </div>
     </div>
   );

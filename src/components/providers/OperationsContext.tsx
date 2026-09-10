@@ -16,18 +16,13 @@ import type {
   PaymentStatus,
 } from "@/lib/types";
 import { deliveryAreas, deliverySlots, orders as baseOrders } from "@/lib/data";
-import {
-  DEFAULT_MAX_ORDERS,
-  loadDeliveryConfig,
-  loadStatusOverrides,
-  saveDeliveryConfig,
-  saveStatusOverrides,
-  type DeliveryConfig,
-  type SlotConfig,
-  type StatusOverrides,
-} from "@/lib/admin/overrides";
+import { api } from "@/lib/api/client";
+import { DEFAULT_MAX_ORDERS } from "@/lib/admin/overrides";
 
-export interface SlotWithConfig extends DeliverySlot, SlotConfig {}
+export interface SlotWithConfig extends DeliverySlot {
+  enabled: boolean;
+  maxOrders: number;
+}
 
 interface StatusPatch {
   status?: OrderStatus;
@@ -43,75 +38,63 @@ interface OperationsValue {
   hydrated: boolean;
   setOrderStatus: (orderId: string, status: OrderStatus) => void;
   setOrderPayment: (orderId: string, paymentStatus: PaymentStatus) => void;
-  setSlotConfig: (slotId: string, config: Partial<SlotConfig>) => void;
+  setSlotConfig: (slotId: string, config: Partial<Pick<SlotWithConfig, "enabled" | "maxOrders">>) => void;
   upsertArea: (area: DeliveryArea) => void;
   deleteArea: (areaId: string) => void;
 }
 
 const OperationsContext = createContext<OperationsValue | null>(null);
 
-function mergeStoredAreas(stored: DeliveryConfig["areas"]): DeliveryArea[] {
-  const entries = Object.entries(stored).filter(
-    (entry): entry is [string, DeliveryArea] => entry[1] !== "deleted",
-  );
-  const byId = new Map(entries);
-  const merged = deliveryAreas
-    .filter((area) => stored[area.id] !== "deleted")
-    .map((area) => byId.get(area.id) ?? area);
-  for (const [id, area] of entries) {
-    if (!deliveryAreas.some((candidate) => candidate.id === id)) {
-      merged.push(area);
-    }
-  }
-  return merged;
-}
+const SEED_SLOTS: SlotWithConfig[] = deliverySlots.map((slot) => ({
+  ...slot,
+  enabled: slot.enabled ?? true,
+  maxOrders: slot.maxOrders ?? DEFAULT_MAX_ORDERS,
+}));
 
 export function OperationsProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [statusOverrides, setStatusOverrides] = useState<StatusOverrides>({});
-  const [slotConfig, setSlotConfigState] = useState<
-    Partial<Record<string, SlotConfig>>
-  >({});
+  const [orders, setOrders] = useState<Order[]>(baseOrders);
+  const [slotList, setSlotList] = useState<SlotWithConfig[]>(SEED_SLOTS);
   const [areas, setAreas] = useState<DeliveryArea[]>(deliveryAreas);
   const [hydrated, setHydrated] = useState(false);
 
+  // Phase 17: hydrate orders + delivery configuration from MongoDB.
   useEffect(() => {
-    const storedOverrides = loadStatusOverrides();
-    const storedConfig = loadDeliveryConfig();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setStatusOverrides(storedOverrides);
-    setSlotConfigState(storedConfig.slots ?? {});
-    setAreas(mergeStoredAreas(storedConfig.areas));
-    setHydrated(true);
+    let mounted = true;
+    (async () => {
+      try {
+        const [remoteOrders, remoteSlots, remoteAreas] = await Promise.all([
+          api("/api/admin/orders"),
+          api("/api/admin/delivery-slots"),
+          api("/api/admin/delivery-areas"),
+        ]);
+        if (!mounted) return;
+        if (Array.isArray(remoteOrders) && remoteOrders.length) {
+          setOrders(remoteOrders as Order[]);
+        }
+        if (Array.isArray(remoteSlots) && remoteSlots.length) {
+          setSlotList((remoteSlots as DeliverySlot[]).map((slot) => ({
+            ...slot,
+            enabled: slot.enabled ?? true,
+            maxOrders: slot.maxOrders ?? DEFAULT_MAX_ORDERS,
+          })) as SlotWithConfig[]);
+        }
+        if (Array.isArray(remoteAreas) && remoteAreas.length) {
+          setAreas(remoteAreas as DeliveryArea[]);
+        }
+      } catch {
+        // Fall back to the seeded preview.
+      } finally {
+        if (mounted) setHydrated(true);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
   }, []);
-
-  const orders = useMemo<Order[]>(
-    () =>
-      baseOrders.map((order) => {
-        const override = statusOverrides[order.id];
-        if (!override) return order;
-        return {
-          ...order,
-          status: override.status ?? order.status,
-          paymentStatus: override.paymentStatus ?? order.paymentStatus,
-          updatedAt: override.updatedAt ?? order.updatedAt,
-        };
-      }),
-    [statusOverrides],
-  );
-
-  const slotList = useMemo<SlotWithConfig[]>(
-    () =>
-      deliverySlots.map((slot) => ({
-        ...slot,
-        enabled: slotConfig[slot.id]?.enabled ?? true,
-        maxOrders: slotConfig[slot.id]?.maxOrders ?? DEFAULT_MAX_ORDERS,
-      })),
-    [slotConfig],
-  );
 
   const slotById = useMemo(
     () => Object.fromEntries(slotList.map((slot) => [slot.id, slot])),
@@ -123,88 +106,77 @@ export function OperationsProvider({
     [areas],
   );
 
-  const applyStatusOverride = useCallback(
-    (orderId: string, patch: StatusPatch) => {
-      const next: StatusOverrides = {
-        ...statusOverrides,
-        [orderId]: {
-          ...statusOverrides[orderId],
-          ...patch,
-          updatedAt: new Date().toISOString(),
-        },
-      };
-      setStatusOverrides(next);
-      saveStatusOverrides(next);
-    },
-    [statusOverrides],
-  );
-
-  const setOrderStatus = useCallback(
-    (orderId: string, status: OrderStatus) =>
-      applyStatusOverride(orderId, { status }),
-    [applyStatusOverride],
-  );
+  const setOrderStatus = useCallback((orderId: string, status: OrderStatus) => {
+    api(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, updatedAt: new Date().toISOString() }),
+    }).catch(() => undefined);
+    setOrders((prev) =>
+      prev.map((order) =>
+        order.id === orderId
+          ? { ...order, status, updatedAt: new Date().toISOString() }
+          : order,
+      ),
+    );
+  }, []);
 
   const setOrderPayment = useCallback(
-    (orderId: string, paymentStatus: PaymentStatus) =>
-      applyStatusOverride(orderId, { paymentStatus }),
-    [applyStatusOverride],
+    (orderId: string, paymentStatus: PaymentStatus) => {
+      api(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ paymentStatus, updatedAt: new Date().toISOString() }),
+      }).catch(() => undefined);
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === orderId
+            ? { ...order, paymentStatus, updatedAt: new Date().toISOString() }
+            : order,
+        ),
+      );
+    },
+    [],
   );
 
   const setSlotConfig = useCallback(
-    (slotId: string, config: Partial<SlotConfig>) => {
-      const nextSlots: Partial<Record<string, SlotConfig>> = {
-        ...slotConfig,
-        [slotId]: {
-          enabled:
-            config.enabled ?? slotConfig[slotId]?.enabled ?? true,
-          maxOrders:
-            config.maxOrders ??
-            slotConfig[slotId]?.maxOrders ??
-            DEFAULT_MAX_ORDERS,
-        },
-      };
-      setSlotConfigState(nextSlots);
-      saveDeliveryConfig({
-        slots: nextSlots,
-        areas: Object.fromEntries(areas.map((area) => [area.id, area])),
-      });
+    (slotId: string, config: Partial<Pick<SlotWithConfig, "enabled" | "maxOrders">>) => {
+      api(`/api/admin/delivery-slots/${encodeURIComponent(slotId)}`, {
+        method: "PATCH",
+        body: JSON.stringify(config),
+      }).catch(() => undefined);
+      setSlotList((prev) =>
+        prev.map((slot) =>
+          slot.id === slotId
+            ? {
+                ...slot,
+                enabled: config.enabled ?? slot.enabled ?? true,
+                maxOrders: config.maxOrders ?? slot.maxOrders ?? DEFAULT_MAX_ORDERS,
+              }
+            : slot,
+        ),
+      );
     },
-    [slotConfig, areas],
+    [],
   );
 
-  const upsertArea = useCallback(
-    (area: DeliveryArea) => {
-      const nextAreas = areas.some((candidate) => candidate.id === area.id)
-        ? areas.map((candidate) =>
-            candidate.id === area.id ? area : candidate,
-          )
-        : [...areas, area];
-      setAreas(nextAreas);
-      saveDeliveryConfig({
-        slots: slotConfig,
-        areas: Object.fromEntries(nextAreas.map((candidate) => [candidate.id, candidate])),
-      });
-    },
-    [areas, slotConfig],
-  );
+  const upsertArea = useCallback((area: DeliveryArea) => {
+    const exists = area.id && areas.some((candidate) => candidate.id === area.id);
+    api(exists ? `/api/admin/delivery-areas/${encodeURIComponent(area.id)}` : "/api/admin/delivery-areas", {
+      method: exists ? "PATCH" : "POST",
+      body: JSON.stringify(area),
+    }).catch(() => undefined);
+    setAreas((prev) =>
+      prev.some((candidate) => candidate.id === area.id)
+        ? prev.map((candidate) => (candidate.id === area.id ? area : candidate))
+        : [...prev, area],
+    );
+  }, [areas]);
 
-  const deleteArea = useCallback(
-    (areaId: string) => {
-      const nextAreas = areas.filter((area) => area.id !== areaId);
-      setAreas(nextAreas);
-      saveDeliveryConfig({
-        slots: slotConfig,
-        areas: {
-          ...Object.fromEntries(
-            nextAreas.map((candidate) => [candidate.id, candidate]),
-          ),
-          [areaId]: "deleted",
-        },
-      });
-    },
-    [areas, slotConfig],
-  );
+  const deleteArea = useCallback((areaId: string) => {
+    api(`/api/admin/delivery-areas/${encodeURIComponent(areaId)}`, {
+      method: "DELETE",
+    }).catch(() => undefined);
+    setAreas((prev) => prev.filter((area) => area.id !== areaId));
+  }, []);
 
   const value = useMemo<OperationsValue>(
     () => ({

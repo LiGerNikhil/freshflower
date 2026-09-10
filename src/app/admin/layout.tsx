@@ -9,6 +9,7 @@ import {
 } from "@/components/providers/AdminAuthContext";
 import { CatalogProvider } from "@/components/providers/CatalogContext";
 import { OperationsProvider } from "@/components/providers/OperationsContext";
+import { Phase15Provider } from "@/components/providers/Phase15Provider";
 
 function AdminGate({ children }: { children: React.ReactNode }) {
   const { session, hydrated } = useAdminAuth();
@@ -43,9 +44,11 @@ function AdminGate({ children }: { children: React.ReactNode }) {
 
   return (
     <AdminShell>
-      <CatalogProvider>
-        <OperationsProvider>{children}</OperationsProvider>
-      </CatalogProvider>
+        <CatalogProvider>
+          <OperationsProvider>
+            <Phase15Provider>{children}</Phase15Provider>
+          </OperationsProvider>
+        </CatalogProvider>
     </AdminShell>
   );
 }

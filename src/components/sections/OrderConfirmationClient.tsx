@@ -44,7 +44,7 @@ export default function OrderConfirmationClient({
         <div>
           <h1 className="text-4xl">Loading your booking...</h1>
           <p className="mt-3 text-sm text-ink-soft">
-            Your preview order is being retrieved.
+            Your order is being retrieved.
           </p>
         </div>
       </main>
@@ -60,9 +60,8 @@ export default function OrderConfirmationClient({
         </p>
         <h1 className="mt-3 text-5xl">Your flowers are on their way.</h1>
         <p className="mt-4 text-sm leading-7 text-ink-soft">
-          Order <strong className="text-ink">{order.id}</strong> is confirmed in
-          preview mode. We&apos;ll use the details below to prepare the next
-          step.
+          Order <strong className="text-ink">{order.id}</strong> is confirmed.
+          We&apos;ll use the details below to prepare the next step.
         </p>
         <div className="mt-10 rounded-xl bg-white/70 p-6 text-left">
           <div className="flex items-start gap-3 border-b border-ink/10 pb-5">

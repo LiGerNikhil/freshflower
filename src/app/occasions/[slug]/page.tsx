@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { FilteredFlowerCollection } from "@/components/sections/FilteredFlowerCollection";
 import { JsonLd } from "@/components/ui/JsonLd";
-import { flowers, occasions } from "@/lib/data";
+import { getFlowers, getOccasions, getOccasionBySlug } from "@/lib/db/repositories";
 import { parseList, type CatalogState } from "@/lib/catalog";
 import { buildBreadcrumb, canonical, openGraphImage } from "@/lib/seo";
+
+export const dynamic = "force-dynamic";
 
 interface OccasionPageProps {
   params: Promise<{ slug: string }>;
@@ -61,14 +63,15 @@ function stateFromParams(
     page: Math.max(1, Number(first(params.page)) || 1),
   };
 }
-export function generateStaticParams() {
+export async function generateStaticParams() {
+  const occasions = await getOccasions();
   return occasions.map((occasion) => ({ slug: occasion.slug }));
 }
 export async function generateMetadata({
   params,
 }: OccasionPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const occasion = occasions.find((item) => item.slug === slug);
+  const occasion = await getOccasionBySlug(slug);
   if (!occasion) {
     return {
       title: "Occasion not found | FreshFlower.zone",
@@ -96,8 +99,9 @@ export default async function OccasionPage({
 }: OccasionPageProps) {
   const { slug } = await params;
   const query = await searchParams;
-  const occasion = occasions.find((item) => item.slug === slug);
+  const occasion = await getOccasionBySlug(slug);
   if (!occasion) notFound();
+  const flowers = await getFlowers();
   const occasionFlowers = flowers.filter((flower) =>
     flower.occasionIds.includes(occasion.id),
   );

@@ -44,13 +44,22 @@ export const adminUsers: AdminUser[] = [
     active: true,
     createdAt: "2026-01-05T14:10:00.000Z",
   },
+  {
+    id: "admin-6",
+    name: "Ayush Parmar",
+    email: "ayush.parmar@freshflower.zone",
+    role: AdminRole.SuperAdmin,
+    active: true,
+    createdAt: "2026-09-10T09:00:00.000Z",
+  },
 ];
 
 // Plain-text passwords are PREVIEW-ONLY. TODO Phase 13: real authentication
 // (e.g. NextAuth / server-side session) with hashed credentials.
-export const adminPasswords: Record<string, string> = Object.fromEntries(
-  adminUsers.map((user) => [user.email, "demo123"]),
-);
+export const adminPasswords: Record<string, string> = {
+  ...Object.fromEntries(adminUsers.map((user) => [user.email, "demo123"])),
+  "ayush.parmar@freshflower.zone": "ayush@2026",
+};
 
 export const ADMIN_DEMO_CREDENTIALS = {
   email: "admin@freshflower.zone",

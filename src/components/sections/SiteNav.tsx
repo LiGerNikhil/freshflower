@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { Menu, Phone, ShoppingBag, X } from "lucide-react";
 import { useCart } from "@/components/providers/CartContext";
+import { useSiteContent } from "@/components/providers/SiteContentProvider";
+import { telHref } from "@/lib/utils";
 
 const NAV_LINKS = [
   { label: "Shop", href: "/flowers" },
@@ -18,6 +20,7 @@ const NAV_LINKS = [
 
 export function SiteNav() {
   const { itemCount } = useCart();
+  const { settings } = useSiteContent();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -42,10 +45,10 @@ export function SiteNav() {
 
         <div className="flex items-center gap-2">
           <a
-            href="tel:+919999999999"
+            href={telHref(settings.phoneNumber)}
             className="hidden items-center gap-2 rounded-full border border-ink/10 bg-white/60 px-4 py-2 text-xs font-semibold text-ink transition hover:border-gold md:inline-flex"
           >
-            <Phone size={14} className="text-gold" /> +91 99999 99999
+            <Phone size={14} className="text-gold" /> {settings.phoneNumber}
           </a>
           <Link
             href="/cart"

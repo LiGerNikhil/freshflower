@@ -2,26 +2,25 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import FlowerDetailClient from "@/components/sections/FlowerDetailClient";
 import { JsonLd } from "@/components/ui/JsonLd";
-import { categories, flowers, reviews } from "@/lib/data";
+import { getCategories, getFlowerBySlug, getFlowers, getReviews } from "@/lib/db/repositories";
 import { buildBreadcrumb, canonical, openGraphImage } from "@/lib/seo";
 
 interface FlowerPageProps {
   params: Promise<{ slug: string }>;
 }
 
-function getFlower(slug: string) {
-  return flowers.find((flower) => flower.slug === slug);
-}
-
-export function generateStaticParams() {
+export async function generateStaticParams() {
+  const flowers = await getFlowers();
   return flowers.map((flower) => ({ slug: flower.slug }));
 }
+
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
 }: FlowerPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const flower = getFlower(slug);
+  const flower = await getFlowerBySlug(slug);
   if (!flower) return { title: "Flower not found | FreshFlower.zone" };
 
   const url = canonical(`/flowers/${flower.slug}`);
@@ -43,9 +42,11 @@ export async function generateMetadata({
 
 export default async function FlowerPage({ params }: FlowerPageProps) {
   const { slug } = await params;
-  const flower = getFlower(slug);
+  const flowers = await getFlowers();
+  const flower = await getFlowerBySlug(slug);
   if (!flower) notFound();
 
+  const categories = await getCategories();
   const category = categories.find((item) => item.id === flower.categoryId);
   const relatedFlowers = flowers
     .filter(
@@ -62,9 +63,12 @@ export default async function FlowerPage({ params }: FlowerPageProps) {
         ),
     )
     .slice(0, 4);
-  const productReviews = reviews.filter(
-    (review) => review.productId === flower.id,
-  );
+  const reviews = await getReviews();
+  const productReviews = reviews
+    .filter((review) => review.productId === flower.id)
+    .filter(
+      (review) => review.status === "approved" || review.status === "featured",
+    );
 
   const breadcrumb = buildBreadcrumb([
     { name: "Home", href: "/" },

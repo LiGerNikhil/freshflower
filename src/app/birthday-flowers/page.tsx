@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { JsonLd } from "@/components/ui/JsonLd";
 import { SeoLandingPage } from "@/components/sections/SeoLandingPage";
-import { flowers, occasions } from "@/lib/data";
+import { getFlowers, getOccasions } from "@/lib/db/repositories";
 import { occasionSeoPages } from "@/lib/data/seoPages";
 import { baseCatalogState } from "@/lib/catalog";
 import { buildBreadcrumb, canonical, faqLd } from "@/lib/seo";
@@ -20,7 +20,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default function BirthdayFlowersPage() {
+export const dynamic = "force-dynamic";
+
+export default async function BirthdayFlowersPage() {
+  const occasions = await getOccasions();
+  const flowers = await getFlowers();
   const birthday = occasions.find((item) => item.id === page.occasionId);
   const birthdayFlowers = birthday
     ? flowers.filter((flower) => flower.occasionIds.includes(birthday.id))

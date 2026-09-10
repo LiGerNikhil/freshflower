@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { JsonLd } from "@/components/ui/JsonLd";
 import { SeoLandingPage } from "@/components/sections/SeoLandingPage";
-import { flowers } from "@/lib/data";
+import { getFlowers } from "@/lib/db/repositories";
 import { citySeoPages } from "@/lib/data/seoPages";
 import { baseCatalogState, pickFlowersOrdered } from "@/lib/catalog";
 import { buildBreadcrumb, canonical, faqLd } from "@/lib/seo";
@@ -20,7 +20,10 @@ export const metadata: Metadata = {
   },
 };
 
-export default function FlowerDeliveryGhaziabadPage() {
+export const dynamic = "force-dynamic";
+
+export default async function FlowerDeliveryGhaziabadPage() {
+  const flowers = await getFlowers();
   const cityFlowers = pickFlowersOrdered(flowers, page.flowerIds);
   return (
     <>

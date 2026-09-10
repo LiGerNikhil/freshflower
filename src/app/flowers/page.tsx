@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import FlowersCatalogue from "@/components/sections/FlowersCatalogue";
 import { MAX_PRICE, parseList, type CatalogState } from "@/lib/catalog";
-import { flowers } from "@/lib/data";
+import { getFlowers } from "@/lib/db/repositories";
 import { canonical } from "@/lib/seo";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "All flowers | FreshFlower.zone",
@@ -51,6 +53,8 @@ export default async function FlowersPage({ searchParams }: FlowersPageProps) {
     units: parseList(params.unit) as CatalogState["units"],
     page,
   };
+
+  const flowers = await getFlowers();
 
   return <FlowersCatalogue flowers={flowers} initialState={initialState} />;
 }

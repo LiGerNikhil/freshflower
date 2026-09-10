@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { EditorialHeader } from "@/components/sections/ContentPages";
+import { InstagramFeed } from "@/components/sections/InstagramFeed";
 import Link from "next/link";
 import { Leaf, Clock3, Heart, MapPin } from "lucide-react";
 import { canonical } from "@/lib/seo";
@@ -179,6 +180,12 @@ export default function AboutRoute() {
         </div>
       </section>
 
+      {/* Instagram */}
+      <InstagramFeed
+        eyebrow="From our studio"
+        copy="Peek behind the scenes — the morning market run, studio prep, and the arrangements that left our hands this week."
+      />
+
       {/* Closing */}
       <section className="mx-auto max-w-7xl px-5 py-20 text-center md:px-10">
         <h2 className="text-4xl">
@@ -204,6 +211,18 @@ export default function AboutRoute() {
             Wholesale enquiries
           </Link>
         </div>
+        <p className="mt-10 text-xs text-ink-soft">
+          FreshFlower.zone is crafted with care by{" "}
+          <a
+            href="https://nwxglobalservices.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-ink transition hover:text-gold"
+          >
+            NWX Global Services
+          </a>
+          .
+        </p>
       </section>
     </main>
   );

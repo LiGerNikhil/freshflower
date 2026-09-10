@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { ReviewsClient } from "@/components/sections/ReviewsClient";
-import { flowers, reviews } from "@/lib/data";
+import { getFlowers, getReviews } from "@/lib/db/repositories";
 import { canonical } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "Customer reviews | FreshFlower.zone",
@@ -15,6 +15,14 @@ export const metadata: Metadata = {
     type: "website",
   },
 };
-export default function ReviewsPage() {
-  return <ReviewsClient reviews={reviews} flowers={flowers} />;
+
+export const dynamic = "force-dynamic";
+
+export default async function ReviewsPage() {
+  const reviews = await getReviews();
+  const flowers = await getFlowers();
+  const approvedReviews = reviews.filter(
+    (review) => review.status === "approved" || review.status === "featured",
+  );
+  return <ReviewsClient reviews={approvedReviews} flowers={flowers} />;
 }

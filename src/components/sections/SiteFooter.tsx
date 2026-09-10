@@ -1,7 +1,14 @@
+"use client";
+
 import Link from "next/link";
-import { Clock, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { Camera as Instagram, Clock, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { useSiteContent } from "@/components/providers/SiteContentProvider";
+import { telHref, waMeHref } from "@/lib/utils";
+import { INSTAGRAM_URL } from "@/lib/seo";
 
 export function SiteFooter() {
+  const { settings } = useSiteContent();
+
   return (
     <footer className="mt-auto bg-ink px-5 py-14 text-ivory md:px-10">
       <div className="mx-auto max-w-7xl">
@@ -17,14 +24,14 @@ export function SiteFooter() {
             </p>
             <div className="mt-6 flex gap-3">
               <a
-                href="tel:+919999999999"
+                href={telHref(settings.phoneNumber)}
                 aria-label="Call us"
                 className="rounded-full border border-ivory/15 p-3 text-ivory/70 transition hover:border-gold hover:text-gold"
               >
                 <Phone size={16} />
               </a>
               <a
-                href="https://wa.me/919999999999"
+                href={waMeHref(settings.whatsappNumber)}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="WhatsApp us"
@@ -33,11 +40,20 @@ export function SiteFooter() {
                 <MessageCircle size={16} />
               </a>
               <a
-                href="mailto:hello@freshflower.zone"
+                href={`mailto:${settings.email}`}
                 aria-label="Email us"
                 className="rounded-full border border-ivory/15 p-3 text-ivory/70 transition hover:border-gold hover:text-gold"
               >
                 <Mail size={16} />
+              </a>
+              <a
+                href={settings.instagramUrl || INSTAGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Follow us on Instagram (${settings.instagramHandle})`}
+                className="rounded-full border border-ivory/15 p-3 text-ivory/70 transition hover:border-gold hover:text-gold"
+              >
+                <Instagram size={16} />
               </a>
             </div>
           </div>
@@ -143,23 +159,24 @@ export function SiteFooter() {
             <div className="mt-5 space-y-3 text-sm text-ivory/60">
               <p className="flex items-center gap-2">
                 <Phone size={14} className="shrink-0 text-gold" />
-                <a href="tel:+919999999999" className="hover:text-ivory">
-                  +91 99999 99999
+                <a href={telHref(settings.phoneNumber)} className="hover:text-ivory">
+                  {settings.phoneNumber}
                 </a>
               </p>
               <p className="flex items-center gap-2">
                 <Mail size={14} className="shrink-0 text-gold" />
-                <a href="mailto:hello@freshflower.zone" className="hover:text-ivory">
-                  hello@freshflower.zone
+                <a href={`mailto:${settings.email}`} className="hover:text-ivory">
+                  {settings.email}
                 </a>
               </p>
-              <p className="flex items-center gap-2">
-                <MapPin size={14} className="shrink-0 text-gold" />
-                Delhi NCR, India
+              <p className="flex items-start gap-2">
+                <MapPin size={14} className="mt-0.5 shrink-0 text-gold" />
+                {settings.addressLine || "Delhi NCR, India"}
               </p>
               <p className="flex items-center gap-2">
                 <Clock size={14} className="shrink-0 text-gold" />
-                Mon–Sat 6 AM–8 PM
+                {settings.businessHours[0]?.label ?? "Mon–Sat"}:{" "}
+                {settings.businessHours[0]?.value ?? "6 AM – 8 PM"}
               </p>
             </div>
             <div className="mt-6 border-t border-ivory/15 pt-5">
@@ -186,7 +203,31 @@ export function SiteFooter() {
 
         <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-ivory/15 pt-6 text-xs text-ivory/45 md:flex-row">
           <p>© {new Date().getFullYear()} FreshFlower.zone. All rights reserved.</p>
-          <p>Made with care in Delhi NCR, India.</p>
+          <div className="flex items-center gap-5">
+            <p>
+              Website by{" "}
+              <a
+                href="https://nwxglobalservices.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-ivory/65 transition hover:text-gold"
+              >
+                NWX Global Services
+              </a>
+            </p>
+            <Link
+              href="/admin"
+              className="group inline-flex items-center gap-2 rounded-full border border-ivory/15 px-4 py-2 font-semibold uppercase tracking-[0.18em] text-ivory/60 transition-all duration-300 hover:border-gold/70 hover:text-gold hover:shadow-[0_0_18px_rgba(214,170,90,0.35)]"
+            >
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-gold opacity-60" />
+                <span className="relative inline-flex size-2 rounded-full bg-gold" />
+              </span>
+              <span className="group-hover:tracking-[0.24em] transition-all duration-300">
+                Admin
+              </span>
+            </Link>
+          </div>
         </div>
       </div>
     </footer>

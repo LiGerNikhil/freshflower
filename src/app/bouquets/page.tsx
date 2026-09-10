@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { BouquetListing } from "@/components/sections/BouquetCard";
-import { bouquets } from "@/lib/data";
+import { getBouquets } from "@/lib/db/repositories";
 import { canonical } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -16,6 +16,9 @@ export const metadata: Metadata = {
     type: "website",
   },
 };
-export default function BouquetsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function BouquetsPage() {
+  const bouquets = await getBouquets();
   return <BouquetListing bouquets={bouquets} />;
 }

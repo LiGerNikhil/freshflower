@@ -19,3 +19,5 @@ export * from "./faqs";
 export * from "./seoPages";
 export * from "./enquiries";
 export * from "./admin";
+export * from "./homepage";
+export * from "./settings";

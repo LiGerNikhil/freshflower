@@ -144,7 +144,7 @@ export default function FlowerDetailClient({
     {
       question: "Can this be delivered today?",
       answer: flower.availableToday
-        ? "Yes, this flower is marked Available Today for our current Delhi NCR preview delivery footprint."
+        ? "Yes, this flower is marked Available Today for our current Delhi NCR delivery footprint."
         : "This flower is currently prepared as a pre-order item. Select your preferred date and our team will confirm availability.",
     },
   ];

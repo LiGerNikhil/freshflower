@@ -1,11 +1,21 @@
 import AccountContent from "@/components/sections/AccountContent";
-import { customers, flowers, orders, reviews } from "@/lib/data";
-const demo = customers[0];
+import {
+  getCustomers,
+  getFlowers,
+  getOrders,
+  getReviews,
+} from "@/lib/db/repositories";
 export const metadata = {
   title: "Saved addresses | FreshFlower.zone",
   robots: { index: false, follow: false },
 };
-export default function AccountAddressesPage() {
+export const dynamic = "force-dynamic";
+export default async function AccountAddressesPage() {
+  const customers = await getCustomers();
+  const flowers = await getFlowers();
+  const orders = await getOrders();
+  const reviews = await getReviews();
+  const demo = customers[0];
   return (
     <AccountContent
       mode="addresses"

@@ -9,7 +9,7 @@ import {
   useCallback,
 } from "react";
 import type { AdminRole, AdminUser } from "@/lib/types";
-import { adminPasswords, adminUsers } from "@/lib/data";
+import { useSiteContent } from "@/components/providers/SiteContentProvider";
 
 const SESSION_STORAGE_KEY = "ff-admin-session-v1";
 
@@ -39,6 +39,7 @@ export function AdminAuthProvider({
 }) {
   const [session, setSession] = useState<AdminSession | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const { users, userPasswords } = useSiteContent();
 
   useEffect(() => {
     try {
@@ -56,11 +57,11 @@ export function AdminAuthProvider({
   const login = useCallback<AdminAuthValue["login"]>(
     (email, password) => {
       const normalized = email.trim().toLowerCase();
-      const user = adminUsers.find(
+      const user = users.find(
         (candidate) =>
           candidate.email.toLowerCase() === normalized && candidate.active,
       );
-      if (!user || adminPasswords[user.email] !== password) {
+      if (!user || userPasswords[user.email] !== password) {
         return {
           ok: false,
           error: "Invalid email or password. Try the demo credentials below.",
@@ -74,7 +75,7 @@ export function AdminAuthProvider({
       window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next));
       return { ok: true };
     },
-    [],
+    [users, userPasswords],
   );
 
   const logout = useCallback(() => {

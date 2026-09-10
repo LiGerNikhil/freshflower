@@ -4,18 +4,30 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, CalendarDays, Clock3, Search } from "lucide-react";
 import { ArtCover } from "@/components/sections/ArtCover";
+import { useSiteContent } from "@/components/providers/SiteContentProvider";
 import { formatPostDate, readingMinutes } from "@/lib/blog";
 import type { BlogPost } from "@/lib/types";
 
 export function BlogIndexClient({
-  posts,
   initialTag,
   initialCategory = "All",
 }: {
-  posts: BlogPost[];
   initialTag?: string;
   initialCategory?: string;
 }) {
+  // The CMS store (seeded with the same posts as the server page, so SSR is
+  // hydration-safe) is the single source of truth; drafts stay hidden and
+  // posts published from /admin/blog appear here immediately.
+  const { blogPosts } = useSiteContent();
+
+  const posts = useMemo<BlogPost[]>(
+    () =>
+      [...blogPosts]
+        .filter((post) => post.status !== "draft")
+        .sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1)),
+    [blogPosts],
+  );
+
   const categories = useMemo(
     () => ["All", ...Array.from(new Set(posts.map((p) => p.category))).sort()],
     [posts],

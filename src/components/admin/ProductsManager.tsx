@@ -91,7 +91,7 @@ export function ProductsManager() {
           <h1 className="mt-2 font-display text-3xl md:text-4xl">Products</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-soft">
             {products.length} flowers · {lowStockCount} low stock · {inactiveCount}{" "}
-            disabled. Changes are session-only until the Mongoose layer lands.
+            disabled. Synced from the live database.
           </p>
         </div>
         <Link

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { CategoryDirectory } from "@/components/sections/DirectoryGrid";
-import { categories, flowers } from "@/lib/data";
+import { getCategories, getFlowers } from "@/lib/db/repositories";
 import { canonical } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -10,7 +10,11 @@ export const metadata: Metadata = {
   alternates: { canonical: canonical("/categories") },
 };
 
-export default function CategoriesPage() {
+export const dynamic = "force-dynamic";
+
+export default async function CategoriesPage() {
+  const categories = await getCategories();
+  const flowers = await getFlowers();
   const counts = Object.fromEntries(
     categories.map((category) => [
       category.id,
