@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { KeyRound, LogIn, ShieldAlert } from "lucide-react";
+import { LogIn, ShieldAlert } from "lucide-react";
 import { useAdminAuth } from "@/components/providers/AdminAuthContext";
-import { ADMIN_DEMO_CREDENTIALS } from "@/lib/data";
 
 export function LoginForm() {
   const { login } = useAdminAuth();
@@ -38,7 +37,7 @@ export function LoginForm() {
         <h1 className="mt-2 font-display text-3xl">Admin access</h1>
         <div className="mx-auto mt-3 inline-flex items-center gap-1.5 rounded-full bg-blush px-3 py-1 text-[11px] font-semibold text-ink-soft">
           <ShieldAlert size={13} className="text-gold" />
-          Demo credentials — client-side auth only
+          Client-side auth only
         </div>
       </div>
 
@@ -106,25 +105,6 @@ export function LoginForm() {
           )}
         </button>
       </form>
-
-      <div className="mt-6 rounded-xl border border-gold/30 bg-gold-soft/20 p-4">
-        <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-ink-soft">
-          <KeyRound size={12} className="text-gold" /> Demo credentials
-        </p>
-        <p className="mt-2 font-mono text-xs text-ink">
-          {ADMIN_DEMO_CREDENTIALS.email}
-        </p>
-        <p className="mt-1 font-mono text-xs text-ink">
-          {ADMIN_DEMO_CREDENTIALS.password}
-        </p>
-        <p className="mt-3 text-[11px] leading-5 text-ink-soft">
-          Sign in as super_admin to see every section. Orders, inventory,
-          content, and support manager accounts also exist (demo123).
-          {/* TODO Phase 13: replace with real authentication (NextAuth or a
-          server-side session) — this form only grants a in-memory dummy
-          session stored in localStorage. */}
-        </p>
-      </div>
     </div>
   );
 }

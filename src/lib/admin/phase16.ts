@@ -11,7 +11,7 @@ import type {
   SeoRouteOverride,
 } from "@/lib/types";
 
-/** Demo credentials map used by /admin/auth; password overrides live here too. */
+/** Password overrides map used by /admin/auth; password overrides live here too. */
 export type UserPasswords = Record<string, string>;
 
 export interface Phase16State {
@@ -58,6 +58,6 @@ export function mergePhase16(over: Partial<Phase16State>): Phase16State {
   };
 }
 
-export function passwordFor(email: string, passwords: UserPasswords): string {
-  return passwords[email] ?? "demo123";
+export function passwordFor(email: string, passwords: UserPasswords): string | undefined {
+  return passwords[email];
 }

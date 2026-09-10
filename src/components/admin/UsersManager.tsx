@@ -46,7 +46,7 @@ export function UsersManager() {
     name: "",
     email: "",
     role: AdminRole.ContentManager as AdminRole,
-    password: "demo123",
+    password: "",
     active: true,
   });
   const [formError, setFormError] = useState("");
@@ -86,9 +86,9 @@ export function UsersManager() {
       createdAt: new Date().toISOString(),
     };
     addUser(next);
-    setUserPassword(email, form.password || "demo123");
+    setUserPassword(email, form.password);
     setShowAdd(false);
-    setForm({ name: "", email: "", role: AdminRole.ContentManager, password: "demo123", active: true });
+    setForm({ name: "", email: "", role: AdminRole.ContentManager, password: "", active: true });
     setFormError("");
     setSaved(true);
     window.setTimeout(() => setSaved(false), 1400);
@@ -241,14 +241,14 @@ export function UsersManager() {
                   currentUserId={currentUser?.id}
                   isPasswordEditing={editingPasswordFor === user.id}
                   password={passwordFor(user.email, userPasswords)}
-                  onStartPasswordEdit={() => {
-                    setEditingPasswordFor(user.id);
-                    setPasswordDraft(passwordFor(user.email, userPasswords));
-                  }}
+onStartPasswordEdit={() => {
+                      setEditingPasswordFor(user.id);
+                      setPasswordDraft(passwordFor(user.email, userPasswords) ?? "");
+                    }}
                   passwordDraft={passwordDraft}
                   onPasswordDraftChange={setPasswordDraft}
                   onSavePassword={() => {
-                    setUserPassword(user.email, passwordDraft || "demo123");
+                    setUserPassword(user.email, passwordDraft);
                     setEditingPasswordFor(null);
                   }}
                   onCancelPasswordEdit={() => setEditingPasswordFor(null)}
@@ -387,7 +387,7 @@ function UserRow({
               </div>
             </div>
           ) : (
-            <span className="font-mono text-xs text-ink-soft">{password}</span>
+            <span className="font-mono text-xs text-ink-soft">{password || "—"}</span>
           )}
         </td>
         <td className="px-4 py-3">

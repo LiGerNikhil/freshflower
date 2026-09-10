@@ -57,11 +57,5 @@ export const adminUsers: AdminUser[] = [
 // Plain-text passwords are PREVIEW-ONLY. TODO Phase 13: real authentication
 // (e.g. NextAuth / server-side session) with hashed credentials.
 export const adminPasswords: Record<string, string> = {
-  ...Object.fromEntries(adminUsers.map((user) => [user.email, "demo123"])),
   "ayush.parmar@freshflower.zone": "ayush@2026",
 };
-
-export const ADMIN_DEMO_CREDENTIALS = {
-  email: "admin@freshflower.zone",
-  password: "demo123",
-} as const;

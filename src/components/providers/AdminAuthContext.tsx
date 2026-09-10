@@ -64,7 +64,7 @@ export function AdminAuthProvider({
       if (!user || userPasswords[user.email] !== password) {
         return {
           ok: false,
-          error: "Invalid email or password. Try the demo credentials below.",
+          error: "Invalid email or password.",
         };
       }
       const next: AdminSession = {
