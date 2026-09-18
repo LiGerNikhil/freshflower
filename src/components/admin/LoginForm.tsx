@@ -56,7 +56,7 @@ export function LoginForm() {
             autoComplete="username"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="admin@freshflower.zone"
+            placeholder="yourname@email.com"
             className="w-full rounded-lg border border-ink/10 bg-ivory px-3.5 py-2.5 text-sm text-ink outline-none transition placeholder:text-ink-soft/50 focus:border-gold"
           />
         </div>

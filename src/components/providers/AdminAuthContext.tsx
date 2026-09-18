@@ -12,6 +12,7 @@ import type { AdminRole, AdminUser } from "@/lib/types";
 import { useSiteContent } from "@/components/providers/SiteContentProvider";
 
 const SESSION_STORAGE_KEY = "ff-admin-session-v1";
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 
 export interface AdminSession {
   user: AdminUser;
@@ -44,15 +45,60 @@ export function AdminAuthProvider({
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(SESSION_STORAGE_KEY);
-      if (saved)
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setSession(JSON.parse(saved) as AdminSession);
+      if (saved) {
+        const parsed = JSON.parse(saved) as AdminSession;
+        const expired =
+          Date.now() - new Date(parsed.loggedInAt).getTime() >
+          SESSION_TIMEOUT_MS;
+        if (!expired) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setSession(parsed);
+        } else {
+          window.localStorage.removeItem(SESSION_STORAGE_KEY);
+        }
+      }
     } catch {
       window.localStorage.removeItem(SESSION_STORAGE_KEY);
     } finally {
       setHydrated(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const saved = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    if (saved && session) {
+      const parsed = JSON.parse(saved) as AdminSession;
+      const stillActive = users.some(
+        (candidate) =>
+          candidate.email.toLowerCase() ===
+            parsed.user.email.toLowerCase() &&
+          candidate.active,
+      );
+      const expired =
+        Date.now() - new Date(parsed.loggedInAt).getTime() >
+        SESSION_TIMEOUT_MS;
+      if (!stillActive || expired) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSession(null);
+        window.localStorage.removeItem(SESSION_STORAGE_KEY);
+      }
+    }
+  }, [hydrated, session, users]);
+
+  useEffect(() => {
+    if (!session) return;
+    const interval = setInterval(() => {
+      const expired =
+        Date.now() - new Date(session.loggedInAt).getTime() >
+        SESSION_TIMEOUT_MS;
+      if (expired) {
+        setSession(null);
+        window.localStorage.removeItem(SESSION_STORAGE_KEY);
+      }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [session]);
 
   const login = useCallback<AdminAuthValue["login"]>(
     (email, password) => {
