@@ -4,10 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Check, Clock3, MapPin } from "lucide-react";
 import { useCart } from "@/components/providers/CartContext";
+import { ProductItemImage } from "@/components/sections/ProductItemImage";
+import { DELIVERY_CHARGE, DELIVERY_NOTE } from "@/lib/cart";
 
 interface OrderRecord {
   id: string;
-  items: Array<{ name: string; quantity: number; price: number }>;
+  items: Array<{ name: string; quantity: number; price: number; image?: string }>;
+  subtotal?: number;
+  deliveryFee?: number;
   total: number;
   delivery: {
     areaName?: string;
@@ -49,6 +53,11 @@ export default function OrderConfirmationClient({
         </div>
       </main>
     );
+  const subtotal =
+    order.subtotal ??
+    order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const deliveryFee = order.deliveryFee ?? DELIVERY_CHARGE;
+  const total = order.total ?? subtotal + deliveryFee;
   return (
     <main className="min-h-screen bg-ivory px-5 py-12">
       <div className="mx-auto max-w-2xl text-center">
@@ -73,6 +82,9 @@ export default function OrderConfirmationClient({
               <p className="mt-1 text-sm text-ink-soft">
                 {order.delivery.areaName}
               </p>
+              <p className="mt-2 text-xs font-semibold text-sage-ink">
+                Your order will be delivered by Porter.
+              </p>
             </div>
           </div>
           <div className="flex items-start gap-3 border-b border-ink/10 py-5">
@@ -84,9 +96,34 @@ export default function OrderConfirmationClient({
               </p>
             </div>
           </div>
-          <div className="flex justify-between pt-5 text-lg font-bold">
+          <div className="divide-y divide-ink/10 border-b border-ink/10 py-2">
+            {order.items.map((item, index) => (
+              <div key={`${item.name}-${index}`} className="flex items-center gap-3 py-3 text-sm">
+                <ProductItemImage image={item.image} name={item.name} className="h-14 w-14" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium text-ink">{item.name}</span>
+                  <span className="text-ink-soft">× {item.quantity}</span>
+                </span>
+                <span className="font-semibold">
+                  ₹{(item.price * item.quantity).toLocaleString("en-IN")}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="space-y-3 pt-5 text-sm">
+            <div className="flex justify-between">
+              <span className="text-ink-soft">Flowers total</span>
+              <span>₹{subtotal.toLocaleString("en-IN")}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-ink-soft">Delivery charge</span>
+              <span>₹{deliveryFee.toLocaleString("en-IN")}</span>
+            </div>
+            <p className="text-xs leading-5 text-ink-soft">{DELIVERY_NOTE}</p>
+          </div>
+          <div className="mt-4 flex justify-between border-t border-ink/10 pt-5 text-lg font-bold">
             <span>Total</span>
-            <span>₹{order.total.toLocaleString("en-IN")}</span>
+            <span>₹{total.toLocaleString("en-IN")}</span>
           </div>
         </div>
         <Link

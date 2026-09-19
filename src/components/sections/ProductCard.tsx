@@ -2,7 +2,7 @@
 
 import { motion, type Variants } from "framer-motion";
 import Image from "next/image";
-import { Flower2, Heart, Plus, X } from "lucide-react";
+import { Bike, Flower2, Heart, Plus, ShoppingBag, X } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { GRADIENT_TOKENS, isRemoteImage } from "@/lib/utils";
 import type { Flower } from "@/lib/types";
@@ -17,6 +17,8 @@ const cardReveal: Variants = {
     transition: { duration: 0.65, ease: "easeOut" },
   },
 };
+
+const estimatedDeliveryLabel = "Estimated delivery by Tomorrow 11:00AM";
 
 interface ProductCardProps {
   flower: Flower;
@@ -97,16 +99,27 @@ export function ProductCard({
             {flower.name}
           </h3>
           <p className="mt-1 text-xs text-ink-soft">
-            {flower.stemCount
-              ? `${flower.stemCount} stems`
+            {flower.stemCount ?? flower.quantity
+              ? `${flower.stemCount ?? flower.quantity} ${flower.unit?.toLowerCase() ?? "stems"}`
               : "Fresh seasonal bunch"}
           </p>
         </div>
-        <p className="whitespace-nowrap text-sm font-bold text-ink">
-          ₹{flower.price.toLocaleString("en-IN")}
-        </p>
+        <div className="whitespace-nowrap text-right">
+          {flower.compareAtPrice && flower.compareAtPrice > flower.price ? (
+            <p className="text-xs text-ink-soft line-through">
+              ₹{flower.compareAtPrice.toLocaleString("en-IN")}
+            </p>
+          ) : null}
+          <p className="text-sm font-bold text-ink">
+            ₹{flower.price.toLocaleString("en-IN")}
+          </p>
+        </div>
       </div>
-      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-semibold text-ink">
+      <div className="mt-4 flex items-start gap-2 rounded-md bg-sage/65 px-3 py-2 text-[11px] font-semibold leading-5 text-sage-ink sm:text-xs">
+        <Bike size={16} className="mt-0.5 shrink-0" />
+        <span>{estimatedDeliveryLabel}</span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
         <button
           type="button"
           onClick={() => {
@@ -121,7 +134,7 @@ export function ProductCard({
             onAdd?.();
           }}
           disabled={!flower.inStock}
-          className="inline-flex items-center gap-2 disabled:text-ink-soft/50"
+          className="inline-flex min-h-9 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-blush bg-blush/85 px-2 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-ink transition hover:bg-blush disabled:bg-ink/5 disabled:text-ink-soft sm:min-h-10 sm:text-xs"
         >
           {flower.inStock ? <Plus size={15} /> : <X size={15} />}
           {flower.inStock ? "Add to cart" : "Unavailable"}
@@ -130,9 +143,9 @@ export function ProductCard({
           <button
             type="button"
             onClick={onBuyNow}
-            className="text-gold underline-offset-4 hover:underline"
+            className="inline-flex min-h-9 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-gold/30 bg-ivory-deep px-2 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-ink transition hover:bg-gold/25 sm:min-h-10 sm:text-xs"
           >
-            Buy now
+            Buy now <ShoppingBag size={15} />
           </button>
         )}
       </div>

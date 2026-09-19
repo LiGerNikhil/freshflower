@@ -101,7 +101,11 @@ async function upsertAll(model: mongoose.Model<any>, docs: Rec[]) {
 async function main() {
   const uri = MONGODB_URI();
   console.log("Connecting to MongoDB…");
-  await mongoose.connect(uri, { bufferCommands: false });
+  await mongoose.connect(uri, {
+    bufferCommands: false,
+    serverSelectionTimeoutMS: 5000,
+    connectTimeoutMS: 5000,
+  });
   console.log("Connected. Starting seed…\n");
 
   await upsertAll(
@@ -112,6 +116,7 @@ async function main() {
     })),
   );
   await upsertAll(OccasionModel, occasions.map(toDoc));
+  await FlowerModel.deleteMany({ _id: { $nin: flowers.map((flower) => flower.id) } });
   await upsertAll(FlowerModel, flowers.map(toDoc));
   await upsertAll(BouquetModel, bouquets.map(toDoc));
   await upsertAll(

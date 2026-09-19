@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, MapPin, PackageSearch, Search } from "lucide-react";
 import { deliveryAreas, deliverySlots } from "@/lib/data";
 import { OrderStatusStepper } from "@/components/sections/OrderStatusStepper";
+import { ProductItemImage } from "@/components/sections/ProductItemImage";
 import { PaymentStatusBadge } from "@/components/admin/OrderStatusBadge";
 import { formatINR } from "@/lib/admin/analytics";
 import { OrderStatus, type Order } from "@/lib/types";
@@ -196,12 +197,11 @@ export function TrackOrderClient({
 
           <div className="mt-6 divide-y divide-ink/5 border-t border-ink/10">
             {order.items.map((item, index) => (
-              <div
-                key={`${item.productId}-${index}`}
-                className="flex items-center justify-between py-2.5 text-sm"
-              >
-                <span className="text-ink">
-                  {item.quantity}× {item.name}
+              <div key={`${item.productId}-${index}`} className="flex items-center gap-3 py-2.5 text-sm">
+                <ProductItemImage image={item.image} name={item.name} className="h-12 w-12" />
+                <span className="min-w-0 flex-1 text-ink">
+                  <span className="block truncate">{item.name}</span>
+                  <span className="text-ink-soft">× {item.quantity}</span>
                 </span>
                 <span className="font-medium text-ink">
                   {formatINR(item.price * item.quantity)}

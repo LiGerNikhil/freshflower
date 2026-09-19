@@ -156,7 +156,7 @@ export function ProductsManager() {
               <tr className="border-b border-ink/10 bg-ivory-deep/60 text-[11px] font-bold uppercase tracking-[0.12em] text-ink-soft">
                 <th className="px-4 py-3">Product</th>
                 <th className="px-4 py-3">Category</th>
-                <th className="px-4 py-3">Price</th>
+                <th className="px-4 py-3">Selling price</th>
                 <th className="px-4 py-3">Qty / Unit</th>
                 <th className="px-4 py-3">Stock</th>
                 <th className="px-4 py-3">Status</th>

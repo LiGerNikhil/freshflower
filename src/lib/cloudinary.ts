@@ -34,12 +34,13 @@ function configure() {
 export interface UploadedAsset {
   secureUrl: string;
   publicId: string;
+  resourceType: "image" | "video";
 }
 
-/** Upload a raw buffer as an image asset. Keeps no local copy. */
-export async function uploadImageBuffer(
+/** Upload a raw buffer as a Cloudinary asset. Keeps no local copy. */
+export async function uploadMediaBuffer(
   buffer: Buffer,
-  options: { folder?: string; filename?: string } = {},
+  options: { folder?: string; filename?: string; resourceType?: "image" | "video" } = {},
 ): Promise<UploadedAsset> {
   configure();
   const result = await new Promise<{ secure_url: string; public_id: string }>(
@@ -47,8 +48,8 @@ export async function uploadImageBuffer(
       const stream = cloudinary.uploader.upload_stream(
         {
           folder: options.folder ?? "freshflower",
-          resource_type: "image",
-          format: "jpg",
+          resource_type: options.resourceType ?? "image",
+          ...(options.resourceType === "video" ? {} : { format: "jpg" }),
           use_filename: true,
           unique_filename: true,
           public_id: options.filename,
@@ -65,13 +66,20 @@ export async function uploadImageBuffer(
       stream.end(buffer);
     },
   );
-  return { secureUrl: result.secure_url, publicId: result.public_id };
+  return {
+    secureUrl: result.secure_url,
+    publicId: result.public_id,
+    resourceType: options.resourceType ?? "image",
+  };
 }
 
 /** Delete an asset by public_id (used when a product/category/blog image is replaced). */
-export async function deleteCloudinaryAsset(publicId: string): Promise<void> {
+export async function deleteCloudinaryAsset(
+  publicId: string,
+  resourceType: "image" | "video" = "image",
+): Promise<void> {
   configure();
-  await cloudinary.uploader.destroy(publicId);
+  await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
 }
 
 /** Build an optimized `next/image` url from a public id / secure url. */

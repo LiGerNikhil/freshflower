@@ -55,6 +55,35 @@ export const metadata: Metadata = {
       "Premium flower delivery, bouquets, and floral design across Delhi NCR.",
     images: openGraphImage(),
   },
+  icons: {
+    icon: [
+      { url: "/assets/images/favicon/favicon.ico" },
+      { url: "/assets/images/favicon/favicon.svg", type: "image/svg+xml" },
+      {
+        url: "/assets/images/favicon/favicon-96x96.png",
+        type: "image/png",
+        sizes: "96x96",
+      },
+      {
+        url: "/assets/images/favicon/web-app-manifest-192x192.png",
+        type: "image/png",
+        sizes: "192x192",
+      },
+      {
+        url: "/assets/images/favicon/web-app-manifest-512x512.png",
+        type: "image/png",
+        sizes: "512x512",
+      },
+    ],
+    apple: [
+      {
+        url: "/assets/images/favicon/apple-touch-icon.png",
+        type: "image/png",
+        sizes: "180x180",
+      },
+    ],
+  },
+  manifest: "/assets/images/favicon/site.webmanifest",
   other: { "theme-color": "#FBF7F0" },
 };
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Menu, Phone, ShoppingBag, X } from "lucide-react";
 import { useCart } from "@/components/providers/CartContext";
@@ -26,8 +27,15 @@ export function SiteNav() {
   return (
     <header className="sticky top-0 z-40 px-5 py-3 md:px-10">
       <div className="mx-auto flex max-w-7xl items-center justify-between rounded-full border border-white/60 bg-ivory/80 px-5 py-3 shadow-sm backdrop-blur-xl">
-        <Link href="/" className="font-display text-2xl text-ink">
-          freshflower<span className="text-gold">.zone</span>
+        <Link href="/" aria-label="FreshFlower.zone home" className="block shrink-0">
+          <Image
+            src="/assets/images/logo.png"
+            alt="FreshFlower.zone"
+            width={224}
+            height={56}
+            priority
+            className="h-11 w-auto md:h-14"
+          />
         </Link>
 
         {/* Desktop nav */}

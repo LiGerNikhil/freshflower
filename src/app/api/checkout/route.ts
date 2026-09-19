@@ -7,10 +7,11 @@ import {
   OrderModel,
 } from "@/lib/db/models";
 import { dbConnect } from "@/lib/db/connect";
-import { getCouponByCode, getDeliveryAreaByPincode, getDeliverySlotById } from "@/lib/db/repositories";
+import { getCouponByCode, getDeliveryAreaById } from "@/lib/db/repositories";
 import { parseOrThrow, readJson, safe, jsonOk } from "@/lib/api/helpers";
 import { checkoutSchema, type CheckoutInput } from "@/lib/validation";
-import { OrderStatus } from "@/lib/types";
+import { deliveryAreas } from "@/lib/data";
+import { DELIVERY_CHARGE } from "@/lib/cart";
 
 function toDateInput(value: string): string {
   // Accept both the HTML date (YYYY-MM-DD) and full ISO forms.
@@ -42,27 +43,17 @@ export async function POST(req: NextRequest) {
     await dbConnect();
 
     // ---- delivery capability -------------------------------------------------
-    const area = await getDeliveryAreaByPincode(input.customer.address.pincode);
-    if (!area) {
-      throw new Error("Sorry, we don't deliver to this pincode yet.");
+    const area =
+      deliveryAreas.find((candidate) => candidate.id === input.customer.address.areaId) ??
+      (await getDeliveryAreaById(input.customer.address.areaId));
+    if (!area || area.active === false) {
+      throw new Error("Please select a valid delivery area.");
     }
-    const slot = await getDeliverySlotById(input.deliverySlotId);
-    if (!slot) throw new Error("That delivery slot no longer exists.");
-    if (slot.enabled === false) throw new Error("That delivery slot is currently unavailable.");
 
     const deliveryDate = toDateInput(input.deliveryDate);
-    const capacity = slot.maxOrders ?? 3;
-    const used = await OrderModel.countDocuments({
-      deliveryDate: { $eq: new Date(deliveryDate) },
-      deliverySlotId: input.deliverySlotId,
-      status: { $ne: OrderStatus.Cancelled },
-    });
-    if (used >= capacity) {
-      throw new Error("That delivery slot just filled up — please pick another.");
-    }
 
     // ---- verify products + punch in DB prices --------------------------------
-    const items: { productId: string; productType: "flower" | "bouquet"; name: string; price: number; quantity: number }[] = [];
+    const items: { productId: string; productType: "flower" | "bouquet"; name: string; price: number; quantity: number; image?: string }[] = [];
     let subtotal = 0;
     for (const item of input.items) {
       const catalog =
@@ -79,6 +70,7 @@ export async function POST(req: NextRequest) {
         name: typeof catalog.name === "string" ? catalog.name : item.name,
         price,
         quantity: item.quantity,
+        image: Array.isArray(catalog.images) ? catalog.images[0] : undefined,
       });
     }
 
@@ -96,7 +88,7 @@ export async function POST(req: NextRequest) {
       codes.push(coupon.code);
     }
     discount = Math.min(discount, subtotal);
-    const deliveryFee = area.deliveryFee ?? 0;
+    const deliveryFee = DELIVERY_CHARGE;
     const total = Math.round((subtotal - discount + deliveryFee) * 100) / 100;
 
     // ---- customer (upsert by phone) ------------------------------------------
@@ -123,6 +115,7 @@ export async function POST(req: NextRequest) {
               line1: input.customer.address.line,
               line2: input.customer.address.landmark ?? undefined,
               city: input.customer.address.city,
+              areaId: area.id,
               pincode: input.customer.address.pincode,
               isDefault: true,
             },
@@ -157,6 +150,7 @@ export async function POST(req: NextRequest) {
         line1: input.customer.address.line,
         line2: input.customer.address.landmark ?? undefined,
         city: input.customer.address.city,
+        areaId: area.id,
         pincode: input.customer.address.pincode,
       },
       couponCode: codes.join(", ") || undefined,

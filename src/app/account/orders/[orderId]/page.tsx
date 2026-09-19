@@ -2,8 +2,10 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { OrderStatusStepper } from "@/components/sections/OrderStatusStepper";
+import { ProductItemImage } from "@/components/sections/ProductItemImage";
 import { AccountShell } from "@/components/sections/AccountShell";
-import { getCustomers, getOrderById, getOrders } from "@/lib/db/repositories";
+import { getCustomers, getFlowers, getOrderById, getOrders } from "@/lib/db/repositories";
+import { resolveProductImage } from "@/lib/product-media";
 
 export const metadata = {
   robots: { index: false, follow: false },
@@ -25,6 +27,7 @@ export default async function AccountOrderDetailPage({
   const { orderId } = await params;
   const customers = await getCustomers();
   const order = await getOrderById(orderId);
+  const flowers = await getFlowers();
   if (!order || order.customerId !== customers[0].id) notFound();
   return (
     <AccountShell title={`Order ${order.orderNumber}`} eyebrow="Order detail">
@@ -63,10 +66,16 @@ export default async function AccountOrderDetailPage({
         {order.items.map((item) => (
           <div
             key={item.productId}
-            className="flex justify-between py-5 text-sm"
+            className="flex items-center gap-3 py-5 text-sm"
           >
-            <span>
-              {item.name} × {item.quantity}
+            <ProductItemImage
+              image={resolveProductImage(item, flowers)}
+              name={item.name}
+              className="h-14 w-14"
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate">{item.name}</span>
+              <span className="text-ink-soft">× {item.quantity}</span>
             </span>
             <span className="font-semibold">
               ₹{(item.price * item.quantity).toLocaleString("en-IN")}

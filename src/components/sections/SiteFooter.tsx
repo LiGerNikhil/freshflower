@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { Camera as Instagram, Clock, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { useSiteContent } from "@/components/providers/SiteContentProvider";
@@ -15,8 +16,14 @@ export function SiteFooter() {
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-5">
           {/* Brand */}
           <div className="lg:col-span-1">
-            <Link href="/" className="font-display text-2xl">
-              freshflower<span className="text-gold">.zone</span>
+            <Link href="/" aria-label="FreshFlower.zone home" className="inline-flex">
+              <Image
+                src="/assets/images/logo.png"
+                alt="FreshFlower.zone"
+                width={240}
+                height={60}
+                className="h-12 w-auto md:h-14"
+              />
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-6 text-ivory/55">
               Premium flowers for Delhi NCR, delivered with care — while the

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { uploadImageBuffer, deleteCloudinaryAsset } from "@/lib/cloudinary";
+import { uploadMediaBuffer, deleteCloudinaryAsset } from "@/lib/cloudinary";
 
 // ---------------------------------------------------------------------------
 // Admin media upload endpoint.
@@ -23,22 +23,27 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    const resourceType = form.get("resourceType") === "video" ? "video" : "image";
+    const allowed =
+      resourceType === "video"
+        ? ["video/mp4", "video/webm", "video/quicktime"]
+        : ["image/jpeg", "image/png", "image/webp", "image/gif"];
     if (!allowed.includes(file.type)) {
       return NextResponse.json(
-        { error: `Unsupported image type "${file.type}".` },
+        { error: `Unsupported ${resourceType} type "${file.type}".` },
         { status: 400 },
       );
     }
     const bytes = Buffer.from(await file.arrayBuffer());
-    if (bytes.length === 0 || bytes.length > 8 * 1024 * 1024) {
+    const maxBytes = resourceType === "video" ? 40 * 1024 * 1024 : 8 * 1024 * 1024;
+    if (bytes.length === 0 || bytes.length > maxBytes) {
       return NextResponse.json(
-        { error: "Image must be between 1 byte and 8 MB." },
+        { error: `${resourceType === "video" ? "Video" : "Image"} must be between 1 byte and ${maxBytes / 1024 / 1024} MB.` },
         { status: 400 },
       );
     }
 
-    const asset = await uploadImageBuffer(bytes, { folder: "freshflower" });
+    const asset = await uploadMediaBuffer(bytes, { folder: "freshflower", resourceType });
     return NextResponse.json(asset);
   } catch (error) {
     console.error("[api/admin/upload] failed:", error);
@@ -52,13 +57,14 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const publicId = request.nextUrl.searchParams.get("id");
+    const resourceType = request.nextUrl.searchParams.get("resourceType") === "video" ? "video" : "image";
     if (!publicId) {
       return NextResponse.json(
         { error: "Missing 'id' (public_id) query param." },
         { status: 400 },
       );
     }
-    await deleteCloudinaryAsset(publicId);
+    await deleteCloudinaryAsset(publicId, resourceType);
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("[api/admin/upload] delete failed:", error);

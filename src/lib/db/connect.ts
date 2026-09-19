@@ -39,11 +39,15 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 function buildDirectUri(srvUri: string): Promise<string> {
   const url = new URL(srvUri);
   return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error("MongoDB SRV lookup timed out"));
+    }, 2500);
     // Callback API on the pinned (real) dns builtin. Turbopack's server bundles
     // can contain a second `dns` copy for `node:dns/promises` that does NOT see
     // dns.setServers() — the callback module is consistently the real builtin.
     dns.resolveSrv(`_mongodb._tcp.${url.hostname}`, (error, records) => {
       if (error) {
+        clearTimeout(timeout);
         reject(error);
         return;
       }
@@ -64,6 +68,7 @@ function buildDirectUri(srvUri: string): Promise<string> {
       if (!params.get("authSource")) params.set("authSource", "admin");
       if (!params.get("tls") && !params.get("ssl")) params.set("tls", "true");
       const dbPath = url.pathname || "/";
+      clearTimeout(timeout);
       resolve(`mongodb://${creds}${hosts.join(",")}${dbPath}?${params.toString()}`);
     });
   });
@@ -82,8 +87,8 @@ async function connectWithRetry(): Promise<typeof mongoose> {
       const directUri = await buildDirectUri(originalUri);
       lastError = await mongoose.connect(directUri, {
         bufferCommands: false,
-        serverSelectionTimeoutMS: 20000,
-        connectTimeoutMS: 20000,
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
       });
       return lastError as typeof mongoose;
     } catch (error) {
@@ -97,8 +102,8 @@ async function connectWithRetry(): Promise<typeof mongoose> {
     try {
       return await mongoose.connect(originalUri, {
         bufferCommands: false,
-        serverSelectionTimeoutMS: 15000,
-        connectTimeoutMS: 15000,
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
       });
     } catch (error) {
       lastError = error;

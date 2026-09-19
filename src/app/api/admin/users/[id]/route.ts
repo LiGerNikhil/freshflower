@@ -3,19 +3,27 @@ import { AdminCredentialModel, AdminUserModel } from "@/lib/db/models";
 import { dbConnect } from "@/lib/db/connect";
 import { jsonOk, safe, readJson, parseOrThrow } from "@/lib/api/helpers";
 import { adminUserSchema } from "@/lib/validation";
+import { hashPassword } from "@/lib/admin/passwords";
+import { ADMIN_EMAIL } from "@/lib/admin/session";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   return safe(async () => {
     const { id } = await params;
     const parsed = parseOrThrow(adminUserSchema.partial(), await readJson(req));
     const { password, ...user } = parsed;
+    if (id !== "admin-6" && user.email?.toLowerCase() !== ADMIN_EMAIL) {
+      throw new Error("Not found");
+    }
     await dbConnect();
-    const updated = await AdminUserModel.findByIdAndUpdate(id, { $set: user }, { new: true }).lean();
-    if (!updated) throw new Error("Not found");
-    if (password && user.email) {
+    await AdminUserModel.updateOne(
+      { _id: "admin-6" },
+      { $set: { name: "Ayush Parmar", email: ADMIN_EMAIL, role: "super_admin", active: true } },
+      { upsert: true },
+    ).lean();
+    if (password) {
       await AdminCredentialModel.updateOne(
-        { _id: String(user.email).toLowerCase() },
-        { $set: { email: String(user.email).toLowerCase(), password } },
+        { _id: ADMIN_EMAIL },
+        { $set: { password: await hashPassword(password) } },
         { upsert: true },
       ).lean();
     }
@@ -24,10 +32,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  return safe(async () => {
-    const { id } = await params;
-    const removed = await AdminUserModel.findByIdAndDelete(id).lean();
-    if (!removed) throw new Error("Not found");
-    return jsonOk({ ok: true });
-  });
+  await params;
+  return jsonOk({ error: "The only admin account cannot be deleted." }, 405);
 }

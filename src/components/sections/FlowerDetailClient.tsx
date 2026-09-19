@@ -8,6 +8,7 @@ import { AnimatePresence, motion, type Variants } from "framer-motion";
 import {
   ArrowLeft,
   ArrowRight,
+  Bike,
   CalendarDays,
   ChevronDown,
   Flower2,
@@ -46,6 +47,8 @@ const reveal: Variants = {
     transition: { duration: 0.55, ease: "easeOut" },
   },
 };
+
+const estimatedDeliveryLabel = "Estimated delivery by Tomorrow 11:00AM";
 
 function availability(flower: Flower) {
   if (!flower.inStock) return { label: "Sold Out", tone: "blush" as const };
@@ -225,6 +228,21 @@ export default function FlowerDetailClient({
                 </button>
               ))}
             </div>
+            {flower.videos?.length ? (
+              <div className="mt-4 grid gap-3">
+                {flower.videos.map((video, index) => (
+                  <video
+                    key={video}
+                    src={video}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="w-full rounded-xl border border-ink/10 bg-ink/5"
+                    aria-label={`${flower.name} video ${index + 1}`}
+                  />
+                ))}
+              </div>
+            ) : null}
           </motion.section>
           <motion.section
             variants={reveal}
@@ -258,9 +276,14 @@ export default function FlowerDetailClient({
               <span className="text-2xl font-bold">
                 ₹{flower.price.toLocaleString("en-IN")}
               </span>
+              {flower.compareAtPrice && flower.compareAtPrice > flower.price ? (
+                <span className="text-sm text-ink-soft line-through">
+                  ₹{flower.compareAtPrice.toLocaleString("en-IN")}
+                </span>
+              ) : null}
               <span className="text-sm text-ink-soft">
-                {flower.stemCount
-                  ? `${flower.stemCount} stems`
+                {flower.stemCount ?? flower.quantity
+                  ? `${flower.stemCount ?? flower.quantity} ${flower.unit?.toLowerCase() ?? "stems"}`
                   : "Seasonal bunch"}
               </span>
               <Badge tone={status.tone}>{status.label}</Badge>
@@ -314,19 +337,33 @@ export default function FlowerDetailClient({
                 />
               </div>
             </div>
-            <div className="mt-7 grid gap-3 sm:grid-cols-2">
+            <div className="mt-6 flex items-start gap-3 rounded-lg border border-sage-ink/15 bg-sage/70 p-4 text-sm font-semibold text-sage-ink">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/70">
+                <Bike size={20} />
+              </span>
+              <div>
+                <p>{estimatedDeliveryLabel}</p>
+                <p className="mt-1 text-xs font-normal leading-5 text-ink-soft">
+                  Rider will be assigned on a bike after order confirmation.
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 grid grid-cols-2 gap-2 sm:gap-3">
               <Button
-                size="lg"
+                size="sm"
+                variant="secondary"
                 disabled={!flower.inStock}
                 onClick={addFlower}
+                className="min-h-10 w-full whitespace-nowrap border-blush bg-blush/85 px-3 text-xs text-ink hover:bg-blush sm:min-h-11 sm:text-sm"
               >
                 Add to Cart <Plus size={17} />
               </Button>
               <Button
-                size="lg"
+                size="sm"
                 variant="gold"
                 disabled={!flower.inStock}
                 onClick={buyNow}
+                className="min-h-10 w-full whitespace-nowrap border border-gold/30 bg-ivory-deep px-3 text-xs text-ink hover:bg-gold/25 sm:min-h-11 sm:text-sm"
               >
                 Buy Now <ArrowRight size={17} />
               </Button>

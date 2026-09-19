@@ -10,20 +10,19 @@ import {
 } from "lucide-react";
 import { useSiteContent } from "@/components/providers/SiteContentProvider";
 import { useAdminAuth } from "@/components/providers/AdminAuthContext";
-import { passwordFor } from "@/lib/admin/phase16";
+import { api } from "@/lib/api/client";
 import { type AdminUser } from "@/lib/types";
 
 export function UsersManager() {
   const {
     users,
-    userPasswords,
-    setUserPassword,
     updateUser,
   } = useSiteContent();
   const { user: currentUser } = useAdminAuth();
 
   const [query, setQuery] = useState("");
   const [editingPasswordFor, setEditingPasswordFor] = useState<string | null>(null);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -40,7 +39,11 @@ export function UsersManager() {
     );
   }, [users, query]);
 
-  const handleSavePassword = () => {
+  const handleSavePassword = async () => {
+    if (!currentPassword) {
+      setPasswordError("Current password is required.");
+      return;
+    }
     if (!newPassword.trim()) {
       setPasswordError("New password is required.");
       return;
@@ -53,7 +56,16 @@ export function UsersManager() {
       setPasswordError("Passwords do not match.");
       return;
     }
-    setUserPassword(adminUser.email, newPassword);
+    try {
+      await api("/api/admin/auth/password", {
+        method: "PATCH",
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+    } catch (error) {
+      setPasswordError(error instanceof Error ? error.message : "Password update failed.");
+      return;
+    }
+    setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
     setPasswordError("");
@@ -117,11 +129,9 @@ export function UsersManager() {
                 <UserRow
                   key={user.id}
                   user={user}
-                  isEditingPassword={editingPasswordFor === user.id}
                   onStartPasswordEdit={() => {
                     setEditingPasswordFor(user.id);
                   }}
-                  onCancelPasswordEdit={() => setEditingPasswordFor(null)}
                   onToggleActive={() => {
                     if (user.id === currentUser?.id) return;
                     updateUser(user.id, { active: !user.active });
@@ -144,7 +154,19 @@ export function UsersManager() {
       {editingPasswordFor && (
         <div className="mt-6 rounded-xl border border-ink/10 bg-white/80 p-6 shadow-sm">
           <h2 className="mb-4 font-display text-xl">Change password</h2>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-ink-soft">
+                Current password
+              </label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                className="w-full rounded-md border border-ink/10 bg-white px-3 py-2 text-sm text-ink focus:border-transparent focus:ring-2 focus:ring-gold/60 focus:outline-none"
+                placeholder="Current password"
+              />
+            </div>
             <div>
               <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-ink-soft">
                 New password
@@ -185,6 +207,7 @@ export function UsersManager() {
               type="button"
               onClick={() => {
                 setEditingPasswordFor(null);
+                setCurrentPassword("");
                 setNewPassword("");
                 setConfirmPassword("");
                 setPasswordError("");
@@ -202,15 +225,11 @@ export function UsersManager() {
 
 function UserRow({
   user,
-  isEditingPassword,
   onStartPasswordEdit,
-  onCancelPasswordEdit,
   onToggleActive,
 }: {
   user: AdminUser;
-  isEditingPassword: boolean;
   onStartPasswordEdit: () => void;
-  onCancelPasswordEdit: () => void;
   onToggleActive: () => void;
 }) {
   const isActive = user.active;

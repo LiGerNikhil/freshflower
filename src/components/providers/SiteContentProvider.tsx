@@ -153,19 +153,17 @@ export function SiteContentProvider({ children }: { children: ReactNode }) {
     };
     (async () => {
       try {
-        const [homepage, settings, blogPosts, seoOverrides, users] = await Promise.all([
+        const [homepage, settings, blogPosts, seoOverrides] = await Promise.all([
           api("/api/admin/homepage"),
           api("/api/admin/settings"),
           api("/api/admin/blog"),
           api("/api/admin/seo"),
-          api("/api/admin/users"),
         ]);
         apply({
           homepage,
           settings,
           blogPosts,
           seoOverrides,
-          users,
         });
       } catch {
         apply(saved ?? {});
@@ -260,15 +258,8 @@ export function SiteContentProvider({ children }: { children: ReactNode }) {
       },
       userPasswords: state.userPasswords,
       setUserPassword: (email, password) => {
-        const user = state.users.find(
-          (candidate) => candidate.email.toLowerCase() === email.toLowerCase(),
-        );
-        if (user) {
-          api(`/api/admin/users/${encodeURIComponent(user.id)}`, {
-            method: "PATCH",
-            body: JSON.stringify({ email, password }),
-          }).catch(() => undefined);
-        }
+        // Legacy local preview mirror only. Real password changes go through
+        // /api/admin/auth/password and are stored server-side.
         dispatch({ type: "setPassword", email, password });
       },
     }),

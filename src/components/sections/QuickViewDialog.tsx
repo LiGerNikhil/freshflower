@@ -94,16 +94,23 @@ export function QuickViewDialog({
                 {flower.shortDescription}
               </p>
               <p className="mt-4 text-sm leading-6 text-ink-soft">
-                {flower.stemCount
-                  ? `${flower.stemCount} stems`
+                {flower.stemCount ?? flower.quantity
+                  ? `${flower.stemCount ?? flower.quantity} ${flower.unit?.toLowerCase() ?? "stems"}`
                   : "Fresh seasonal bunch"}
               </p>
             </div>
             <div className="mt-8 flex-1 border-t border-ink/10 px-6 py-6 md:pr-8">
               <div className="flex flex-wrap items-center justify-between gap-4">
-                <span className="text-2xl font-bold text-ink">
-                  ₹{flower.price.toLocaleString("en-IN")}
-                </span>
+                <div>
+                  {flower.compareAtPrice && flower.compareAtPrice > flower.price ? (
+                    <p className="text-sm text-ink-soft line-through">
+                      ₹{flower.compareAtPrice.toLocaleString("en-IN")}
+                    </p>
+                  ) : null}
+                  <span className="text-2xl font-bold text-ink">
+                    ₹{flower.price.toLocaleString("en-IN")}
+                  </span>
+                </div>
                 <div
                   className="flex items-center gap-4 rounded-md border border-ink/10 bg-white/50 px-3 py-2"
                   aria-label={`Quantity, currently ${quantity}`}

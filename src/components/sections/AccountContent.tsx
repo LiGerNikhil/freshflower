@@ -15,11 +15,13 @@ import {
 } from "lucide-react";
 import { AccountShell } from "@/components/sections/AccountShell";
 import { OrderStatusStepper } from "@/components/sections/OrderStatusStepper";
+import { ProductItemImage } from "@/components/sections/ProductItemImage";
 import { useCart } from "@/components/providers/CartContext";
 import { useWishlist } from "@/components/providers/WishlistContext";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { GRADIENT_TOKENS, isRemoteImage } from "@/lib/utils";
+import { resolveProductImage } from "@/lib/product-media";
 import type { Address, Customer, Flower, Order, Review } from "@/lib/types";
 
 interface AccountContentProps {
@@ -53,7 +55,7 @@ export default function AccountContent({
   return (
     <AccountShell title={titles[mode]}>
       {mode === "overview" && <Overview customer={customer} orders={orders} />}
-      {mode === "orders" && <Orders orders={orders} />}
+      {mode === "orders" && <Orders orders={orders} flowers={flowers} />}
       {mode === "addresses" && <Addresses initial={customer.addresses} />}
       {mode === "wishlist" && <Wishlist flowers={flowers} />}
       {mode === "notifications" && <Notifications orders={orders} />}
@@ -126,7 +128,7 @@ function Overview({
     </div>
   );
 }
-function Orders({ orders }: { orders: Order[] }) {
+function Orders({ orders, flowers }: { orders: Order[]; flowers: Flower[] }) {
   return (
     <div className="space-y-4">
       {orders.map((order) => (
@@ -136,6 +138,11 @@ function Orders({ orders }: { orders: Order[] }) {
           className="block rounded-lg bg-white/70 p-6 transition hover:bg-white"
         >
           <div className="flex flex-wrap items-start justify-between gap-4">
+            <ProductItemImage
+              image={resolveProductImage(order.items[0] ?? {}, flowers)}
+              name={order.items[0]?.name ?? order.orderNumber}
+              className="h-16 w-16"
+            />
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-sage-ink">
                 {order.orderNumber}

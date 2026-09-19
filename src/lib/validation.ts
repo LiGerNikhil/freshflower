@@ -27,6 +27,7 @@ export const productUpsertSchema = z.object({
   newArrival: z.boolean().default(false),
   colors: z.array(z.string().max(60)).max(24).default(["mixed"]),
   images: z.array(z.string().max(1000)).max(24).default(["gradient-ivory"]),
+  videos: z.array(z.string().max(1000)).max(12).default([]),
   seoTitle: z.string().max(160).default(""),
   metaDescription: z.string().max(320).default(""),
   keywords: z.array(z.string().max(60)).max(30).default([]),
@@ -169,7 +170,9 @@ export const seoOverrideSchema = z.object({
 export const adminUserSchema = z.object({
   name: z.string().trim().min(1).max(80),
   email: z.string().email().max(120),
-  role: z.enum(["admin", "manager", "viewer"]).default("admin"),
+  role: z
+    .enum(["super_admin", "order_manager", "inventory_manager", "content_manager", "support_manager"])
+    .default("super_admin"),
   active: z.boolean().default(true),
   password: z.string().min(6).max(200).optional(),
 });
@@ -191,7 +194,8 @@ export const customerDetailSchema = z.object({
 const addressSchema = z.object({
   line: z.string().trim().min(3, "Address is required.").max(200),
   city: z.string().trim().min(2).max(80),
-  pincode: z.string().trim().regex(/^\d{6}$/, "Pincode must be 6 digits."),
+  areaId: z.string().trim().min(1, "Delivery area is required."),
+  pincode: z.string().trim().default(""),
 });
 
 export const checkoutSchema = z.object({

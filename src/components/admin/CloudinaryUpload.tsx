@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ImagePlus, Loader2, Trash2 } from "lucide-react";
+import { ImagePlus, Loader2, Trash2, Video } from "lucide-react";
 
 /**
  * Real Cloudinary-backed image picker for admin forms.
@@ -16,10 +16,12 @@ export function CloudinaryUpload({
   value,
   onChange,
   label = "Add images",
+  mediaType = "image",
 }: {
   value: string[];
   onChange: (urls: string[]) => void;
   label?: string;
+  mediaType?: "image" | "video";
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +35,7 @@ export function CloudinaryUpload({
       for (const file of Array.from(files)) {
         const form = new FormData();
         form.append("file", file);
+        form.append("resourceType", mediaType);
         const res = await fetch("/api/admin/upload", { method: "POST", body: form });
         if (!res.ok) {
           const body = await res.json().catch(() => null);
@@ -54,12 +57,12 @@ export function CloudinaryUpload({
   async function remove(url: string) {
     const next = value.filter((v) => v !== url);
     onChange(next);
-    const match = /^https:\/\/res\.cloudinary\.com\/.+\/image\/upload\/(?:v\d+\/)?(.+)$/.exec(
+    const match = /^https:\/\/res\.cloudinary\.com\/.+\/(image|video)\/upload\/(?:v\d+\/)?(.+)$/.exec(
       url,
     );
     if (match) {
       try {
-        await fetch(`/api/admin/upload?id=${encodeURIComponent(match[1])}`, {
+        await fetch(`/api/admin/upload?id=${encodeURIComponent(match[2])}&resourceType=${match[1]}`, {
           method: "DELETE",
         });
       } catch {
@@ -71,27 +74,34 @@ export function CloudinaryUpload({
   return (
     <div>
       <div className="mb-3 flex flex-wrap gap-3">
-        {value.map((image, index) => (
-          <div key={`${image}-${index}`} className="relative">
-            {image.startsWith("gradient-") || image.startsWith("data:") ? (
+        {value.map((asset, index) => (
+          <div key={`${asset}-${index}`} className="relative">
+            {asset.startsWith("gradient-") || asset.startsWith("data:") ? (
               <div
-                title={image}
+                title={asset}
                 className="flex h-16 w-16 items-center justify-center rounded-lg bg-sage-ink/15 text-xs font-semibold text-sage-ink"
               >
                 Token
               </div>
+            ) : mediaType === "video" ? (
+              <video
+                src={asset}
+                muted
+                playsInline
+                className="h-16 w-16 rounded-lg object-cover"
+              />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={image}
+                src={asset}
                 alt={`Uploaded image ${index + 1}`}
                 className="h-16 w-16 rounded-lg object-cover"
               />
             )}
             <button
               type="button"
-              onClick={() => remove(image)}
-              aria-label={`Remove image ${index + 1}`}
+              onClick={() => remove(asset)}
+              aria-label={`Remove ${mediaType} ${index + 1}`}
               className="absolute -right-1.5 -top-1.5 rounded-full bg-ink p-1 text-ivory shadow hover:bg-ink-soft"
             >
               <Trash2 size={12} />
@@ -107,11 +117,21 @@ export function CloudinaryUpload({
       )}
 
       <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-ink/25 px-4 py-2.5 text-sm font-semibold text-ink-soft hover:border-gold hover:text-ink disabled:cursor-not-allowed disabled:opacity-50">
-        {uploading ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} />}
+        {uploading ? (
+          <Loader2 size={16} className="animate-spin" />
+        ) : mediaType === "video" ? (
+          <Video size={16} />
+        ) : (
+          <ImagePlus size={16} />
+        )}
         {uploading ? "Uploading…" : label}
         <input
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
+          accept={
+            mediaType === "video"
+              ? "video/mp4,video/webm,video/quicktime"
+              : "image/jpeg,image/png,image/webp,image/gif"
+          }
           multiple
           disabled={uploading}
           onChange={(event) => handleFiles(event.target.files)}

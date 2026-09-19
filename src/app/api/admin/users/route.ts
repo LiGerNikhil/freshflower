@@ -1,38 +1,31 @@
 import { NextRequest } from "next/server";
-import { AdminCredentialModel, AdminUserModel } from "@/lib/db/models";
-import { serializeList } from "@/lib/db/repositories";
+import { AdminCredentialModel } from "@/lib/db/models";
 import { dbConnect } from "@/lib/db/connect";
-import { jsonOk, safe, readJson, parseOrThrow } from "@/lib/api/helpers";
-import { adminUserSchema } from "@/lib/validation";
-import { slugify } from "@/lib/utils";
+import { jsonOk } from "@/lib/api/helpers";
+import { hashPassword } from "@/lib/admin/passwords";
+import { ADMIN_EMAIL } from "@/lib/admin/session";
+import { adminUsers } from "@/lib/data/admin";
 
 async function setCredential(email: string, password: string): Promise<void> {
   await dbConnect();
   await AdminCredentialModel.updateOne(
     { _id: email.toLowerCase() },
-    { $set: { email: email.toLowerCase(), password } },
+    { $set: { password: await hashPassword(password) } },
     { upsert: true },
   ).lean();
 }
 
 export async function GET() {
-  return safe(async () => {
-    await dbConnect();
-    const docs = await AdminUserModel.find().sort({ _id: 1 }).lean();
-    return jsonOk(serializeList(docs));
-  });
+  return jsonOk(adminUsers);
 }
 
 export async function POST(req: NextRequest) {
-  return safe(async () => {
-    const parsed = parseOrThrow(adminUserSchema, await readJson(req));
-    const id = `admin-${slugify(parsed.name.replace(/\s+/g, "-").toLowerCase())}`;
-    const { password, ...user } = parsed;
-    await dbConnect();
-    await AdminUserModel.updateOne({ _id: id }, { $set: user }, { upsert: true }).lean();
-    if (password) await setCredential(parsed.email, password);
-    return jsonOk({ ok: true, id }, 201);
-  });
+  const body = (await req.json().catch(() => null)) as { email?: string; password?: string } | null;
+  if (body?.email?.toLowerCase() === ADMIN_EMAIL && body.password) {
+    await setCredential(ADMIN_EMAIL, body.password);
+    return jsonOk({ ok: true });
+  }
+  return jsonOk({ error: "Only the configured admin account is allowed." }, 405);
 }
 
 export async function DELETE() {

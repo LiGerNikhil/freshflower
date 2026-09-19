@@ -15,11 +15,12 @@ import {
   WandSparkles,
 } from "lucide-react";
 import { useSiteContent } from "@/components/providers/SiteContentProvider";
+import { api } from "@/lib/api/client";
 import { telHref, waMeHref } from "@/lib/utils";
 import type { BusinessSettings } from "@/lib/types";
 
 export function SettingsManager() {
-  const { settings, setSettings, userPasswords, setUserPassword } = useSiteContent();
+  const { settings, setSettings } = useSiteContent();
   const [draft, setDraft] = useState<BusinessSettings | null>(null);
   const [saved, setSaved] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
@@ -53,13 +54,9 @@ export function SettingsManager() {
     window.setTimeout(() => setSaved(false), 1600);
   };
 
-  const handlePasswordChange = () => {
+  const handlePasswordChange = async () => {
     if (!currentPw) {
       setPwError("Current password is required.");
-      return;
-    }
-    if (currentPw !== (userPasswords["ayush.parmar@freshflower.zone"] ?? "")) {
-      setPwError("Current password is incorrect.");
       return;
     }
     if (newPw.length < 6) {
@@ -70,7 +67,15 @@ export function SettingsManager() {
       setPwError("Passwords do not match.");
       return;
     }
-    setUserPassword("ayush.parmar@freshflower.zone", newPw);
+    try {
+      await api("/api/admin/auth/password", {
+        method: "PATCH",
+        body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw }),
+      });
+    } catch (error) {
+      setPwError(error instanceof Error ? error.message : "Password update failed.");
+      return;
+    }
     setCurrentPw("");
     setNewPw("");
     setConfirmPw("");

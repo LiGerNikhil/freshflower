@@ -19,7 +19,7 @@ export function LoginForm() {
     setSubmitting(true);
     // Simulate a network round-trip before resolving the dummy session.
     await new Promise((resolve) => setTimeout(resolve, 450));
-    const result = login(email, password);
+    const result = await login(email, password);
     setSubmitting(false);
     if (!result.ok) {
       setError(result.error);

@@ -44,6 +44,7 @@ export interface Flower {
   stemCount?: number;
   colors: string[];
   images: string[];
+  videos?: string[];
   inStock: boolean;
   availableToday: boolean;
   featured: boolean;
@@ -62,6 +63,8 @@ export interface Flower {
   seoTitle?: string;
   metaDescription?: string;
   keywords?: string[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface BouquetItem {
@@ -113,6 +116,7 @@ export interface OrderItem {
   name: string;
   price: number;
   quantity: number;
+  image?: string;
 }
 
 export interface Order {

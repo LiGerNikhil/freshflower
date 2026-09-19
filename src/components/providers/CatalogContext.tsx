@@ -64,6 +64,7 @@ export interface ProductDraft {
   newArrival: boolean;
   colors: string[];
   images: string[];
+  videos: string[];
   seoTitle: string;
   metaDescription: string;
   keywords: string[];
@@ -146,6 +147,10 @@ interface CatalogValue {
 
 const CatalogContext = createContext<CatalogValue | null>(null);
 
+function idForSlug(slug: string): string {
+  return slug.startsWith("fl-") ? slug : `fl-${slug}`;
+}
+
 export function CatalogProvider({ children }: { children: ReactNode }) {
   const [products, setProducts] = useState<Flower[]>(() =>
     seedFlowers.map(seedFlower),
@@ -193,8 +198,8 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const draftToFlower = useCallback(
-    (draft: ProductDraft): Flower => ({
-      id: draft.slug,
+    (draft: ProductDraft, id = idForSlug(draft.slug)): Flower => ({
+      id,
       name: draft.name,
       slug: draft.slug,
       categoryId: draft.categoryId,
@@ -205,12 +210,14 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       compareAtPrice: draft.salePrice > 0 ? draft.salePrice : undefined,
       colors: draft.colors.length ? draft.colors : ["mixed"],
       images: draft.images.length ? draft.images : ["gradient-ivory"],
+      videos: draft.videos,
       featured: draft.featured,
       rating: 0,
       reviewCount: 0,
       careInstructions: "",
       sku: draft.sku,
       quantity: draft.quantity,
+      stemCount: draft.unit.toLowerCase().includes("stem") ? draft.quantity : undefined,
       unit: draft.unit,
       stock: draft.stock,
       ...availabilityFromStatus(draft.stockStatus),
@@ -239,10 +246,12 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     (id: string, draft: ProductDraft) => {
       api(`/api/admin/flowers/${encodeURIComponent(id)}`, {
         method: "PATCH",
-        body: JSON.stringify(draft),
+          body: JSON.stringify(draft),
       }).catch(() => undefined);
       setProducts((prev) =>
-        prev.map((flower) => (flower.id === id ? draftToFlower(draft) : flower)),
+        prev.map((flower) =>
+          flower.id === id ? draftToFlower(draft, draft.slug === flower.slug ? id : idForSlug(draft.slug)) : flower,
+        ),
       );
     },
     [draftToFlower],

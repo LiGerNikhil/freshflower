@@ -51,7 +51,13 @@ export function ProductForm({ productId }: { productId?: string }) {
   const { products, categories, addProduct, updateProduct } = useCatalog();
 
   const existing = useMemo(
-    () => products.find((flower) => flower.id === productId),
+    () =>
+      products.find(
+        (flower) =>
+          flower.id === productId ||
+          flower.slug === productId ||
+          flower.id === `fl-${productId}`,
+      ),
     [products, productId],
   );
 
@@ -63,7 +69,7 @@ export function ProductForm({ productId }: { productId?: string }) {
     existing?.shortDescription ?? "",
   );
   const [price, setPrice] = useState(existing?.price ?? 0);
-  const [salePrice, setSalePrice] = useState((existing?.compareAtPrice ?? 0).toString());
+  const [originalPrice, setOriginalPrice] = useState((existing?.compareAtPrice ?? 0).toString());
   const [quantity, setQuantity] = useState(existing?.quantity ?? 1);
   const [unit, setUnit] = useState(existing?.unit ?? "Stems");
   const [stock, setStock] = useState(existing?.stock ?? 24);
@@ -75,6 +81,7 @@ export function ProductForm({ productId }: { productId?: string }) {
   const [bestSeller, setBestSeller] = useState(existing?.bestSeller ?? false);
   const [newArrival, setNewArrival] = useState(existing?.newArrival ?? false);
   const [images, setImages] = useState<string[]>(existing?.images ?? []);
+  const [videos, setVideos] = useState<string[]>(existing?.videos ?? []);
   const [seoTitle, setSeoTitle] = useState(existing?.seoTitle ?? "");
   const [metaDescription, setMetaDescription] = useState(existing?.metaDescription ?? "");
   const [keywords, setKeywords] = useState((existing?.keywords ?? []).join(", "));
@@ -105,7 +112,7 @@ export function ProductForm({ productId }: { productId?: string }) {
     if (!finalSlug) next.slug = "A valid slug is required.";
     else if (
       products.some(
-        (flower) => flower.slug === finalSlug && flower.id !== productId,
+        (flower) => flower.slug === finalSlug && flower.id !== existing?.id,
       )
     ) {
       next.slug = `Slug "${finalSlug}" is already in use.`;
@@ -131,7 +138,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       description,
       shortDescription,
       price: Number(price),
-      salePrice: Number(salePrice) || 0,
+      salePrice: Number(originalPrice) || 0,
       quantity: Number(quantity),
       unit,
       stock: Number(stock) || 0,
@@ -142,6 +149,7 @@ export function ProductForm({ productId }: { productId?: string }) {
       newArrival,
       colors: [],
       images,
+      videos,
       seoTitle: seoTitle.trim(),
       metaDescription: metaDescription.trim(),
       keywords: keywords
@@ -150,7 +158,7 @@ export function ProductForm({ productId }: { productId?: string }) {
         .filter(Boolean),
     };
     if (productId) {
-      updateProduct(productId, draft);
+      updateProduct(existing?.id ?? productId, draft);
     } else {
       addProduct(draft);
     }
@@ -277,7 +285,7 @@ export function ProductForm({ productId }: { productId?: string }) {
         <div className="grid gap-4 sm:grid-cols-3">
           <label className="block">
             <span className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-ink-soft">
-              Price (₹)
+              Selling price (₹)
             </span>
             <input
               type="number"
@@ -291,15 +299,15 @@ export function ProductForm({ productId }: { productId?: string }) {
           </label>
           <label className="block">
             <span className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-ink-soft">
-              Sale price (₹)
+              Original price (₹)
             </span>
             <input
               type="number"
               min={0}
               step={1}
-              value={salePrice}
-              onChange={(event) => setSalePrice(event.target.value)}
-              placeholder="Optional, shows as strikethrough"
+              value={originalPrice}
+              onChange={(event) => setOriginalPrice(event.target.value)}
+              placeholder="Optional, for analytics/strike-through"
               className={fieldClass}
             />
           </label>
@@ -388,18 +396,33 @@ export function ProductForm({ productId }: { productId?: string }) {
         </div>
       </section>
 
-      {/* Images */}
+      {/* Media */}
       <section className="mb-6 rounded-xl border border-ink/10 bg-white/80 p-5 shadow-sm">
-        <h2 className="mb-4 font-display text-lg">Images</h2>
+        <h2 className="mb-4 font-display text-lg">Media</h2>
         <p className="mb-3 text-sm text-ink-soft">
-          Uploads go straight to Cloudinary via /api/admin/upload and are stored
-          with the product on the next save.
+          Upload images and product videos to Cloudinary. Both are stored with
+          the product on the next save.
         </p>
         <CloudinaryUpload
           value={images}
           onChange={setImages}
           label="Add images"
+          mediaType="image"
         />
+        <div className="mt-5">
+          <CloudinaryUpload
+            value={videos}
+            onChange={setVideos}
+            label="Add videos"
+            mediaType="video"
+          />
+        </div>
+        {videos.length > 0 && (
+          <p className="mt-3 text-xs text-ink-soft">
+            Product cards still use the first image as the thumbnail; videos are
+            available on the product detail media gallery.
+          </p>
+        )}
       </section>
 
       {/* SEO */}

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import FlowersCatalogue from "@/components/sections/FlowersCatalogue";
 import { MAX_PRICE, parseList, type CatalogState } from "@/lib/catalog";
-import { getFlowers } from "@/lib/db/repositories";
+import { getActiveFlowers } from "@/lib/db/repositories";
 import { canonical } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +54,7 @@ export default async function FlowersPage({ searchParams }: FlowersPageProps) {
     page,
   };
 
-  const flowers = await getFlowers();
+  const flowers = await getActiveFlowers();
 
   return <FlowersCatalogue flowers={flowers} initialState={initialState} />;
 }

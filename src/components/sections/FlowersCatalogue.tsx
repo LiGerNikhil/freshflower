@@ -70,6 +70,19 @@ function statusFor(flower: Flower): Availability {
   return "preorder";
 }
 
+function quantityForFilter(flower: Flower): number | undefined {
+  return flower.stemCount ?? flower.quantity;
+}
+
+function isPlant(flower: Flower): boolean {
+  return flower.unit?.toLowerCase().includes("plant") || flower.categoryId === "cat-orchid";
+}
+
+function newestTime(flower: Flower): number {
+  const stamped = flower.createdAt ?? flower.updatedAt;
+  return stamped ? new Date(stamped).getTime() || 0 : 0;
+}
+
 function FilterSection({
   title,
   children,
@@ -319,12 +332,12 @@ export default function FlowersCatalogue({
         !state.units.length ||
         state.units.some((unit) =>
           unit === "plant"
-            ? !flower.stemCount
+            ? isPlant(flower)
             : unit === "stems-6"
-              ? flower.stemCount === 6
+              ? quantityForFilter(flower) === 6
               : unit === "stems-10"
-                ? flower.stemCount === 10
-                : flower.stemCount === 12,
+                ? quantityForFilter(flower) === 10
+                : quantityForFilter(flower) === 12,
         );
       const availabilityMatch =
         !state.availability.length ||
@@ -345,8 +358,11 @@ export default function FlowersCatalogue({
         : state.sort === "price-desc"
           ? b.price - a.price
           : state.sort === "new"
-            ? b.id.localeCompare(a.id)
-            : b.rating - a.rating,
+            ? newestTime(b) - newestTime(a) || b.id.localeCompare(a.id)
+            : Number(b.newArrival) - Number(a.newArrival) ||
+              Number(b.bestSeller) - Number(a.bestSeller) ||
+              newestTime(b) - newestTime(a) ||
+              b.rating - a.rating,
     );
 
   const pageCount = Math.max(1, Math.ceil(matchingFlowers.length / PAGE_SIZE));

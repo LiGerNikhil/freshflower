@@ -1,4 +1,4 @@
-export const MAX_PRICE = 3000;
+export const MAX_PRICE = 10000;
 
 export type SortValue = "popular" | "price-asc" | "price-desc" | "new";
 export type Availability = "today" | "limited" | "preorder" | "soldout";

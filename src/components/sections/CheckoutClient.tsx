@@ -1,30 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
+  Bike,
   Check,
-  MapPin,
   ShieldCheck,
 } from "lucide-react";
 import { useCart } from "@/components/providers/CartContext";
+import { ProductItemImage } from "@/components/sections/ProductItemImage";
 import { DeliverySlotSelector } from "@/components/ui/DeliverySlotSelector";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { deliveryAreas, deliverySlots } from "@/lib/data";
-import { DELIVERY_NOTE } from "@/lib/cart";
-import { getSlotAvailability, isServiceablePincode } from "@/lib/delivery";
-import {
-  DEFAULT_MAX_ORDERS,
-  loadDeliveryConfig,
-  type DeliveryConfig,
-} from "@/lib/admin/overrides";
-import type { DeliveryArea } from "@/lib/types";
+import { deliveryAreas } from "@/lib/data";
+import { DELIVERY_CHARGE, DELIVERY_NOTE } from "@/lib/cart";
 
-const today = new Date().toISOString().slice(0, 10);
+const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
+  .toISOString()
+  .slice(0, 10);
+const defaultDeliverySlotId = "slot-10-11";
+const estimatedDeliveryLabel = "Estimated delivery by Tomorrow 11:00 AM";
 type PaymentMethod = "online" | "cod";
 interface CheckoutForm {
   name: string;
@@ -52,83 +50,23 @@ const emptyForm: CheckoutForm = {
   pincode: "",
   landmark: "",
   instructions: "",
-  date: "",
-  slotId: "",
+  date: tomorrow,
+  slotId: defaultDeliverySlotId,
   payment: "online",
 };
 
 export default function CheckoutClient() {
   const router = useRouter();
   const { items, subtotal, itemCount, clearCart } = useCart();
+  const total = subtotal + DELIVERY_CHARGE;
   const [step, setStep] = useState(1);
   const [sameWhatsapp, setSameWhatsapp] = useState(true);
   const [form, setForm] = useState<CheckoutForm>(emptyForm);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [deliveryConfig, setDeliveryConfig] = useState<DeliveryConfig | null>(
-    null,
-  );
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDeliveryConfig(loadDeliveryConfig());
-  }, []);
-
-  const slotAvailability = useMemo(() => {
-    if (!deliveryConfig) return form.date ? getSlotAvailability(form.date) : {};
-    const maxOrdersBySlot = Object.fromEntries(
-      deliverySlots.map((slot) => [
-        slot.id,
-        deliveryConfig.slots[slot.id]?.maxOrders ?? DEFAULT_MAX_ORDERS,
-      ]),
-    );
-    const enabledSlotIds = deliverySlots
-      .map((slot) => slot.id)
-      .filter((id) => deliveryConfig.slots[id]?.enabled ?? true);
-    return form.date
-      ? getSlotAvailability(form.date, { maxOrdersBySlot, enabledSlotIds })
-      : {};
-  }, [form.date, deliveryConfig]);
-
-  const hiddenSlotIds = useMemo(
-    () =>
-      deliveryConfig
-        ? deliverySlots
-            .map((slot) => slot.id)
-            .filter((id) => deliveryConfig.slots[id]?.enabled === false)
-        : [],
-    [deliveryConfig],
-  );
-
-  const effectiveAreas = useMemo(() => {
-    if (!deliveryConfig) return deliveryAreas;
-    const stored = deliveryConfig.areas;
-    const merged = deliveryAreas
-      .filter((area) => stored[area.id] !== "deleted")
-      .map((area) =>
-        stored[area.id] && stored[area.id] !== "deleted"
-          ? (stored[area.id] as DeliveryArea)
-          : area,
-      );
-    for (const [id, entry] of Object.entries(stored)) {
-      if (
-        entry !== "deleted" &&
-        !deliveryAreas.some((candidate) => candidate.id === id)
-      ) {
-        merged.push(entry as DeliveryArea);
-      }
-    }
-    return merged;
-  }, [deliveryConfig]);
   const selectedArea =
-    effectiveAreas.find((area) => area.id === form.areaId) ??
+    deliveryAreas.find((area) => area.id === form.areaId) ??
     deliveryAreas.find((area) => area.id === form.areaId);
-  const pincodeChecked = form.pincode.length === 6;
-  const pincodeServiceable =
-    pincodeChecked && isServiceablePincode(form.pincode, effectiveAreas);
-  const availableSlots = deliverySlots.filter(
-    (slot) => slotAvailability[slot.id] !== false,
-  );
   const update = (key: keyof CheckoutForm, value: string) =>
     setForm((current) => ({ ...current, [key]: value }));
   const customerValid =
@@ -139,12 +77,7 @@ export default function CheckoutClient() {
   const deliveryValid =
     form.address.trim().length > 8 &&
     Boolean(form.areaId) &&
-    form.city.trim().length > 1 &&
-    pincodeServiceable &&
-    Boolean(form.date) &&
-    form.date >= today &&
-    Boolean(form.slotId) &&
-    availableSlots.some((slot) => slot.id === form.slotId);
+    form.city.trim().length > 1;
   const next = () => {
     setError("");
     if (step === 1 && !customerValid)
@@ -153,9 +86,7 @@ export default function CheckoutClient() {
       );
     if (step === 2 && !deliveryValid)
       return setError(
-        !pincodeServiceable
-          ? "Please enter a serviceable Delhi NCR pincode before continuing."
-          : "Please complete the address, date, and an available delivery slot.",
+        "Please complete the address and select a delivery area.",
       );
     setStep(Math.min(3, step + 1));
   };
@@ -178,6 +109,7 @@ export default function CheckoutClient() {
             address: {
               line: `${form.address}${form.landmark ? ` (${form.landmark})` : ""}`,
               city: form.city,
+              areaId: form.areaId,
               pincode: form.pincode,
             },
             notes: form.instructions,
@@ -188,13 +120,14 @@ export default function CheckoutClient() {
             name: item.name,
             quantity: item.quantity,
             price: item.price,
+            image: item.image,
           })),
-          deliverySlotId: form.slotId,
-          deliveryDate: form.date,
+          deliverySlotId: defaultDeliverySlotId,
+          deliveryDate: tomorrow,
           subtotal,
           discount: 0,
-          deliveryFee: 0,
-          total: subtotal,
+          deliveryFee: DELIVERY_CHARGE,
+          total,
           paymentMethod: form.payment,
           agreedToTos: true,
         }),
@@ -220,14 +153,14 @@ export default function CheckoutClient() {
           pincode: form.pincode,
           landmark: form.landmark,
           instructions: form.instructions,
-          date: form.date,
-          slotId: form.slotId,
-          slotLabel: deliverySlots.find((slot) => slot.id === form.slotId)?.label,
+          date: tomorrow,
+          slotId: defaultDeliverySlotId,
+          slotLabel: estimatedDeliveryLabel,
         },
         payment: form.payment,
         subtotal,
-        deliveryFee: 0,
-        total: subtotal,
+        deliveryFee: DELIVERY_CHARGE,
+        total,
         deliveryNote: DELIVERY_NOTE,
         createdAt: new Date().toISOString(),
       };
@@ -370,7 +303,7 @@ if (!items.length)
                         className="mt-2 w-full rounded-md border border-ink/10 bg-white/60 p-3 text-sm"
                       >
                         <option value="">Select delivery area</option>
-                        {effectiveAreas
+                        {deliveryAreas
                           .filter((area) => area.active)
                           .map((area) => (
                             <option key={area.id} value={area.id}>
@@ -387,35 +320,22 @@ if (!items.length)
                     />
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <label className="text-sm font-semibold">
-                      Pincode
-                      <input
-                        value={form.pincode}
-                        onChange={(event) =>
-                          update(
-                            "pincode",
-                            event.target.value.replace(/\D/g, "").slice(0, 6),
-                          )
-                        }
-                        inputMode="numeric"
-                        maxLength={6}
-                        className="mt-2 w-full rounded-md border border-ink/10 bg-white/60 p-3 text-sm outline-none focus:border-gold"
-                      />
-                      {pincodeChecked && (
-                        <span
-                          className={`mt-2 block text-xs font-semibold ${pincodeServiceable ? "text-sage-ink" : "text-red-700"}`}
-                        >
-                          {pincodeServiceable
-                            ? "✅ We deliver to your location"
-                            : "❌ Currently unavailable in your area. Try WhatsApp for help."}
-                        </span>
-                      )}
-                    </label>
                     <Field
                       label="Landmark"
                       value={form.landmark}
                       onChange={(value) => update("landmark", value)}
                     />
+                    <div className="rounded-lg border border-sage-ink/15 bg-sage/70 p-4 text-sm">
+                      <div className="flex items-center gap-3 font-semibold text-sage-ink">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/70">
+                          <Bike size={19} />
+                        </span>
+                        <span>{estimatedDeliveryLabel}</span>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-ink-soft">
+                        Rider will be assigned on a bike after order confirmation.
+                      </p>
+                    </div>
                   </div>
                   <label className="text-sm font-semibold">
                     Delivery instructions
@@ -429,33 +349,6 @@ if (!items.length)
                       className="mt-2 w-full rounded-md border border-ink/10 bg-white/60 p-3 text-sm"
                     />
                   </label>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <label className="text-sm font-semibold">
-                      Delivery date
-                      <input
-                        type="date"
-                        min={today}
-                        value={form.date}
-                        onChange={(event) => {
-                          update("date", event.target.value);
-                          update("slotId", "");
-                        }}
-                        className="mt-2 w-full rounded-md border border-ink/10 bg-white/60 p-3 text-sm"
-                      />
-                    </label>
-                    <div className="text-sm font-semibold">
-                      Delivery slots
-                      <p className="mb-2 mt-2 text-xs font-normal text-ink-soft">
-                        Availability is simulated by date.
-                      </p>
-<DeliverySlotSelector
-                        selectedSlotId={form.slotId}
-                        onChange={(slotId) => update("slotId", slotId)}
-                        availability={slotAvailability}
-                        hiddenSlotIds={hiddenSlotIds}
-                      />
-                    </div>
-                  </div>
                 </div>
               </StepCard>
             )}
@@ -471,14 +364,10 @@ if (!items.length)
                       Delivering to {selectedArea?.name}
                     </p>
                     <p className="mt-1 text-ink-soft">
-                      {form.address}, {form.city} {form.pincode}
+                      {form.address}, {form.city}
                     </p>
-                    <p className="mt-2 text-ink-soft">
-                      {form.date} ·{" "}
-                      {
-                        deliverySlots.find((slot) => slot.id === form.slotId)
-                          ?.label
-                      }
+                    <p className="mt-2 flex items-center gap-2 text-sage-ink">
+                      <Bike size={16} /> {estimatedDeliveryLabel}
                     </p>
                   </div>
                   <div>
@@ -509,9 +398,13 @@ Online · UPI / Card / Netbanking{" "}
                     <p className="mt-2 text-xs text-ink-soft">
                       {DELIVERY_NOTE}
                     </p>
+                    <div className="mt-3 flex justify-between">
+                      <span>Delivery charge</span>
+                      <span>₹{DELIVERY_CHARGE.toLocaleString("en-IN")}</span>
+                    </div>
                     <div className="mt-3 flex justify-between text-lg font-bold">
                       <span>Total today</span>
-                      <span>₹{subtotal.toLocaleString("en-IN")}</span>
+                      <span>₹{total.toLocaleString("en-IN")}</span>
                     </div>
                   </div>
                 </div>
@@ -546,10 +439,14 @@ Online · UPI / Card / Netbanking{" "}
                 <span className="text-ink-soft">Flowers total</span>
                 <span>₹{subtotal.toLocaleString("en-IN")}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-ink-soft">Delivery charge</span>
+                <span>₹{DELIVERY_CHARGE.toLocaleString("en-IN")}</span>
+              </div>
               <p className="text-xs leading-5 text-ink-soft">{DELIVERY_NOTE}</p>
               <div className="flex justify-between border-t border-ink/10 pt-3 font-bold">
                 <span>Payable now</span>
-                <span>₹{subtotal.toLocaleString("en-IN")}</span>
+                <span>₹{total.toLocaleString("en-IN")}</span>
               </div>
             </div>
             <div className="mt-6 flex items-center gap-2 text-xs text-ink-soft">
@@ -620,12 +517,11 @@ function SummaryRows({
   return (
     <div className="divide-y divide-ink/10">
       {items.map((item) => (
-        <div
-          key={item.productId}
-          className="flex justify-between gap-4 py-3 text-sm"
-        >
-          <span>
-            {item.name} <span className="text-ink-soft">× {item.quantity}</span>
+        <div key={item.productId} className="flex items-center gap-3 py-3 text-sm">
+          <ProductItemImage image={item.image} name={item.name} className="h-14 w-14" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate">{item.name}</span>
+            <span className="text-ink-soft">× {item.quantity}</span>
           </span>
           <span className="font-semibold">
             ₹{(item.price * item.quantity).toLocaleString("en-IN")}

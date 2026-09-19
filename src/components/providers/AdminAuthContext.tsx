@@ -9,10 +9,8 @@ import {
   useCallback,
 } from "react";
 import type { AdminRole, AdminUser } from "@/lib/types";
-import { useSiteContent } from "@/components/providers/SiteContentProvider";
 
 const SESSION_STORAGE_KEY = "ff-admin-session-v1";
-const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 
 export interface AdminSession {
   user: AdminUser;
@@ -27,7 +25,7 @@ interface AdminAuthValue {
   login: (
     email: string,
     password: string,
-  ) => { ok: true } | { ok: false; error: string };
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
   logout: () => void;
 }
 
@@ -40,91 +38,62 @@ export function AdminAuthProvider({
 }) {
   const [session, setSession] = useState<AdminSession | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const { users, userPasswords } = useSiteContent();
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(SESSION_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as AdminSession;
-        const expired =
-          Date.now() - new Date(parsed.loggedInAt).getTime() >
-          SESSION_TIMEOUT_MS;
-        if (!expired) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          setSession(parsed);
-        } else {
-          window.localStorage.removeItem(SESSION_STORAGE_KEY);
-        }
+    let mounted = true;
+    (async () => {
+      try {
+        const response = await fetch("/api/admin/auth/me", { credentials: "same-origin" });
+        if (!response.ok) throw new Error("Unauthorized");
+        const body = (await response.json()) as { user: AdminUser };
+        const next = { user: body.user, loggedInAt: new Date().toISOString() };
+        if (!mounted) return;
+        setSession(next);
+        window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        if (!mounted) return;
+        setSession(null);
+        window.localStorage.removeItem(SESSION_STORAGE_KEY);
+      } finally {
+        if (mounted) setHydrated(true);
       }
-    } catch {
-      window.localStorage.removeItem(SESSION_STORAGE_KEY);
-    } finally {
-      setHydrated(true);
-    }
+    })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  useEffect(() => {
-    if (!hydrated) return;
-    const saved = window.localStorage.getItem(SESSION_STORAGE_KEY);
-    if (saved && session) {
-      const parsed = JSON.parse(saved) as AdminSession;
-      const stillActive = users.some(
-        (candidate) =>
-          candidate.email.toLowerCase() ===
-            parsed.user.email.toLowerCase() &&
-          candidate.active,
-      );
-      const expired =
-        Date.now() - new Date(parsed.loggedInAt).getTime() >
-        SESSION_TIMEOUT_MS;
-      if (!stillActive || expired) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setSession(null);
-        window.localStorage.removeItem(SESSION_STORAGE_KEY);
-      }
-    }
-  }, [hydrated, session, users]);
-
-  useEffect(() => {
-    if (!session) return;
-    const interval = setInterval(() => {
-      const expired =
-        Date.now() - new Date(session.loggedInAt).getTime() >
-        SESSION_TIMEOUT_MS;
-      if (expired) {
-        setSession(null);
-        window.localStorage.removeItem(SESSION_STORAGE_KEY);
-      }
-    }, 60000);
-    return () => clearInterval(interval);
-  }, [session]);
-
   const login = useCallback<AdminAuthValue["login"]>(
-    (email, password) => {
-      const normalized = email.trim().toLowerCase();
-      const user = users.find(
-        (candidate) =>
-          candidate.email.toLowerCase() === normalized && candidate.active,
-      );
-      if (!user || userPasswords[user.email] !== password) {
+    async (email, password) => {
+      const response = await fetch("/api/admin/auth/login", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!response.ok) {
         return {
           ok: false,
           error: "Invalid email or password.",
         };
       }
+      const body = (await response.json()) as { user: AdminUser };
       const next: AdminSession = {
-        user,
+        user: body.user,
         loggedInAt: new Date().toISOString(),
       };
       setSession(next);
       window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next));
       return { ok: true };
     },
-    [users, userPasswords],
+    [],
   );
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    await fetch("/api/admin/auth/logout", {
+      method: "POST",
+      credentials: "same-origin",
+    }).catch(() => undefined);
     setSession(null);
     window.localStorage.removeItem(SESSION_STORAGE_KEY);
   }, []);

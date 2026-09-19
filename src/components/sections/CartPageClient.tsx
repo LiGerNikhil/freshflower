@@ -5,9 +5,9 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight, Minus, Plus, Tag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useCart } from "@/components/providers/CartContext";
+import { ProductItemImage } from "@/components/sections/ProductItemImage";
 import { coupons } from "@/lib/data";
-import { DELIVERY_NOTE } from "@/lib/cart";
-import { GRADIENT_TOKENS } from "@/lib/utils";
+import { DELIVERY_CHARGE, DELIVERY_NOTE } from "@/lib/cart";
 
 export default function CartPageClient() {
   const { items, itemCount, subtotal, updateQuantity, removeItem } = useCart();
@@ -17,6 +17,7 @@ export default function CartPageClient() {
     text: string;
   } | null>(null);
   const [discount, setDiscount] = useState(0);
+  const total = subtotal + DELIVERY_CHARGE - discount;
   const applyCoupon = () => {
     const code = couponInput.trim().toUpperCase();
     const coupon = coupons.find(
@@ -100,16 +101,7 @@ export default function CartPageClient() {
                 key={`${item.productType}-${item.productId}`}
                 className="flex gap-4 py-6"
               >
-                <div
-                  className="flex h-28 w-28 shrink-0 items-center justify-center rounded-md"
-                  style={{
-                    background:
-                      GRADIENT_TOKENS[item.image] ??
-                      GRADIENT_TOKENS["gradient-ivory"],
-                  }}
-                >
-                  <span className="font-display text-ink/25">Bloom</span>
-                </div>
+                <ProductItemImage image={item.image} name={item.name} className="h-28 w-28" />
                 <div className="min-w-0 flex-1">
                   <div className="flex justify-between gap-4">
                     <div>
@@ -207,6 +199,10 @@ export default function CartPageClient() {
             </div>
             <div className="mt-6 space-y-3 border-t border-ink/10 pt-5">
               <div className="flex justify-between text-sm">
+                <span className="text-ink-soft">Delivery charge</span>
+                <span>₹{DELIVERY_CHARGE.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between text-sm">
                 <span className="text-ink-soft">Discount</span>
                 <span className={discount ? "text-sage-ink" : ""}>
                   {discount ? `-₹${discount.toLocaleString("en-IN")}` : "—"}
@@ -214,7 +210,7 @@ export default function CartPageClient() {
               </div>
               <div className="flex justify-between text-lg font-bold">
                 <span>Total</span>
-                <span>₹{(subtotal - discount).toLocaleString("en-IN")}</span>
+                <span>₹{total.toLocaleString("en-IN")}</span>
               </div>
             </div>
             <Link
@@ -224,7 +220,7 @@ export default function CartPageClient() {
               Proceed to booking <ArrowRight size={16} />
             </Link>
             <p className="mt-3 text-center text-xs text-ink-soft">
-              Delivery fee is confirmed for your address at booking.
+              Your order will be delivered by Porter.
             </p>
           </div>
         </aside>

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
-import { getCustomerByPhone, getOrderByNumber } from "@/lib/db/repositories";
+import { getCustomerByPhone, getFlowers, getOrderByNumber } from "@/lib/db/repositories";
 import { jsonOk, jsonError, safe } from "@/lib/api/helpers";
+import { resolveProductImage } from "@/lib/product-media";
 
 export async function GET(req: NextRequest) {
   return safe(async () => {
@@ -19,6 +20,16 @@ export async function GET(req: NextRequest) {
       customer.name ||
       [customer.firstName, customer.lastName].filter(Boolean).join(" ") ||
       "Customer";
-    return jsonOk({ order, customerName });
+    const flowers = await getFlowers();
+    return jsonOk({
+      order: {
+        ...order,
+        items: order.items.map((item) => ({
+          ...item,
+          image: resolveProductImage(item, flowers),
+        })),
+      },
+      customerName,
+    });
   });
 }

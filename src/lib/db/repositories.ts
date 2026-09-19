@@ -83,7 +83,7 @@ export function serializeList<T>(docs: unknown[]): T[] {
 export async function getFlowers(): Promise<Flower[]> {
   await dbConnect();
   const docs = await FlowerModel.find().sort({ _id: 1 }).lean();
-  return serializeList<Flower>(docs);
+  return serializeList<Flower>(docs).map(normalizeFlower);
 }
 
 export async function getActiveFlowers(): Promise<Flower[]> {
@@ -91,19 +91,46 @@ export async function getActiveFlowers(): Promise<Flower[]> {
   const docs = await FlowerModel.find({ active: { $ne: false } })
     .sort({ _id: 1 })
     .lean();
-  return serializeList<Flower>(docs);
+  return serializeList<Flower>(docs).map(normalizeFlower);
 }
 
 export async function getFlowerBySlug(slug: string): Promise<Flower | null> {
   await dbConnect();
   const doc = await FlowerModel.findOne({ slug }).lean();
-  return serialize<Flower>(doc as WithMeta | null);
+  const flower = serialize<Flower>(doc as WithMeta | null);
+  return flower ? normalizeFlower(flower) : null;
 }
 
 export async function getFlowerById(id: string): Promise<Flower | null> {
   await dbConnect();
   const doc = await FlowerModel.findById(id).lean();
-  return serialize<Flower>(doc as WithMeta | null);
+  const flower = serialize<Flower>(doc as WithMeta | null);
+  return flower ? normalizeFlower(flower) : null;
+}
+
+function normalizeFlower(flower: Flower): Flower {
+  const stockStatus = flower.stockStatus ?? (flower.inStock ? "in-stock" : "sold-out");
+  const inStock = flower.inStock ?? stockStatus !== "sold-out";
+  return {
+    ...flower,
+    occasionIds: flower.occasionIds ?? [],
+    colors: flower.colors?.length ? flower.colors : ["mixed"],
+    images: flower.images?.length ? flower.images : ["gradient-ivory"],
+    videos: flower.videos ?? [],
+    inStock,
+    availableToday:
+      flower.availableToday ??
+      (stockStatus === "in-stock" || stockStatus === "limited"),
+    featured: flower.featured ?? false,
+    rating: flower.rating ?? 0,
+    reviewCount: flower.reviewCount ?? 0,
+    active: flower.active ?? true,
+    stockStatus,
+    quantity: flower.quantity ?? flower.stemCount ?? 1,
+    unit: flower.unit ?? (flower.categoryId === "cat-orchid" ? "Plant" : "Stems"),
+    bestSeller: flower.bestSeller ?? flower.featured ?? false,
+    newArrival: flower.newArrival ?? false,
+  };
 }
 
 export async function getCategories(): Promise<Category[]> {
@@ -208,6 +235,12 @@ export async function getDeliveryAreas(): Promise<DeliveryArea[]> {
   await dbConnect();
   const docs = await DeliveryAreaModel.find().sort({ _id: 1 }).lean();
   return serializeList<DeliveryArea>(docs);
+}
+
+export async function getDeliveryAreaById(id: string): Promise<DeliveryArea | null> {
+  await dbConnect();
+  const doc = await DeliveryAreaModel.findById(id).lean();
+  return serialize<DeliveryArea>(doc as WithMeta | null);
 }
 
 export async function getActiveDeliveryAreas(): Promise<DeliveryArea[]> {
