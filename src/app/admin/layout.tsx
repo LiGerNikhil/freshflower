@@ -15,15 +15,16 @@ function AdminGate({ children }: { children: React.ReactNode }) {
   const { session, hydrated } = useAdminAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const isLoginPage = pathname === "/admin/login";
 
   useEffect(() => {
     if (!hydrated) return;
-    if (!session && pathname !== "/admin/login") {
+    if (!session && !isLoginPage) {
       router.replace("/admin/login");
-    } else if (session && pathname === "/admin/login") {
+    } else if (session && isLoginPage) {
       router.replace("/admin");
     }
-  }, [hydrated, session, pathname, router]);
+  }, [hydrated, session, isLoginPage, router]);
 
   if (!hydrated) {
     return (
@@ -40,6 +41,17 @@ function AdminGate({ children }: { children: React.ReactNode }) {
     // Not authenticated — the effect above redirects to /admin/login. The login
     // page is still rendered through this layout so it can use the auth context.
     return <div className="min-h-screen bg-ivory-deep">{children}</div>;
+  }
+
+  if (isLoginPage) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-ivory-deep">
+        <div className="flex items-center gap-2 font-display text-lg text-ink-soft">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-gold" />
+          Opening admin dashboard…
+        </div>
+      </div>
+    );
   }
 
   return (
