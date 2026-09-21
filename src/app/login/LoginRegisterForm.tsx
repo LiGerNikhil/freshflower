@@ -47,13 +47,14 @@ export default function LoginRegisterForm() {
       setError(body?.error ?? "Could not sign you in. Please try again.");
       return;
     }
-    await refresh();
     if (mode === "register") {
+      await refresh();
       const email = String(form.get("email") ?? "");
       setVerifyPopup(email);
       return;
     }
-    router.push(returnUrl.startsWith("/") ? returnUrl : "/account");
+    void refresh();
+    router.push("/cart");
   }
 
   return (
@@ -70,7 +71,9 @@ export default function LoginRegisterForm() {
             Your cart, wishlist, checkout, and order history are connected to your FreshFlower.zone account.
           </p>
           <div className="mt-6 rounded-2xl bg-white/60 p-4 text-sm text-ink-soft">
-            After login, we will send you back to <span className="font-semibold text-ink">{returnUrl}</span>.
+            After a successful login, we&apos;ll take you straight to your
+            <span className="font-semibold text-ink"> cart</span> so you can
+            continue where you left off.
           </div>
         </section>
 
