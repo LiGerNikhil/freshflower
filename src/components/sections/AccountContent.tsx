@@ -5,8 +5,11 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
+  Eye,
+  EyeOff,
   Edit3,
   Heart,
+  LockKeyhole,
   MapPin,
   Package,
   Plus,
@@ -27,9 +30,11 @@ import type { Address, Customer, Flower, Order, Review } from "@/lib/types";
 interface AccountContentProps {
   mode:
     | "overview"
+    | "profile"
     | "orders"
     | "addresses"
     | "wishlist"
+    | "password"
     | "notifications"
     | "reviews";
   customer: Customer;
@@ -39,9 +44,11 @@ interface AccountContentProps {
 }
 const titles = {
   overview: "Good morning, Ananya.",
+  profile: "Your profile",
   orders: "Your orders",
   addresses: "Saved addresses",
   wishlist: "Your wishlist",
+  password: "Change password",
   notifications: "Notifications",
   reviews: "Your reviews",
 } as const;
@@ -55,9 +62,11 @@ export default function AccountContent({
   return (
     <AccountShell title={titles[mode]}>
       {mode === "overview" && <Overview customer={customer} orders={orders} />}
+      {mode === "profile" && <Profile customer={customer} />}
       {mode === "orders" && <Orders orders={orders} flowers={flowers} />}
       {mode === "addresses" && <Addresses initial={customer.addresses} />}
       {mode === "wishlist" && <Wishlist flowers={flowers} />}
+      {mode === "password" && <ChangePassword />}
       {mode === "notifications" && <Notifications orders={orders} />}
       {mode === "reviews" && <Reviews reviews={reviews} />}
     </AccountShell>
@@ -76,10 +85,13 @@ function Overview({
   return (
     <div className="space-y-6">
       <div className="rounded-xl bg-blush p-7">
-        <p className="text-sm text-ink-soft">Signed in as demo customer</p>
+        <p className="text-sm text-ink-soft">Signed in as customer</p>
         <h2 className="mt-2 font-display text-3xl">{customer.name}</h2>
         <p className="mt-2 text-sm text-ink-soft">
           {customer.email} · {customer.phone}
+        </p>
+        <p className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-bold ${customer.emailVerified ? "bg-sage text-sage-ink" : "bg-gold/20 text-ink"}`}>
+          {customer.emailVerified ? "Email verified" : "Email verification pending"}
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -106,8 +118,14 @@ function Overview({
         <h2 className="font-display text-2xl">Quick links</h2>
         <div className="mt-5 flex flex-wrap gap-3">
           <Link
-            href="/account/wishlist"
+            href="/account/profile"
             className="rounded-md bg-ink px-4 py-3 text-sm font-semibold text-ivory"
+          >
+            Profile
+          </Link>
+          <Link
+            href="/account/wishlist"
+            className="rounded-md border border-ink/10 px-4 py-3 text-sm font-semibold"
           >
             Wishlist
           </Link>
@@ -123,19 +141,38 @@ function Overview({
           >
             Shop flowers
           </Link>
+          <Link
+            href="/account/change-password"
+            className="rounded-md border border-ink/10 px-4 py-3 text-sm font-semibold"
+          >
+            Change password
+          </Link>
         </div>
       </div>
     </div>
   );
 }
 function Orders({ orders, flowers }: { orders: Order[]; flowers: Flower[] }) {
+  const { addItem } = useCart();
+  const reorder = (order: Order) => {
+    for (const item of order.items) {
+      addItem({
+        productId: item.productId,
+        productType: item.productType,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: resolveProductImage(item, flowers),
+      });
+    }
+  };
   return (
     <div className="space-y-4">
       {orders.map((order) => (
         <Link
           key={order.id}
           href={`/account/orders/${order.id}`}
-          className="block rounded-lg bg-white/70 p-6 transition hover:bg-white"
+          className="block rounded-2xl border border-white/70 bg-white/70 p-6 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:bg-white hover:shadow-xl"
         >
           <div className="flex flex-wrap items-start justify-between gap-4">
             <ProductItemImage
@@ -170,9 +207,154 @@ function Orders({ orders, flowers }: { orders: Order[]; flowers: Flower[] }) {
           <div className="mt-6">
             <OrderStatusStepper status={order.status} />
           </div>
+          <div className="mt-5 flex flex-wrap gap-2 border-t border-ink/10 pt-4">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                reorder(order);
+              }}
+              className="inline-flex items-center gap-2 rounded-full bg-gold/80 px-4 py-2 text-xs font-bold text-ink transition hover:bg-gold"
+            >
+              <ShoppingBag size={14} /> Reorder
+            </button>
+            <span className="inline-flex items-center rounded-full bg-ivory-deep px-4 py-2 text-xs font-semibold text-ink-soft">
+              Status: {order.status.replaceAll("_", " ")}
+            </span>
+          </div>
         </Link>
       ))}
     </div>
+  );
+}
+function Profile({ customer }: { customer: Customer }) {
+  const [name, setName] = useState(customer.name);
+  const [phone, setPhone] = useState(customer.phone);
+  const [address, setAddress] = useState(customer.addresses[0]?.line1 ?? "");
+  const [city, setCity] = useState(customer.addresses[0]?.city ?? "New Delhi");
+  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  return (
+    <form
+      onSubmit={async (event) => {
+        event.preventDefault();
+        setSaving(true);
+        setMessage(null);
+        const response = await fetch("/api/account/profile", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, phone, address, city }),
+        });
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setSaving(false);
+        setMessage(response.ok ? "Profile saved." : body?.error ?? "Could not save profile.");
+      }}
+      className="glass-deep rounded-3xl p-5 shadow-xl md:p-7"
+    >
+      <div className="mb-6 flex items-start gap-4">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gold/25 font-display text-3xl text-gold">
+          {name.slice(0, 1).toUpperCase()}
+        </div>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-sage-ink">
+            Profile details
+          </p>
+          <h2 className="mt-1 font-display text-3xl">Edit your account</h2>
+          <p className="mt-1 text-sm text-ink-soft">{customer.email}</p>
+        </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="text-sm font-semibold">
+          Full name
+          <input value={name} onChange={(event) => setName(event.target.value)} className="mt-2 w-full rounded-xl border border-ink/10 bg-white/70 p-3 text-sm outline-none focus:border-gold" />
+        </label>
+        <label className="text-sm font-semibold">
+          Phone
+          <input value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-2 w-full rounded-xl border border-ink/10 bg-white/70 p-3 text-sm outline-none focus:border-gold" />
+        </label>
+        <label className="text-sm font-semibold sm:col-span-2">
+          Default address
+          <textarea value={address} onChange={(event) => setAddress(event.target.value)} rows={3} className="mt-2 w-full rounded-xl border border-ink/10 bg-white/70 p-3 text-sm outline-none focus:border-gold" />
+        </label>
+        <label className="text-sm font-semibold">
+          City
+          <input value={city} onChange={(event) => setCity(event.target.value)} className="mt-2 w-full rounded-xl border border-ink/10 bg-white/70 p-3 text-sm outline-none focus:border-gold" />
+        </label>
+      </div>
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        <Button type="submit" variant="gold" disabled={saving}>{saving ? "Saving..." : "Save profile"}</Button>
+        {message && <span className="text-sm font-semibold text-sage-ink">{message}</span>}
+      </div>
+    </form>
+  );
+}
+
+function ChangePassword() {
+  const [visible, setVisible] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  return (
+    <form
+      onSubmit={async (event) => {
+        event.preventDefault();
+        setSubmitting(true);
+        setMessage(null);
+        const data = new FormData(event.currentTarget);
+        const newPassword = String(data.get("newPassword") ?? "");
+        const confirmPassword = String(data.get("confirmPassword") ?? "");
+        if (newPassword !== confirmPassword) {
+          setSubmitting(false);
+          setMessage("New passwords do not match.");
+          return;
+        }
+        const response = await fetch("/api/auth/change-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            oldPassword: String(data.get("oldPassword") ?? ""),
+            newPassword,
+          }),
+        });
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setSubmitting(false);
+        setMessage(response.ok ? "Password changed successfully." : body?.error ?? "Could not change password.");
+      }}
+      className="glass-deep rounded-3xl p-5 shadow-xl md:p-7"
+    >
+      <div className="mb-6 flex items-start gap-4">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blush text-gold">
+          <LockKeyhole size={24} />
+        </div>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-sage-ink">Security</p>
+          <h2 className="mt-1 font-display text-3xl">Update password</h2>
+          <p className="mt-1 text-sm text-ink-soft">Use at least 8 characters.</p>
+        </div>
+      </div>
+      <div className="grid gap-4">
+        {[
+          { label: "Current password", name: "oldPassword" },
+          { label: "New password", name: "newPassword" },
+          { label: "Confirm new password", name: "confirmPassword" },
+        ].map((field) => (
+          <label key={field.name} className="text-sm font-semibold">
+            {field.label}
+            <div className="mt-2 flex rounded-xl border border-ink/10 bg-white/70 focus-within:border-gold">
+              <input name={field.name} type={visible ? "text" : "password"} required minLength={8} className="min-w-0 flex-1 bg-transparent p-3 text-sm outline-none" />
+              <button type="button" onClick={() => setVisible((current) => !current)} className="px-3 text-ink-soft">
+                {visible ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
+            </div>
+          </label>
+        ))}
+      </div>
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        <Button type="submit" variant="gold" disabled={submitting}>
+          {submitting ? "Changing..." : "Change password"}
+        </Button>
+        {message && <span className="text-sm font-semibold text-sage-ink">{message}</span>}
+      </div>
+    </form>
   );
 }
 function Addresses({ initial }: { initial: Address[] }) {
@@ -333,9 +515,12 @@ function Wishlist({ flowers }: { flowers: Flower[] }) {
   const { addItem } = useCart();
   const items = flowers.filter((flower) => ids.includes(flower.id));
   return items.length ? (
-    <div className="grid gap-5 sm:grid-cols-2">
+    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
       {items.map((flower) => (
-        <div key={flower.id} className="rounded-lg bg-white/70 p-5">
+        <div
+          key={flower.id}
+          className="group rounded-3xl border border-white/70 bg-white/65 p-4 shadow-sm backdrop-blur transition hover:-translate-y-1 hover:shadow-xl"
+        >
           <div
             className="relative flex aspect-[1.2] items-center justify-center overflow-hidden rounded-md"
             style={{
@@ -354,14 +539,14 @@ function Wishlist({ flowers }: { flowers: Flower[] }) {
                 className="object-cover"
               />
             ) : (
-              <Heart size={58} className="text-ink/20" />
+              <Heart size={58} className="text-ink/20 transition group-hover:scale-110" />
             )}
           </div>
           <h2 className="mt-4 font-display text-2xl">{flower.name}</h2>
           <p className="mt-1 text-sm text-ink-soft">
             ₹{flower.price.toLocaleString("en-IN")}
           </p>
-          <div className="mt-4 flex gap-3">
+          <div className="mt-4 grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() =>
@@ -374,14 +559,14 @@ function Wishlist({ flowers }: { flowers: Flower[] }) {
                   image: flower.images[0],
                 })
               }
-              className="text-sm font-semibold"
+              className="rounded-xl bg-blush/85 px-3 py-2 text-xs font-bold text-ink transition hover:bg-blush"
             >
-              Move to cart <ShoppingBag size={14} className="ml-1 inline" />
+              Cart <ShoppingBag size={14} className="ml-1 inline" />
             </button>
             <button
               type="button"
               onClick={() => remove(flower.id)}
-              className="text-sm text-ink-soft"
+              className="rounded-xl border border-ink/10 bg-ivory/70 px-3 py-2 text-xs font-bold text-ink-soft transition hover:text-ink"
             >
               Remove
             </button>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminRequest } from "@/lib/admin/session";
+import { getCustomerSession } from "@/lib/auth/customer-session";
 
 const PUBLIC_ADMIN_GET_PATHS = new Set([
   "/api/admin/homepage",
@@ -30,9 +31,16 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/admin/login", request.url));
   }
 
+  if (pathname.startsWith("/account") && pathname !== "/account/verify-email") {
+    if (await getCustomerSession(request)) return NextResponse.next();
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("returnUrl", `${pathname}${request.nextUrl.search}`);
+    return NextResponse.redirect(loginUrl);
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*"],
+  matcher: ["/admin/:path*", "/api/admin/:path*", "/account/:path*"],
 };

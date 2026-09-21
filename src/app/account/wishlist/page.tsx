@@ -1,30 +1,19 @@
 import AccountContent from "@/components/sections/AccountContent";
-import {
-  getCustomers,
-  getFlowers,
-  getOrders,
-  getReviews,
-} from "@/lib/db/repositories";
+import { getAccountPageData } from "@/lib/account/account-page-data";
 export const metadata = {
   title: "My wishlist | FreshFlower.zone",
   robots: { index: false, follow: false },
 };
 export const dynamic = "force-dynamic";
 export default async function AccountWishlistPage() {
-  const customers = await getCustomers();
-  const flowers = await getFlowers();
-  const orders = await getOrders();
-  const reviews = await getReviews();
-  const demo = customers[0];
+  const { customer, flowers, orders, reviews } = await getAccountPageData();
   return (
     <AccountContent
       mode="wishlist"
-      customer={demo}
-      orders={orders.filter((order) => order.customerId === demo.id)}
+      customer={customer}
+      orders={orders}
       flowers={flowers}
-      reviews={reviews.filter((review) =>
-        review.customerName.startsWith("Ananya"),
-      )}
+      reviews={reviews}
     />
   );
 }

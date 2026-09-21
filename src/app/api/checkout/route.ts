@@ -8,10 +8,12 @@ import {
 } from "@/lib/db/models";
 import { dbConnect } from "@/lib/db/connect";
 import { getCouponByCode, getDeliveryAreaById } from "@/lib/db/repositories";
-import { parseOrThrow, readJson, safe, jsonOk } from "@/lib/api/helpers";
+import { jsonError, jsonOk, parseOrThrow, readJson, safe } from "@/lib/api/helpers";
 import { checkoutSchema, type CheckoutInput } from "@/lib/validation";
 import { deliveryAreas } from "@/lib/data";
 import { DELIVERY_CHARGE } from "@/lib/cart";
+import { getCustomerSession } from "@/lib/auth/customer-session";
+import { OrderStatus } from "@/lib/types";
 
 function toDateInput(value: string): string {
   // Accept both the HTML date (YYYY-MM-DD) and full ISO forms.
@@ -40,6 +42,8 @@ function couponDiscount(
 export async function POST(req: NextRequest) {
   return safe(async () => {
     const input: CheckoutInput = parseOrThrow(checkoutSchema, await readJson(req));
+    const session = await getCustomerSession(req);
+    if (!session) return jsonError("Please sign in before placing an order.", 401);
     await dbConnect();
 
     // ---- delivery capability -------------------------------------------------
@@ -91,39 +95,13 @@ export async function POST(req: NextRequest) {
     const deliveryFee = DELIVERY_CHARGE;
     const total = Math.round((subtotal - discount + deliveryFee) * 100) / 100;
 
-    // ---- customer (upsert by phone) ------------------------------------------
-    const customerId = `cust-${input.customer.phone}`;
-    const firstName = input.customer.name.trim().split(/\s+/)[0] ?? "";
-    const lastName = input.customer.name.trim().split(/\s+/).slice(1).join(" ");
-    await CustomerModel.updateOne(
-      { _id: customerId },
-      {
-        $set: {
-          name: input.customer.name.trim(),
-          firstName,
-          lastName,
-          phone: input.customer.phone,
-          email: input.customer.email,
-        },
-        $inc: { totalOrders: 1 },
-        $setOnInsert: {
-          tags: ["website"],
-          addresses: [
-            {
-              id: `addr-${Date.now().toString(36)}`,
-              label: "Checkout",
-              line1: input.customer.address.line,
-              line2: input.customer.address.landmark ?? undefined,
-              city: input.customer.address.city,
-              areaId: area.id,
-              pincode: input.customer.address.pincode,
-              isDefault: true,
-            },
-          ],
-        },
-      },
-      { upsert: true },
-    ).lean();
+    // Customer identity comes only from the signed auth session.
+    const customerId = session.customerId;
+    const customer = await CustomerModel.findById(customerId)
+      .select({ emailVerified: 1 })
+      .lean<{ emailVerified?: boolean }>();
+    if (!customer) return jsonError("Please sign in before placing an order.", 401);
+    if (!customer.emailVerified) return jsonError("Please verify your email before placing an order.", 403);
 
     // ---- order (unique orderNumber with retry) --------------------------------
     let orderNumber = randomOrderNumber();
@@ -160,6 +138,32 @@ export async function POST(req: NextRequest) {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+
+    const nameParts = input.customer.name.trim().split(/\s+/);
+    await CustomerModel.updateOne(
+      { _id: customerId },
+      {
+        $set: {
+          name: input.customer.name.trim(),
+          firstName: nameParts[0] ?? "",
+          lastName: nameParts.slice(1).join(" "),
+          phone: input.customer.phone,
+          addresses: [
+            {
+              id: "addr-default",
+              label: "Home",
+              line1: input.customer.address.line,
+              city: input.customer.address.city,
+              areaId: area.id,
+              pincode: input.customer.address.pincode,
+              isDefault: true,
+            },
+          ],
+          updatedAt: new Date(),
+        },
+        $inc: { totalOrders: 1 },
+      },
+    ).lean();
 
     // ---- decrement stock for flowers ----------------------------------------
     for (const item of items) {

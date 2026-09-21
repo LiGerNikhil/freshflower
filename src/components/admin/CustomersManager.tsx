@@ -73,6 +73,7 @@ export function CustomersManager() {
                 <th className="px-4 py-3">Customer</th>
                 <th className="px-4 py-3">Mobile</th>
                 <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Verified</th>
                 <th className="px-4 py-3 text-right">Orders</th>
                 <th className="px-4 py-3 text-right">Total spend</th>
                 <th className="px-4 py-3">Last order</th>
@@ -108,6 +109,11 @@ export function CustomersManager() {
                     </td>
                     <td className="px-4 py-3 text-ink-soft">
                       {customer.email}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`rounded-sm px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] ${customer.emailVerified ? "bg-sage text-sage-ink" : "bg-gold/20 text-ink"}`}>
+                        {customer.emailVerified ? "Verified" : "Pending"}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className="font-semibold">

@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { CartAddedToast } from "@/components/sections/CartAddedToast";
+import { useCustomerAuth } from "@/components/providers/CustomerAuthContext";
 import type { CartItem } from "@/lib/types";
 import { CART_STORAGE_KEY } from "@/lib/cart";
 
@@ -30,6 +31,7 @@ interface AddedNotification {
 const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  const { requireAuth } = useCustomerAuth();
   const [items, setItems] = useState<CartItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [added, setAdded] = useState<AddedNotification | null>(null);
@@ -56,6 +58,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const clearCart = useCallback(() => setItems([]), []);
 
   const addItem = useCallback((item: CartItem) => {
+    if (!requireAuth()) return;
     setItems((current) => {
       const existing = current.find(
         (entry) =>
@@ -72,7 +75,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return [...current, item];
     });
     setAdded({ item, token: Date.now() });
-  }, []);
+  }, [requireAuth]);
 
   const value = useMemo<CartContextValue>(
     () => ({

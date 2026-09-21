@@ -7,6 +7,8 @@ export const customers: Customer[] = [
     name: "Ananya Malhotra",
     email: "ananya.malhotra@example.com",
     phone: "+91 98100 11223",
+    emailVerified: true,
+    wishlist: [],
     addresses: [
       {
         id: "addr-1",
@@ -27,6 +29,8 @@ export const customers: Customer[] = [
     name: "Rohan Kapoor",
     email: "rohan.kapoor@example.com",
     phone: "+91 98111 22334",
+    emailVerified: true,
+    wishlist: [],
     addresses: [
       {
         id: "addr-2",
@@ -46,6 +50,8 @@ export const customers: Customer[] = [
     name: "Priya Nair",
     email: "priya.nair@example.com",
     phone: "+91 98222 33445",
+    emailVerified: true,
+    wishlist: [],
     addresses: [
       {
         id: "addr-3",
@@ -65,6 +71,8 @@ export const customers: Customer[] = [
     name: "Vikram Singh",
     email: "vikram.singh@example.com",
     phone: "+91 98333 44556",
+    emailVerified: true,
+    wishlist: [],
     addresses: [
       {
         id: "addr-4",

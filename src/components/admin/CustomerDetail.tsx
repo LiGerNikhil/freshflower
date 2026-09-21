@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Calendar,
+  MapPin,
   Phone,
   ShoppingCart,
   Star,
@@ -135,9 +136,11 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
           </div>
           <div className="flex items-center gap-2 text-sm">
             <span className="inline-flex h-4 w-4 items-center justify-center">
-              <span className="h-1.5 w-1.5 rounded-full bg-gold" />
+              <span className={`h-1.5 w-1.5 rounded-full ${customer.emailVerified ? "bg-sage-ink" : "bg-gold"}`} />
             </span>{" "}
-            <span className="text-ink-soft">{customer.email}</span>
+            <span className="text-ink-soft">
+              {customer.email} · {customer.emailVerified ? "Verified" : "Pending"}
+            </span>
           </div>
           <div className="flex items-center gap-2 text-sm">
             <Calendar size={16} className="text-ink-soft" />{" "}
@@ -154,6 +157,24 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
           </div>
         </div>
       </div>
+
+      <section className="mb-10 rounded-xl border border-ink/10 bg-white/80 p-6">
+        <h2 className="mb-4 flex items-center gap-2 font-display text-xl">
+          <MapPin size={18} className="text-gold" /> Saved address
+        </h2>
+        {customer.addresses.length ? (
+          <div className="space-y-2 text-sm text-ink-soft">
+            {customer.addresses.map((address) => (
+              <p key={address.id || address.line1}>
+                <span className="font-semibold text-ink">{address.label || "Address"}:</span>{" "}
+                {address.line1}, {address.city} {address.pincode ? `- ${address.pincode}` : ""}
+              </p>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-ink-soft">No saved address yet.</p>
+        )}
+      </section>
 
       <section className="mb-10">
         <h2 className="mb-4 font-display text-xl">

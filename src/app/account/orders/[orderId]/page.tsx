@@ -4,7 +4,8 @@ import { ArrowLeft } from "lucide-react";
 import { OrderStatusStepper } from "@/components/sections/OrderStatusStepper";
 import { ProductItemImage } from "@/components/sections/ProductItemImage";
 import { AccountShell } from "@/components/sections/AccountShell";
-import { getCustomers, getFlowers, getOrderById, getOrders } from "@/lib/db/repositories";
+import { getAccountPageData } from "@/lib/account/account-page-data";
+import { getFlowers, getOrderById, getOrders } from "@/lib/db/repositories";
 import { resolveProductImage } from "@/lib/product-media";
 
 export const metadata = {
@@ -25,10 +26,10 @@ export default async function AccountOrderDetailPage({
   params,
 }: OrderDetailProps) {
   const { orderId } = await params;
-  const customers = await getCustomers();
+  const { customer } = await getAccountPageData();
   const order = await getOrderById(orderId);
   const flowers = await getFlowers();
-  if (!order || order.customerId !== customers[0].id) notFound();
+  if (!order || order.customerId !== customer.id) notFound();
   return (
     <AccountShell title={`Order ${order.orderNumber}`} eyebrow="Order detail">
       <Link

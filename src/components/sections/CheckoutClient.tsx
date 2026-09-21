@@ -135,6 +135,15 @@ export default function CheckoutClient() {
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error ?? "Something went wrong, please try again.");
       const orderId: string = body.orderId;
+      const paymentSuccess = await fetch("/api/payment/success", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      });
+      const paymentSuccessBody = await paymentSuccess.json().catch(() => null);
+      if (!paymentSuccess.ok) {
+        throw new Error(paymentSuccessBody?.error ?? "Payment succeeded, but confirmation failed.");
+      }
       // Keep the confirmation-page preview payload (its shape is unchanged).
       const order = {
         id: orderId,

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Manrope } from "next/font/google";
 import { CartProvider } from "@/components/providers/CartContext";
+import { CustomerAuthProvider } from "@/components/providers/CustomerAuthContext";
 import { WishlistProvider } from "@/components/providers/WishlistContext";
 import { SiteContentProvider } from "@/components/providers/SiteContentProvider";
 import { SiteChrome } from "@/components/sections/SiteChrome";
@@ -93,14 +94,16 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${fraunces.variable} ${manrope.variable}`}>
       <body>
-        <CartProvider>
-          <WishlistProvider>
-            <SiteContentProvider>
-              <JsonLd data={ORGANIZATION_LD} />
-              <SiteChrome>{children}</SiteChrome>
-            </SiteContentProvider>
-          </WishlistProvider>
-        </CartProvider>
+        <CustomerAuthProvider>
+          <CartProvider>
+            <WishlistProvider>
+              <SiteContentProvider>
+                <JsonLd data={ORGANIZATION_LD} />
+                <SiteChrome>{children}</SiteChrome>
+              </SiteContentProvider>
+            </WishlistProvider>
+          </CartProvider>
+        </CustomerAuthProvider>
       </body>
     </html>
   );

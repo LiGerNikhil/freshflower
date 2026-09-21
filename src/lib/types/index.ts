@@ -137,6 +137,7 @@ export interface Order {
   notes?: string;
   paymentStatus?: PaymentStatus;
   paymentMethod?: PaymentMethod;
+  orderConfirmationEmailSentAt?: string;
   createdAt: string; // ISO datetime
   updatedAt: string; // ISO datetime
 }
@@ -181,8 +182,15 @@ export interface Address {
 export interface Customer {
   id: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
   phone: string;
+  passwordHash?: string;
+  emailVerified: boolean;
+  emailVerificationToken?: string;
+  emailVerificationTokenExpiresAt?: string;
+  wishlist: Array<{ productId: string; productType: "flower" | "bouquet" }>;
   addresses: Address[];
   createdAt: string;
   totalOrders: number;

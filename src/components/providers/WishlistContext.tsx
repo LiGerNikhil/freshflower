@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useCustomerAuth } from "@/components/providers/CustomerAuthContext";
 
 const STORAGE_KEY = "freshflower-wishlist";
 interface WishlistContextValue {
@@ -11,6 +12,7 @@ interface WishlistContextValue {
 }
 const WishlistContext = createContext<WishlistContextValue | null>(null);
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
+  const { requireAuth } = useCustomerAuth();
   const [ids, setIds] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
@@ -34,16 +36,20 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     () => ({
       ids,
       has: (id: string) => ids.includes(id),
-      toggle: (id: string) =>
+      toggle: (id: string) => {
+        if (!requireAuth()) return;
         setIds((current) =>
           current.includes(id)
             ? current.filter((item) => item !== id)
             : [...current, id],
-        ),
-      remove: (id: string) =>
-        setIds((current) => current.filter((item) => item !== id)),
+        );
+      },
+      remove: (id: string) => {
+        if (!requireAuth()) return;
+        setIds((current) => current.filter((item) => item !== id));
+      },
     }),
-    [ids],
+    [ids, requireAuth],
   );
   return (
     <WishlistContext.Provider value={value}>

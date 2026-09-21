@@ -284,13 +284,14 @@ export async function getSlotUsage(
 export async function getCustomers(): Promise<Customer[]> {
   await dbConnect();
   const docs = await CustomerModel.find().sort({ _id: 1 }).lean();
-  return serializeList<Customer>(docs);
+  return serializeList<Customer>(docs).map(normalizeCustomer);
 }
 
 export async function getCustomerById(id: string): Promise<Customer | null> {
   await dbConnect();
   const doc = await CustomerModel.findById(id).lean();
-  return serialize<Customer>(doc as WithMeta | null);
+  const customer = serialize<Customer>(doc as WithMeta | null);
+  return customer ? normalizeCustomer(customer) : null;
 }
 
 export async function getCustomerByPhone(phone: string): Promise<Customer | null> {
@@ -307,13 +308,25 @@ export async function getCustomerByPhone(phone: string): Promise<Customer | null
       }).lean();
     }
   }
-  return serialize<Customer>(doc as WithMeta | null);
+  const customer = serialize<Customer>(doc as WithMeta | null);
+  return customer ? normalizeCustomer(customer) : null;
 }
 
 export async function getCustomerByEmail(email: string): Promise<Customer | null> {
   await dbConnect();
   const doc = await CustomerModel.findOne({ email }).lean();
-  return serialize<Customer>(doc as WithMeta | null);
+  const customer = serialize<Customer>(doc as WithMeta | null);
+  return customer ? normalizeCustomer(customer) : null;
+}
+
+function normalizeCustomer(customer: Customer): Customer {
+  return {
+    ...customer,
+    emailVerified: customer.emailVerified ?? false,
+    wishlist: customer.wishlist ?? [],
+    addresses: customer.addresses ?? [],
+    totalOrders: customer.totalOrders ?? 0,
+  };
 }
 
 // ---------------------------------------------------------------------------

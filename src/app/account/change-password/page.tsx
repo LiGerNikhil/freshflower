@@ -1,15 +1,17 @@
 import AccountContent from "@/components/sections/AccountContent";
 import { getAccountPageData } from "@/lib/account/account-page-data";
+
 export const metadata = {
-  title: "My reviews | FreshFlower.zone",
+  title: "Change password | FreshFlower.zone",
   robots: { index: false, follow: false },
 };
 export const dynamic = "force-dynamic";
-export default async function AccountReviewsPage() {
+
+export default async function AccountChangePasswordPage() {
   const { customer, flowers, orders, reviews } = await getAccountPageData();
   return (
     <AccountContent
-      mode="reviews"
+      mode="password"
       customer={customer}
       orders={orders}
       flowers={flowers}

@@ -151,6 +151,7 @@ const OrderSchema = new Schema(
     notes: String,
     paymentStatus: { type: String, enum: ["paid", "pending", "refunded"] },
     paymentMethod: { type: String, enum: ["online", "cod"] },
+    orderConfirmationEmailSentAt: Date,
   },
   { timestamps: true },
 );
@@ -193,8 +194,24 @@ const CustomerSchema = new Schema(
   {
     _id: { type: String },
     name: { type: String, required: true },
+    firstName: String,
+    lastName: String,
     email: { type: String, required: true, unique: true },
     phone: { type: String, required: true },
+    passwordHash: String,
+    emailVerified: { type: Boolean, default: false },
+    emailVerificationToken: String,
+    emailVerificationTokenExpiresAt: Date,
+    wishlist: {
+      type: [
+        {
+          _id: false,
+          productId: { type: String, required: true },
+          productType: { type: String, enum: ["flower", "bouquet"], required: true },
+        },
+      ],
+      default: [],
+    },
     addresses: { type: [AddressSchema], default: [] },
     totalOrders: { type: Number, default: 0 },
   },
