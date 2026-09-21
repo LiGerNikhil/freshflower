@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Mail, Phone, UserRound } from "lucide-react";
+import { Mail, MailCheck, Phone, UserRound } from "lucide-react";
 import { useCustomerAuth } from "@/components/providers/CustomerAuthContext";
 import { Button } from "@/components/ui/Button";
 
@@ -13,6 +13,7 @@ export default function LoginRegisterForm() {
   const [mode, setMode] = useState<Mode>("login");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [verifyPopup, setVerifyPopup] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { refresh } = useCustomerAuth();
@@ -47,6 +48,11 @@ export default function LoginRegisterForm() {
       return;
     }
     await refresh();
+    if (mode === "register") {
+      const email = String(form.get("email") ?? "");
+      setVerifyPopup(email);
+      return;
+    }
     router.push(returnUrl.startsWith("/") ? returnUrl : "/account");
   }
 
@@ -127,6 +133,37 @@ export default function LoginRegisterForm() {
           </p>
         </section>
       </div>
+      {verifyPopup && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/50 px-5 backdrop-blur-sm" role="dialog" aria-modal="true">
+          <div className="w-full max-w-md rounded-3xl border border-white/70 bg-ivory/95 p-7 text-center shadow-2xl">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-sage">
+              <MailCheck size={30} className="text-sage-ink" />
+            </div>
+            <h2 className="mt-5 font-display text-3xl text-ink">Verification email sent</h2>
+            <p className="mt-3 text-sm leading-7 text-ink-soft">
+              We&apos;ve sent a verification link to
+              <span className="mx-1 font-semibold text-ink">{verifyPopup}</span>.
+              Check your Gmail inbox (and spam folder) and click the link to verify
+              your email before placing an order.
+            </p>
+            <div className="mt-6 rounded-2xl bg-white/70 p-4 text-left text-sm text-ink-soft">
+              <p className="font-semibold text-ink">Next steps:</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                <li>Open Gmail and find the verification mail.</li>
+                <li>Tap the <span className="font-semibold text-ink">Verify email</span> button.</li>
+                <li>Come back and use your account normally.</li>
+              </ul>
+            </div>
+            <button
+              type="button"
+              onClick={() => router.push(returnUrl.startsWith("/") ? returnUrl : "/account")}
+              className="mt-7 w-full rounded-full bg-ink px-6 py-3 text-sm font-bold text-ivory transition hover:bg-ink-soft"
+            >
+              Got it, go to my account
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

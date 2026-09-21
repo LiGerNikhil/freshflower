@@ -43,7 +43,7 @@ interface AccountContentProps {
   reviews: Review[];
 }
 const titles = {
-  overview: "Good morning, Ananya.",
+  overview: "Good morning,",
   profile: "Your profile",
   orders: "Your orders",
   addresses: "Saved addresses",
