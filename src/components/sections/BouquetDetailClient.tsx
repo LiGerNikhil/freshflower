@@ -12,7 +12,6 @@ import {
   Sparkles,
   Truck,
 } from "lucide-react";
-import { DeliverySlotSelector } from "@/components/ui/DeliverySlotSelector";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ProductCard } from "@/components/sections/ProductCard";
@@ -32,7 +31,6 @@ export default function BouquetDetailClient({
   const router = useRouter();
   const { addItem } = useCart();
   const [quantity, setQuantity] = useState(1);
-  const [slotId, setSlotId] = useState("slot-6-7");
   const [date, setDate] = useState("");
   const bouquetFlowers = bouquet.items
     .map((item) => flowers.find((flower) => flower.id === item.flowerId))
@@ -106,11 +104,6 @@ export default function BouquetDetailClient({
                 onChange={(event) => setDate(event.target.value)}
                 className="mt-3 w-full rounded-md border border-ink/10 bg-white/60 px-4 py-3 text-sm"
               />
-              <p className="mb-3 mt-7 text-sm font-semibold">Delivery slot</p>
-              <DeliverySlotSelector
-                selectedSlotId={slotId}
-                onChange={setSlotId}
-              />
             </div>
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               <Button size="lg" onClick={add}>
@@ -147,7 +140,7 @@ export default function BouquetDetailClient({
               <CalendarDays className="mb-5 text-lavender-ink" />
               <h2 className="font-display text-3xl">Made for your moment</h2>
               <p className="mt-3 text-sm leading-7 text-ink-soft">
-                Choose your date and morning slot above, then let us handle the
+                Choose your date above, then let us handle the
                 beautiful details.
               </p>
             </div>

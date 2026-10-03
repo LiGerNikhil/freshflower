@@ -9,7 +9,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Category, Flower, FlowerStockStatus } from "@/lib/types";
+import type {
+  Category,
+  ColorVariant,
+  Flower,
+  FlowerStockStatus,
+} from "@/lib/types";
 import {
   categories as seedCategories,
   flowers as seedFlowers,
@@ -63,6 +68,7 @@ export interface ProductDraft {
   bestSeller: boolean;
   newArrival: boolean;
   colors: string[];
+  colorVariants: ColorVariant[];
   images: string[];
   videos: string[];
   seoTitle: string;
@@ -209,6 +215,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       price: draft.price,
       compareAtPrice: draft.salePrice > 0 ? draft.salePrice : undefined,
       colors: draft.colors.length ? draft.colors : ["mixed"],
+      colorVariants: draft.colorVariants ?? [],
       images: draft.images.length ? draft.images : ["gradient-ivory"],
       videos: draft.videos,
       featured: draft.featured,

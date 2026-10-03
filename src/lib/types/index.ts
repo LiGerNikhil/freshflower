@@ -31,6 +31,13 @@ export type FlowerStockStatus =
   | "sold-out"
   | "pre-order";
 
+export interface ColorVariant {
+  color: string;
+  price: number;
+  image?: string;
+  compareAtPrice?: number;
+}
+
 export interface Flower {
   id: string;
   name: string;
@@ -41,6 +48,7 @@ export interface Flower {
   shortDescription: string;
   price: number; // INR
   compareAtPrice?: number; // INR, for showing a discount (admin: "sale price")
+  colorVariants?: ColorVariant[];
   stemCount?: number;
   colors: string[];
   images: string[];
@@ -95,6 +103,7 @@ export interface CartItem {
   price: number;
   quantity: number;
   image: string;
+  color?: string;
 }
 
 export enum OrderStatus {
@@ -117,6 +126,7 @@ export interface OrderItem {
   price: number;
   quantity: number;
   image?: string;
+  color?: string;
 }
 
 export interface Order {

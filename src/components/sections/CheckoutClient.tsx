@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { useCart } from "@/components/providers/CartContext";
 import { ProductItemImage } from "@/components/sections/ProductItemImage";
-import { DeliverySlotSelector } from "@/components/ui/DeliverySlotSelector";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { deliveryAreas } from "@/lib/data";
@@ -114,13 +113,14 @@ export default function CheckoutClient() {
             },
             notes: form.instructions,
           },
-          items: items.map((item) => ({
+items: items.map((item) => ({
             productId: item.productId,
             productType: item.productType,
             name: item.name,
             quantity: item.quantity,
             price: item.price,
             image: item.image,
+            color: item.color,
           })),
           deliverySlotId: defaultDeliverySlotId,
           deliveryDate: tomorrow,
@@ -408,7 +408,7 @@ Online · UPI / Card / Netbanking{" "}
                       {DELIVERY_NOTE}
                     </p>
                     <div className="mt-3 flex justify-between">
-                      <span>Delivery charge</span>
+                      <span>Porter delivery charge</span>
                       <span>₹{DELIVERY_CHARGE.toLocaleString("en-IN")}</span>
                     </div>
                     <div className="mt-3 flex justify-between text-lg font-bold">
@@ -449,7 +449,7 @@ Online · UPI / Card / Netbanking{" "}
                 <span>₹{subtotal.toLocaleString("en-IN")}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-ink-soft">Delivery charge</span>
+                <span className="text-ink-soft">Porter delivery charge</span>
                 <span>₹{DELIVERY_CHARGE.toLocaleString("en-IN")}</span>
               </div>
               <p className="text-xs leading-5 text-ink-soft">{DELIVERY_NOTE}</p>
@@ -526,11 +526,18 @@ function SummaryRows({
   return (
     <div className="divide-y divide-ink/10">
       {items.map((item) => (
-        <div key={item.productId} className="flex items-center gap-3 py-3 text-sm">
+<div key={`${item.productType}-${item.productId}-${item.color ?? ""}`} className="flex items-center gap-3 py-3 text-sm">
           <ProductItemImage image={item.image} name={item.name} className="h-14 w-14" />
           <span className="min-w-0 flex-1">
             <span className="block truncate">{item.name}</span>
-            <span className="text-ink-soft">× {item.quantity}</span>
+            <span className="text-ink-soft">
+              × {item.quantity}
+              {item.color && (
+                <span className="ml-1.5 inline-flex rounded-full bg-ink/5 px-2 py-0.5 font-semibold text-ink">
+                  {item.color}
+                </span>
+              )}
+            </span>
           </span>
           <span className="font-semibold">
             ₹{(item.price * item.quantity).toLocaleString("en-IN")}

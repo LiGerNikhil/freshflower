@@ -15,7 +15,7 @@ type PopulatedOrder = {
   _id: string;
   orderNumber: string;
   customerId: string;
-  items: { name: string; quantity: number; price: number }[];
+  items: { name: string; quantity: number; price: number; color?: string }[];
   total: number;
   deliveryAddress?: { line1?: string; city?: string; pincode?: string };
   paymentMethod?: "online" | "cod";

@@ -9,13 +9,19 @@ import {
   useState,
 } from "react";
 import type {
+  Customer,
   DeliveryArea,
   DeliverySlot,
   Order,
   OrderStatus,
   PaymentStatus,
 } from "@/lib/types";
-import { deliveryAreas, deliverySlots, orders as baseOrders } from "@/lib/data";
+import {
+  customers as seedCustomers,
+  deliveryAreas,
+  deliverySlots,
+  orders as baseOrders,
+} from "@/lib/data";
 import { api } from "@/lib/api/client";
 import { DEFAULT_MAX_ORDERS } from "@/lib/admin/overrides";
 
@@ -24,13 +30,10 @@ export interface SlotWithConfig extends DeliverySlot {
   maxOrders: number;
 }
 
-interface StatusPatch {
-  status?: OrderStatus;
-  paymentStatus?: PaymentStatus;
-}
-
 interface OperationsValue {
   orders: Order[];
+  customers: Customer[];
+  customersById: Record<string, Customer>;
   slotList: SlotWithConfig[];
   slotById: Record<string, SlotWithConfig>;
   areas: DeliveryArea[];
@@ -57,6 +60,7 @@ export function OperationsProvider({
   children: React.ReactNode;
 }) {
   const [orders, setOrders] = useState<Order[]>(baseOrders);
+  const [customers, setCustomers] = useState<Customer[]>(seedCustomers);
   const [slotList, setSlotList] = useState<SlotWithConfig[]>(SEED_SLOTS);
   const [areas, setAreas] = useState<DeliveryArea[]>(deliveryAreas);
   const [hydrated, setHydrated] = useState(false);
@@ -66,12 +70,16 @@ export function OperationsProvider({
     let mounted = true;
     (async () => {
       try {
-        const [remoteOrders, remoteSlots, remoteAreas] = await Promise.all([
+        const [remoteOrders, remoteCustomers, remoteSlots, remoteAreas] = await Promise.all([
           api("/api/admin/orders"),
+          api("/api/admin/customers"),
           api("/api/admin/delivery-slots"),
           api("/api/admin/delivery-areas"),
         ]);
         if (!mounted) return;
+        if (Array.isArray(remoteCustomers) && remoteCustomers.length) {
+          setCustomers(remoteCustomers as Customer[]);
+        }
         if (Array.isArray(remoteOrders) && remoteOrders.length) {
           setOrders(remoteOrders as Order[]);
         }
@@ -99,6 +107,11 @@ export function OperationsProvider({
   const slotById = useMemo(
     () => Object.fromEntries(slotList.map((slot) => [slot.id, slot])),
     [slotList],
+  );
+
+  const customersById = useMemo(
+    () => Object.fromEntries(customers.map((customer) => [customer.id, customer])),
+    [customers],
   );
 
   const areaById = useMemo(
@@ -181,6 +194,8 @@ export function OperationsProvider({
   const value = useMemo<OperationsValue>(
     () => ({
       orders,
+      customers,
+      customersById,
       slotList,
       slotById,
       areas,
@@ -194,6 +209,8 @@ export function OperationsProvider({
     }),
     [
       orders,
+      customers,
+      customersById,
       slotList,
       slotById,
       areas,

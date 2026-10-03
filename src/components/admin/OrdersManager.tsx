@@ -2,11 +2,17 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Search, ShoppingCart, Truck } from "lucide-react";
-import { customers } from "@/lib/data";
+import {
+  CalendarDays,
+  ChevronRight,
+  Search,
+  ShoppingCart,
+  Truck,
+  UserRound,
+} from "lucide-react";
 import { OrderStatus, type Order } from "@/lib/types";
 import { STATUS_LABELS, formatINR } from "@/lib/admin/analytics";
-import { isoDay } from "@/lib/utils";
+import { formatAppDate, formatAppDateTime, isoDay } from "@/lib/utils";
 import { useOperations } from "@/components/providers/OperationsContext";
 import {
   OrderStatusBadge,
@@ -22,16 +28,11 @@ const STATUS_OPTIONS: { value: OrderStatus | "all"; label: string }[] = [
 ];
 
 export function OrdersManager() {
-  const { orders, slotById, areaById } = useOperations();
+  const { orders, customersById, slotById, areaById } = useOperations();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-
-  const customerById = useMemo(
-    () => new Map(customers.map((customer) => [customer.id, customer])),
-    [],
-  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -40,14 +41,16 @@ export function OrdersManager() {
         if (statusFilter !== "all" && order.status !== statusFilter) {
           return false;
         }
-        if (dateFrom && order.deliveryDate < dateFrom) return false;
-        if (dateTo && order.deliveryDate > dateTo) return false;
+        const deliveryDay = order.deliveryDate.slice(0, 10);
+        if (dateFrom && deliveryDay < dateFrom) return false;
+        if (dateTo && deliveryDay > dateTo) return false;
         if (q) {
-          const customer = customerById.get(order.customerId);
+          const customer = customersById[order.customerId];
           const haystack = [
             order.orderNumber,
             order.id,
             customer?.name ?? "",
+            customer?.email ?? "",
             customer?.phone ?? "",
           ]
             .join(" ")
@@ -57,13 +60,13 @@ export function OrdersManager() {
         return true;
       })
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [orders, statusFilter, dateFrom, dateTo, query, customerById]);
+  }, [orders, statusFilter, dateFrom, dateTo, query, customersById]);
 
   const summary = useMemo(() => {
     const today = isoDay();
     return {
       total: orders.length,
-      today: orders.filter((order) => order.deliveryDate === today).length,
+      today: orders.filter((order) => order.deliveryDate.slice(0, 10) === today).length,
       outForDelivery: orders.filter(
         (order) => order.status === OrderStatus.OutForDelivery,
       ).length,
@@ -72,11 +75,38 @@ export function OrdersManager() {
 
   const itemSummary = (order: Order) => {
     const names = order.items.map((item) =>
-      item.quantity > 1 ? `${item.quantity}× ${item.name}` : item.name,
+      `${item.quantity > 1 ? `${item.quantity}× ` : ""}${item.name}${item.color ? ` (${item.color})` : ""} · ${formatINR(item.price)}`,
     );
     return names.length > 2
       ? `${names.slice(0, 2).join(", ")} +${names.length - 2} more`
       : names.join(", ");
+  };
+
+  const CustomerLink = ({ order }: { order: Order }) => {
+    const customer = customersById[order.customerId];
+    return (
+      <div>
+        {customer && (
+          <Link
+            href={`/admin/customers/${customer.id}`}
+            className="group inline-flex items-center gap-1 font-medium text-ink transition hover:text-gold"
+            title={`Open ${customer.name}'s profile`}
+          >
+            <UserRound size={13} className="shrink-0 text-ink-soft/60" />
+            <span>{customer.name}</span>
+            <ChevronRight
+              size={13}
+              className="shrink-0 text-ink-soft/40 transition group-hover:translate-x-0.5 group-hover:text-gold"
+            />
+          </Link>
+        )}
+        {!customer && <p className="font-medium text-ink-soft">Guest</p>}
+        <p className="text-[11px] text-ink-soft">
+          {customer?.phone ?? "—"}
+          {customer?.email ? ` · ${customer.email}` : ""}
+        </p>
+      </div>
+    );
   };
 
   return (
@@ -171,7 +201,8 @@ export function OrdersManager() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-ink/10 bg-white/80 shadow-sm">
+      {/* Desktop table */}
+      <div className="hidden overflow-hidden rounded-xl border border-ink/10 bg-white/80 shadow-sm md:block">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-left text-sm">
             <thead>
@@ -187,7 +218,6 @@ export function OrdersManager() {
             </thead>
             <tbody>
               {filtered.map((order) => {
-                const customer = customerById.get(order.customerId);
                 const slot = slotById[order.deliverySlotId];
                 const area = areaById[order.deliveryAreaId];
                 return (
@@ -204,7 +234,7 @@ export function OrdersManager() {
                         {order.orderNumber}
                       </Link>
                       <span className="text-[11px] text-ink-soft">
-                        {new Date(order.createdAt).toLocaleString("en-IN", {
+                        {formatAppDateTime(order.createdAt, {
                           day: "numeric",
                           month: "short",
                           hour: "numeric",
@@ -213,27 +243,23 @@ export function OrdersManager() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="font-medium text-ink">
-                        {customer?.name ?? "Customer"}
-                      </p>
-                      <p className="text-[11px] text-ink-soft">
-                        {customer?.phone ?? "—"}
-                      </p>
+                      <CustomerLink order={order} />
                     </td>
                     <td className="max-w-56 px-4 py-3 text-xs leading-5 text-ink-soft">
                       {itemSummary(order)}
                     </td>
                     <td className="px-4 py-3">
                       <p className="text-xs font-medium text-ink">
-                        {new Date(`${order.deliveryDate}T00:00:00`).toLocaleDateString(
-                          "en-IN",
+                        {formatAppDate(
+                          order.deliveryDate,
                           { day: "numeric", month: "short" },
+                          "Date pending",
                         )}{" "}
                         · {slot?.label ?? order.deliverySlotId}
                       </p>
                       <p className="flex items-center gap-1 text-[11px] text-ink-soft">
                         <Truck size={11} aria-hidden="true" />
-                        {area?.name ?? "Area"}
+                        {area?.name ?? "Area"} · Porter {formatINR(order.deliveryFee)}
                       </p>
                     </td>
                     <td className="px-4 py-3">
@@ -246,6 +272,9 @@ export function OrdersManager() {
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-ink">
                       {formatINR(order.total)}
+                      <span className="block text-[11px] font-normal text-ink-soft">
+                        incl. Porter {formatINR(order.deliveryFee)}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <OrderStatusBadge status={order.status} />
@@ -266,6 +295,78 @@ export function OrdersManager() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Mobile cards */}
+      <div className="space-y-3 md:hidden">
+        {filtered.map((order) => {
+          const slot = slotById[order.deliverySlotId];
+          const area = areaById[order.deliveryAreaId];
+          return (
+            <div
+              key={order.id}
+              className="rounded-xl border border-ink/10 bg-white/80 p-4 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      href={`/admin/orders/${order.id}`}
+                      className="font-semibold text-ink transition hover:text-gold"
+                    >
+                      {order.orderNumber}
+                    </Link>
+                    <OrderStatusBadge status={order.status} />
+                  </div>
+                  <p className="mt-1 text-[11px] text-ink-soft">
+                    {formatAppDateTime(order.createdAt, {
+                      day: "numeric",
+                      month: "short",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                </div>
+                <p className="shrink-0 font-semibold text-ink">
+                  {formatINR(order.total)}
+                  <span className="block text-right text-[11px] font-normal text-ink-soft">
+                    incl. Porter {formatINR(order.deliveryFee)}
+                  </span>
+                </p>
+              </div>
+
+              <div className="mt-3 border-t border-ink/5 pt-3">
+                <CustomerLink order={order} />
+                <p className="mt-2 text-xs leading-5 text-ink-soft">
+                  {itemSummary(order)}
+                </p>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-ink-soft">
+                  <span className="flex items-center gap-1">
+                    <Truck size={11} aria-hidden="true" />
+                    {formatAppDate(
+                      order.deliveryDate,
+                      { day: "numeric", month: "short" },
+                      "Date pending",
+                    )}{" "}
+                    · {slot?.label ?? order.deliverySlotId} ·{" "}
+                    {area?.name ?? "Area"} · Porter {formatINR(order.deliveryFee)}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span>
+                      {order.paymentMethod === "online" ? "Online" : "COD"}
+                    </span>
+                    <PaymentStatusBadge status={order.paymentStatus} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {!filtered.length && (
+          <p className="rounded-xl border border-ink/10 bg-white/80 px-4 py-12 text-center text-sm text-ink-soft">
+            No orders match the current filters.
+          </p>
+        )}
       </div>
     </div>
   );

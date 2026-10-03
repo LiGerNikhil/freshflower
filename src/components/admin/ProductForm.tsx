@@ -3,11 +3,11 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save, WandSparkles } from "lucide-react";
+import { ArrowLeft, Palette, Plus, Save, Trash2, WandSparkles } from "lucide-react";
 import { useCatalog, FLOWER_STATUS_LABELS, FLOWER_UNITS } from "@/components/providers/CatalogContext";
 import { CloudinaryUpload } from "@/components/admin/CloudinaryUpload";
 import { slugify } from "@/lib/utils";
-import type { FlowerStockStatus } from "@/lib/types";
+import type { ColorVariant, FlowerStockStatus } from "@/lib/types";
 
 const STATUS_OPTIONS = (Object.keys(FLOWER_STATUS_LABELS) as FlowerStockStatus[]).map(
   (status) => ({ value: status, label: FLOWER_STATUS_LABELS[status] }),
@@ -19,7 +19,10 @@ interface FormErrors {
   categoryId?: string;
   price?: string;
   quantity?: string;
+  colorVariants?: Record<number, { color?: string; price?: string }>;
 }
+
+const EMPTY_VARIANT: ColorVariant = { color: "", price: NaN };
 
 function Toggle({
   checked,
@@ -81,6 +84,9 @@ export function ProductForm({ productId }: { productId?: string }) {
   const [bestSeller, setBestSeller] = useState(existing?.bestSeller ?? false);
   const [newArrival, setNewArrival] = useState(existing?.newArrival ?? false);
   const [images, setImages] = useState<string[]>(existing?.images ?? []);
+  const [colorVariants, setColorVariants] = useState<ColorVariant[]>(
+    (existing?.colorVariants ?? []).map((variant) => ({ ...variant })),
+  );
   const [videos, setVideos] = useState<string[]>(existing?.videos ?? []);
   const [seoTitle, setSeoTitle] = useState(existing?.seoTitle ?? "");
   const [metaDescription, setMetaDescription] = useState(existing?.metaDescription ?? "");
@@ -120,6 +126,19 @@ export function ProductForm({ productId }: { productId?: string }) {
     if (!categoryId) next.categoryId = "Choose a category.";
     if (!(price >= 0) || Number.isNaN(price)) next.price = "Enter a price ≥ 0.";
     if (!(quantity >= 1) || Number.isNaN(quantity)) next.quantity = "Quantity must be at least 1.";
+    const variantBlanks: NonNullable<FormErrors["colorVariants"]> = {};
+    colorVariants.forEach((variant, index) => {
+      if (!variant.color.trim()) {
+        variantBlanks[index] = { ...(variantBlanks[index] ?? {}), color: `Name the colour for row ${index + 1}.` };
+      }
+      if (!variant.color && Number.isNaN(variant.price)) {
+        return;
+      }
+      if (Number.isNaN(variant.price) || !(variant.price >= 0)) {
+        variantBlanks[index] = { ...(variantBlanks[index] ?? {}), price: `Enter a price ≥ 0 for ${variant.color.trim() || `row ${index + 1}`}.` };
+      }
+    });
+    if (Object.keys(variantBlanks).length) next.colorVariants = variantBlanks;
     return next;
   };
 
@@ -148,6 +167,17 @@ export function ProductForm({ productId }: { productId?: string }) {
       bestSeller,
       newArrival,
       colors: [],
+      colorVariants: colorVariants
+        .filter((variant) => variant.color.trim() && !Number.isNaN(variant.price))
+        .map((variant) => ({
+          color: variant.color.trim(),
+          price: Number(variant.price),
+          image: variant.image?.trim() || undefined,
+          compareAtPrice:
+            variant.compareAtPrice && !Number.isNaN(variant.compareAtPrice)
+              ? Number(variant.compareAtPrice)
+              : undefined,
+        })),
       images,
       videos,
       seoTitle: seoTitle.trim(),
@@ -384,6 +414,171 @@ export function ProductForm({ productId }: { productId?: string }) {
             ))}
           </div>
         </div>
+      </section>
+
+      {/* Colour variants */}
+      <section className="mb-6 rounded-xl border border-ink/10 bg-white/80 p-5 shadow-sm">
+        <div className="mb-1 flex items-center gap-2">
+          <Palette size={16} className="text-gold" />
+          <h2 className="font-display text-lg">Colour variants</h2>
+        </div>
+        <p className="mb-4 text-sm text-ink-soft">
+          Give each colour its own price and image. Customers pick a colour on
+          the product page — the selected colour&apos;s price and picture are
+          used everywhere from cart to the admin order view. Leave empty for
+          single-colour products.
+        </p>
+
+        {colorVariants.length > 0 && (
+          <div className="space-y-4">
+            {colorVariants.map((variant, index) => (
+              <div
+                key={index}
+                className="rounded-lg border border-ink/10 bg-ivory/60 p-4"
+              >
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-[0.14em] text-ink-soft">
+                    Colour {index + 1}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`Remove colour ${index + 1}`}
+                    onClick={() =>
+                      setColorVariants((prev) =>
+                        prev.filter((_, i) => i !== index),
+                      )
+                    }
+                    className="rounded-md border border-ink/10 px-2 py-1 text-ink-soft hover:bg-blush hover:text-ink"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <label className="block">
+                    <span className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-ink-soft">
+                      Colour
+                    </span>
+                    <input
+                      value={variant.color}
+                      onChange={(event) =>
+                        setColorVariants((prev) =>
+                          prev.map((entry, i) =>
+                            i === index
+                              ? { ...entry, color: event.target.value }
+                              : entry,
+                          ),
+                        )
+                      }
+                      placeholder="e.g. Red, Pink, White…"
+                      className={fieldClass}
+                    />
+                    {errors.colorVariants?.[index]?.color && (
+                      <span className="mt-1 block text-xs text-ink">
+                        {errors.colorVariants[index]?.color}
+                      </span>
+                    )}
+                  </label>
+                  <label className="block">
+                    <span className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-ink-soft">
+                      Price (₹)
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={Number.isNaN(variant.price) ? "" : variant.price}
+                      onChange={(event) =>
+                        setColorVariants((prev) =>
+                          prev.map((entry, i) =>
+                            i === index
+                              ? {
+                                  ...entry,
+                                  price: event.target.value
+                                    ? Number(event.target.value)
+                                    : NaN,
+                                }
+                              : entry,
+                          ),
+                        )
+                      }
+                      placeholder="e.g. 349"
+                      className={fieldClass}
+                    />
+                    {errors.colorVariants?.[index]?.price && (
+                      <span className="mt-1 block text-xs text-ink">
+                        {errors.colorVariants[index]?.price}
+                      </span>
+                    )}
+                  </label>
+                  <label className="block">
+                    <span className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-ink-soft">
+                      Compare-at price (₹)
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={
+                        variant.compareAtPrice && !Number.isNaN(variant.compareAtPrice)
+                          ? variant.compareAtPrice
+                          : ""
+                      }
+                      onChange={(event) =>
+                        setColorVariants((prev) =>
+                          prev.map((entry, i) =>
+                            i === index
+                              ? {
+                                  ...entry,
+                                  compareAtPrice: event.target.value
+                                    ? Number(event.target.value)
+                                    : NaN,
+                                }
+                              : entry,
+                          ),
+                        )
+                      }
+                      placeholder="Optional"
+                      className={fieldClass}
+                    />
+                  </label>
+                </div>
+                <div className="mt-4">
+                  <span className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-ink-soft">
+                    Colour image
+                  </span>
+                  <CloudinaryUpload
+                    value={
+                      variant.image
+                        ? [variant.image]
+                        : []
+                    }
+                    onChange={(urls) =>
+                      setColorVariants((prev) =>
+                        prev.map((entry, i) =>
+                          i === index
+                            ? { ...entry, image: urls[urls.length - 1] ?? entry.image }
+                            : entry,
+                        ),
+                      )
+                    }
+                    label="Add colour image"
+                    mediaType="image"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() =>
+            setColorVariants((prev) => [...prev, { ...EMPTY_VARIANT }])
+          }
+          className="mt-4 inline-flex items-center gap-2 rounded-md border border-dashed border-ink/25 px-4 py-2.5 text-sm font-semibold text-ink-soft transition hover:border-gold hover:text-ink"
+        >
+          <Plus size={15} /> Add colour
+        </button>
       </section>
 
       {/* Flags */}

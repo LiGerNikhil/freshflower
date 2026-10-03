@@ -18,9 +18,17 @@ interface CartContextValue {
   itemCount: number;
   subtotal: number;
   addItem: (item: CartItem) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
-  removeItem: (productId: string) => void;
+  updateQuantity: (productId: string, quantity: number, color?: string) => void;
+  removeItem: (productId: string, color?: string) => void;
   clearCart: () => void;
+}
+
+function sameLine(a: CartItem, b: Pick<CartItem, "productId" | "productType" | "color">): boolean {
+  return (
+    a.productId === b.productId &&
+    a.productType === b.productType &&
+    (a.color ?? "") === (b.color ?? "")
+  );
 }
 
 interface AddedNotification {
@@ -57,18 +65,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Stable identity so consumers can safely depend on it in effects.
   const clearCart = useCallback(() => setItems([]), []);
 
-  const addItem = useCallback((item: CartItem) => {
+const addItem = useCallback((item: CartItem) => {
     if (!requireAuth()) return;
     setItems((current) => {
-      const existing = current.find(
-        (entry) =>
-          entry.productId === item.productId &&
-          entry.productType === item.productType,
-      );
+      const existing = current.find((entry) => sameLine(entry, item));
       if (existing)
         return current.map((entry) =>
-          entry.productId === item.productId &&
-          entry.productType === item.productType
+          sameLine(entry, item)
             ? { ...entry, quantity: entry.quantity + item.quantity }
             : entry,
         );
@@ -86,17 +89,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         0,
       ),
       addItem,
-      updateQuantity: (productId, quantity) =>
+      updateQuantity: (productId, quantity, color) =>
         setItems((current) =>
           quantity < 1
-            ? current.filter((item) => item.productId !== productId)
+            ? current.filter(
+                (item) => !(item.productId === productId && (item.color ?? "") === (color ?? "")),
+              )
             : current.map((item) =>
-                item.productId === productId ? { ...item, quantity } : item,
+                item.productId === productId && (item.color ?? "") === (color ?? "")
+                  ? { ...item, quantity }
+                  : item,
               ),
         ),
-      removeItem: (productId) =>
+      removeItem: (productId, color) =>
         setItems((current) =>
-          current.filter((item) => item.productId !== productId),
+          current.filter(
+            (item) => !(item.productId === productId && (item.color ?? "") === (color ?? "")),
+          ),
         ),
       clearCart,
     }),

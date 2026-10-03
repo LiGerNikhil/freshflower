@@ -8,6 +8,7 @@ import { ProductItemImage } from "@/components/sections/ProductItemImage";
 import { PaymentStatusBadge } from "@/components/admin/OrderStatusBadge";
 import { formatINR } from "@/lib/admin/analytics";
 import { OrderStatus, type Order } from "@/lib/types";
+import { formatAppDate } from "@/lib/utils";
 
 type TrackResult = { order: Order; customerName: string };
 
@@ -171,9 +172,10 @@ export function TrackOrderClient({
                 <CalendarDays size={13} /> Delivery
               </p>
               <p className="mt-2 text-sm font-medium text-ink">
-                {new Date(`${order.deliveryDate}T00:00:00`).toLocaleDateString(
-                  "en-IN",
+                {formatAppDate(
+                  order.deliveryDate,
                   { weekday: "long", day: "numeric", month: "long" },
+                  "Delivery date pending",
                 )}
               </p>
               <p className="text-sm text-ink-soft">
@@ -197,11 +199,18 @@ export function TrackOrderClient({
 
           <div className="mt-6 divide-y divide-ink/5 border-t border-ink/10">
             {order.items.map((item, index) => (
-              <div key={`${item.productId}-${index}`} className="flex items-center gap-3 py-2.5 text-sm">
+              <div key={`${item.productId}-${item.color ?? ""}-${index}`} className="flex items-center gap-3 py-2.5 text-sm">
                 <ProductItemImage image={item.image} name={item.name} className="h-12 w-12" />
                 <span className="min-w-0 flex-1 text-ink">
                   <span className="block truncate">{item.name}</span>
-                  <span className="text-ink-soft">× {item.quantity}</span>
+                  <span className="text-ink-soft">
+                    × {item.quantity}
+                    {item.color && (
+                      <span className="ml-1.5 inline-flex rounded-full bg-ink/5 px-2 py-0.5 font-semibold text-ink">
+                        {item.color}
+                      </span>
+                    )}
+                  </span>
                 </span>
                 <span className="font-medium text-ink">
                   {formatINR(item.price * item.quantity)}

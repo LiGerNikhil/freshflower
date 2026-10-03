@@ -97,8 +97,8 @@ export default function CartPageClient() {
           </div>
           <div className="divide-y divide-ink/10">
             {items.map((item) => (
-              <article
-                key={`${item.productType}-${item.productId}`}
+<article
+                key={`${item.productType}-${item.productId}-${item.color ?? "default"}`}
                 className="flex gap-4 py-6"
               >
                 <ProductItemImage image={item.image} name={item.name} className="h-28 w-28" />
@@ -112,12 +112,17 @@ export default function CartPageClient() {
                         {item.productType === "bouquet"
                           ? "Premium bouquet"
                           : "Fresh flower stems"}
+                        {item.color && (
+                          <span className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-0.5 font-semibold text-ink">
+                            {item.color} colour
+                          </span>
+                        )}
                       </p>
                     </div>
                     <button
                       type="button"
-                      onClick={() => removeItem(item.productId)}
-                      aria-label={`Remove ${item.name}`}
+                      onClick={() => removeItem(item.productId, item.color)}
+                      aria-label={`Remove ${item.name}${item.color ? ` (${item.color})` : ""}`}
                       className="text-ink-soft hover:text-ink"
                     >
                       <Trash2 size={17} />
@@ -129,7 +134,7 @@ export default function CartPageClient() {
                         type="button"
                         aria-label="Decrease quantity"
                         onClick={() =>
-                          updateQuantity(item.productId, item.quantity - 1)
+                          updateQuantity(item.productId, item.quantity - 1, item.color)
                         }
                       >
                         <Minus size={14} />
@@ -141,7 +146,7 @@ export default function CartPageClient() {
                         type="button"
                         aria-label="Increase quantity"
                         onClick={() =>
-                          updateQuantity(item.productId, item.quantity + 1)
+                          updateQuantity(item.productId, item.quantity + 1, item.color)
                         }
                       >
                         <Plus size={14} />
@@ -199,7 +204,7 @@ export default function CartPageClient() {
             </div>
             <div className="mt-6 space-y-3 border-t border-ink/10 pt-5">
               <div className="flex justify-between text-sm">
-                <span className="text-ink-soft">Delivery charge</span>
+                <span className="text-ink-soft">Porter delivery charge</span>
                 <span>₹{DELIVERY_CHARGE.toLocaleString("en-IN")}</span>
               </div>
               <div className="flex justify-between text-sm">

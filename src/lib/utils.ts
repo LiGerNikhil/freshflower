@@ -15,6 +15,35 @@ export function isoDay(offset = 0): string {
   return date.toISOString().slice(0, 10);
 }
 
+export function parseAppDate(value?: string | Date | null): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? `${value}T00:00:00`
+    : value;
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export function formatAppDate(
+  value: string | Date | null | undefined,
+  options: Intl.DateTimeFormatOptions,
+  fallback = "Date pending",
+): string {
+  const date = parseAppDate(value);
+  return date ? date.toLocaleDateString("en-IN", options) : fallback;
+}
+
+export function formatAppDateTime(
+  value: string | Date | null | undefined,
+  options: Intl.DateTimeFormatOptions,
+  fallback = "Date pending",
+): string {
+  const date = parseAppDate(value);
+  return date ? date.toLocaleString("en-IN", options) : fallback;
+}
+
 /** Converts a product/category name into a URL-safe slug ("Red Rose (12)" → "red-rose-12"). */
 export function slugify(input: string): string {
   return input

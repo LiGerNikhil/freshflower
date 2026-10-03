@@ -26,6 +26,17 @@ export const productUpsertSchema = z.object({
   bestSeller: z.boolean().default(false),
   newArrival: z.boolean().default(false),
   colors: z.array(z.string().max(60)).max(24).default(["mixed"]),
+  colorVariants: z
+    .array(
+      z.object({
+        color: z.string().trim().min(1).max(60),
+        price: z.number().finite().min(0),
+        image: z.string().max(1000).optional(),
+        compareAtPrice: z.number().finite().min(0).optional(),
+      }),
+    )
+    .max(24)
+    .default([]),
   images: z.array(z.string().max(1000)).max(24).default(["gradient-ivory"]),
   videos: z.array(z.string().max(1000)).max(12).default([]),
   seoTitle: z.string().max(160).default(""),
@@ -218,6 +229,8 @@ export const checkoutSchema = z.object({
         name: z.string().min(1),
         quantity: z.number().int().min(1).max(99),
         price: z.number().finite().min(0),
+        color: z.string().max(80).optional(),
+        image: z.string().max(1000).optional(),
       }),
     )
     .min(1, "Your cart is empty.")

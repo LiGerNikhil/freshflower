@@ -4,6 +4,7 @@ import { motion, type Variants } from "framer-motion";
 import Image from "next/image";
 import { Bike, Flower2, Heart, Plus, ShoppingBag, X } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
+import { DELIVERY_CHARGE } from "@/lib/cart";
 import { GRADIENT_TOKENS, isRemoteImage } from "@/lib/utils";
 import type { Flower } from "@/lib/types";
 import { useCart } from "@/components/providers/CartContext";
@@ -42,11 +43,15 @@ export function ProductCard({
       : flower.availableToday
         ? { label: "Available Today", tone: "sage" as const }
         : { label: "Pre-order", tone: "lavender" as const };
+  const variants = flower.colorVariants ?? [];
+  const displayPrice = variants.length
+    ? Math.min(...variants.map((variant) => variant.price))
+    : flower.price;
 
   return (
     <motion.article variants={cardReveal} className="group min-w-0">
       <div
-        className="relative aspect-[0.88] overflow-hidden rounded-lg"
+        className="relative aspect-[0.96] overflow-hidden rounded-lg sm:aspect-[0.88]"
         style={{
           background: isRemoteImage(flower.images[0])
             ? undefined
@@ -58,7 +63,7 @@ export function ProductCard({
             src={flower.images[0]}
             alt={flower.name}
             fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          sizes="(max-width: 640px) 48vw, (max-width: 1024px) 33vw, 25vw"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
@@ -88,7 +93,7 @@ export function ProductCard({
         <button
           type="button"
           onClick={() => onQuickView(flower)}
-          className="absolute bottom-4 left-4 right-4 rounded-sm bg-ivory/85 px-3 py-2.5 text-xs font-bold uppercase tracking-[0.16em] text-ink opacity-0 backdrop-blur transition-opacity group-hover:opacity-100"
+          className="absolute bottom-3 left-3 right-3 rounded-sm bg-ivory/90 px-3 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-ink backdrop-blur transition-opacity md:bottom-4 md:left-4 md:right-4 md:text-xs md:opacity-0 md:group-hover:opacity-100"
         >
           Quick view
         </button>
@@ -98,11 +103,28 @@ export function ProductCard({
           <h3 className="font-display text-xl leading-tight text-ink">
             {flower.name}
           </h3>
-          <p className="mt-1 text-xs text-ink-soft">
+          <p className="mt-1 text-[11px] text-ink-soft sm:text-xs">
             {flower.stemCount ?? flower.quantity
               ? `${flower.stemCount ?? flower.quantity} ${flower.unit?.toLowerCase() ?? "stems"}`
               : "Fresh seasonal bunch"}
           </p>
+          {variants.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5" aria-label={`${flower.name} colours`}>
+              {variants.slice(0, 6).map((variant) => (
+                <span
+                  key={variant.color}
+                  title={variant.color}
+                  className="h-3 w-3 rounded-full border border-ink/10"
+                  style={{
+                    background: isRemoteImage(variant.image)
+                      ? "conic-gradient(#e5e7eb, #9ca3af)"
+                      : GRADIENT_TOKENS[variant.image ?? ""] ??
+                        "conic-gradient(#e5e7eb, #9ca3af)",
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
         <div className="whitespace-nowrap text-right">
           {flower.compareAtPrice && flower.compareAtPrice > flower.price ? (
@@ -111,13 +133,13 @@ export function ProductCard({
             </p>
           ) : null}
           <p className="text-sm font-bold text-ink">
-            ₹{flower.price.toLocaleString("en-IN")}
+            {variants.length ? "From " : ""}₹{displayPrice.toLocaleString("en-IN")}
           </p>
         </div>
       </div>
-      <div className="mt-4 flex items-start gap-2 rounded-md bg-sage/65 px-3 py-2 text-[11px] font-semibold leading-5 text-sage-ink sm:text-xs">
+      <div className="mt-3 flex items-start gap-2 rounded-md bg-sage/65 px-3 py-2 text-[10px] font-semibold leading-5 text-sage-ink sm:mt-4 sm:text-xs">
         <Bike size={16} className="mt-0.5 shrink-0" />
-        <span>{estimatedDeliveryLabel}</span>
+        <span>{estimatedDeliveryLabel} · Porter ₹{DELIVERY_CHARGE}</span>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2">
         <button

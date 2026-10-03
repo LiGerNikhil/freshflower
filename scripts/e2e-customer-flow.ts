@@ -1,5 +1,8 @@
 import dotenv from "dotenv";
+import { dbConnect } from "../src/lib/db/connect";
+import { CustomerModel, OrderModel } from "../src/lib/db/models";
 import { getFlowers } from "../src/lib/db/repositories";
+import type { Flower } from "../src/lib/types";
 
 dotenv.config({ path: ".env.local" });
 
@@ -32,9 +35,7 @@ function realInboxAddress(): string {
   assert(smtpUser, "SMTP_USER is required for real-inbox E2E email testing.");
   const [local, domain] = smtpUser.split("@");
   assert(local && domain, "SMTP_USER must be an email address.");
-  return domain.toLowerCase() === "gmail.com"
-    ? `${local}+freshflower-e2e-${Date.now()}@${domain}`
-    : smtpUser;
+  return `${local}+freshflower-e2e-${Date.now()}@${domain}`;
 }
 
 async function main() {
@@ -51,6 +52,13 @@ async function main() {
   const productId = product.id;
   assert(productId, "Expected product id.");
 
+  const variantProduct = products.find(
+    (item): item is Flower => (item.colorVariants?.length ?? 0) > 0,
+  );
+  assert(variantProduct, "Expected a product with colour variants.");
+  const variant = variantProduct.colorVariants[0];
+  assert(variant, "Expected a colour variant.");
+
   const checkoutPayload = {
     customer: {
       name: "E2E Customer",
@@ -65,14 +73,31 @@ async function main() {
       notes: "E2E smoke test order",
       preferCall: false,
     },
-    items: [{ productId, productType: "flower", name: product.name, quantity: 1, price: product.price }],
+    items: [
+      {
+        productId,
+        productType: "flower",
+        name: product.name,
+        quantity: 1,
+        price: product.price,
+      },
+      {
+        productId: variantProduct.id,
+        productType: "flower",
+        name: variantProduct.name,
+        quantity: 1,
+        price: variant.price,
+        color: variant.color,
+        image: variant.image,
+      },
+    ],
     deliverySlotId: "default-slot",
     deliveryDate: new Date(Date.now() + 86_400_000).toISOString(),
     coupons: [],
-    subtotal: product.price,
+    subtotal: product.price + variant.price,
     discount: 0,
     deliveryFee: 299,
-    total: product.price + 299,
+    total: product.price + variant.price + 299,
     paymentMethod: "cod",
     agreedToTos: true,
   };
@@ -104,6 +129,11 @@ async function main() {
     cookie = cookieHeaderFrom(login);
   }
 
+  // Checkout requires a verified email; the E2E script can't click a real
+  // inbox link, so confirm the customer directly in the DB instead.
+  await dbConnect();
+  await CustomerModel.updateOne({ email }, { $set: { emailVerified: true } }).lean();
+
   const checkout = await request(`${baseUrl}/api/checkout`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: cookie },
@@ -112,6 +142,28 @@ async function main() {
   const checkoutBody = await json<{ orderId?: string; orderNumber?: string; error?: string }>(checkout);
   assert(checkout.ok, `Expected checkout to succeed: ${checkoutBody.error ?? checkout.status}`);
   assert(checkoutBody.orderNumber, "Expected checkout to return an order number.");
+
+  const storedOrder = await OrderModel.findOne({ orderNumber: checkoutBody.orderNumber })
+    .lean<{
+      items: Array<{ name: string; price: number; color?: string; image?: string }>;
+    }>();
+  assert(storedOrder, "Expected stored order.");
+  const coloredItem = storedOrder.items.find((item) => item.color);
+  assert(coloredItem, "Expected an order item to store a colour.");
+  assert(
+    coloredItem.color?.toLowerCase() === variant.color.toLowerCase(),
+    "Expected stored order item to carry the selected colour.",
+  );
+  assert(
+    coloredItem.price === variant.price,
+    `Expected variant price ${variant.price} to be punched in, got ${coloredItem.price}.`,
+  );
+  if (variant.image) {
+    assert(
+      coloredItem.image === variant.image,
+      "Expected variant image to be stored on the order item.",
+    );
+  }
 
   const paymentSuccess = await request(`${baseUrl}/api/payment/success`, {
     method: "POST",
@@ -134,7 +186,7 @@ async function main() {
   const historyHtml = await history.text();
   assert(historyHtml.includes(checkoutBody.orderNumber), "Expected created order to appear in account history.");
 
-  console.log(`Customer E2E flow passed for ${checkoutBody.orderNumber}; emails sent to ${email}`);
+  console.log(`Customer E2E flow passed for ${checkoutBody.orderNumber}; colour "${variant.color}" carried into order; emails sent to ${email}`);
 }
 
 main().catch((error: unknown) => {

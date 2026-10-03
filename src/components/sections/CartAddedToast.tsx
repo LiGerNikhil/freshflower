@@ -39,7 +39,10 @@ export function CartAddedToast({
               <Check size={14} strokeWidth={3} />
             </span>
             <p className="min-w-0 text-sm leading-snug">
-              <span className="font-semibold">{notification.item.name}</span>
+              <span className="font-semibold">
+                {notification.item.name}
+                {notification.item.color ? ` (${notification.item.color})` : ""}
+              </span>
               <span className="text-ivory/75">
                 {" "}
                 ×{notification.item.quantity} added to cart

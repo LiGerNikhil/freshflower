@@ -21,15 +21,15 @@ import {
   Truck,
   X,
 } from "lucide-react";
-import { DeliverySlotSelector } from "@/components/ui/DeliverySlotSelector";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { ProductCard } from "@/components/sections/ProductCard";
 import { QuickViewDialog } from "@/components/sections/QuickViewDialog";
 import { useCart } from "@/components/providers/CartContext";
+import { DELIVERY_CHARGE } from "@/lib/cart";
 import { GRADIENT_TOKENS, isRemoteImage } from "@/lib/utils";
-import type { Flower, Review } from "@/lib/types";
+import type { ColorVariant, Flower, Review } from "@/lib/types";
 
 interface FlowerDetailClientProps {
   flower: Flower;
@@ -99,29 +99,43 @@ export default function FlowerDetailClient({
   const router = useRouter();
   const { addItem } = useCart();
   const status = availability(flower);
+  const variants = flower.colorVariants ?? [];
+  const [selectedVariant, setSelectedVariant] = useState<ColorVariant | null>(
+    variants[0] ?? null,
+  );
+  const activePrice = selectedVariant?.price ?? flower.price;
+  const activeComparePrice =
+    selectedVariant?.compareAtPrice ?? flower.compareAtPrice;
+  const activeImage =
+    selectedVariant?.image ?? flower.images[0] ?? "gradient-blush";
+  const seenTokens =
+    variants.length && selectedVariant
+      ? [selectedVariant.image ?? flower.images[0] ?? "gradient-blush"]
+      : flower.images.slice(0, 3);
   const galleryTokens = Array.from(
-    new Set([
-      flower.images[0] ?? "gradient-blush",
-      "gradient-blush",
-      "gradient-ivory",
-    ]),
+    new Set([...(seenTokens.length ? seenTokens : ["gradient-blush"])]),
   );
   const [selectedImage, setSelectedImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [liked, setLiked] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [deliveryDate, setDeliveryDate] = useState("");
-  const [slotId, setSlotId] = useState("slot-6-7");
   const [quickView, setQuickView] = useState<Flower | null>(null);
+
+  const chooseVariant = (variant: ColorVariant) => {
+    setSelectedVariant(variant);
+    setSelectedImage(0);
+  };
 
   const addFlower = () =>
     addItem({
       productId: flower.id,
       productType: "flower",
       name: flower.name,
-      price: flower.price,
+      price: activePrice,
       quantity,
-      image: flower.images[0],
+      image: activeImage,
+      color: selectedVariant?.color,
     });
   const buyNow = () => {
     if (flower.inStock) {
@@ -272,13 +286,13 @@ export default function FlowerDetailClient({
                 />
               </button>
             </div>
-            <div className="mt-6 flex flex-wrap items-center gap-4">
+<div className="mt-6 flex flex-wrap items-center gap-4">
               <span className="text-2xl font-bold">
-                ₹{flower.price.toLocaleString("en-IN")}
+                ₹{activePrice.toLocaleString("en-IN")}
               </span>
-              {flower.compareAtPrice && flower.compareAtPrice > flower.price ? (
+              {activeComparePrice && activeComparePrice > activePrice ? (
                 <span className="text-sm text-ink-soft line-through">
-                  ₹{flower.compareAtPrice.toLocaleString("en-IN")}
+                  ₹{activeComparePrice.toLocaleString("en-IN")}
                 </span>
               ) : null}
               <span className="text-sm text-ink-soft">
@@ -291,6 +305,66 @@ export default function FlowerDetailClient({
             <p className="mt-6 text-base leading-8 text-ink-soft">
               {flower.shortDescription}
             </p>
+            {variants.length > 0 && (
+              <div className="mt-8 border-y border-ink/10 py-6">
+                <p className="mb-3 text-sm font-semibold">Select colour</p>
+                <div className="flex flex-wrap gap-2">
+                  {variants.map((variant) => {
+                    const active = selectedVariant?.color === variant.color;
+                    return (
+                      <button
+                        key={variant.color}
+                        type="button"
+                        onClick={() => chooseVariant(variant)}
+                        aria-pressed={active}
+                        className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition ${
+                          active
+                            ? "border-ink bg-ink text-ivory shadow"
+                            : "border-ink/10 bg-white/60 text-ink hover:border-ink/30"
+                        }`}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="h-4 w-4 rounded-full border border-ink/10"
+                          style={{
+                            background: isRemoteImage(variant.image)
+                              ? "conic-gradient(#e5e7eb, #9ca3af)"
+                              : GRADIENT_TOKENS[variant.image ?? ""] ??
+                                "conic-gradient(#e5e7eb, #9ca3af)",
+                          }}
+                        />
+                        {variant.color}
+                        <span
+                          className={`text-xs ${active ? "text-ivory/70" : "text-ink-soft"}`}
+                        >
+                          ₹{variant.price.toLocaleString("en-IN")}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedVariant?.compareAtPrice &&
+                  selectedVariant.compareAtPrice > activePrice && (
+                    <p className="mt-2 text-xs text-ink">
+                      Save ₹
+                      {(selectedVariant.compareAtPrice - activePrice).toLocaleString(
+                        "en-IN",
+                      )}{" "}
+                      on this colour.
+                    </p>
+                  )}
+                {selectedVariant && (
+                  <div className="mt-4 rounded-lg bg-white/60 px-4 py-3 text-sm text-ink-soft">
+                    <p>
+                      Selected colour: <span className="font-semibold text-ink">{selectedVariant.color}</span>
+                    </p>
+                    <p className="mt-1">
+                      Product price: <span className="font-semibold text-ink">₹{activePrice.toLocaleString("en-IN")}</span> · Porter delivery charge: <span className="font-semibold text-ink">₹{DELIVERY_CHARGE.toLocaleString("en-IN")}</span>
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="mt-8 border-y border-ink/10 py-6">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold">Quantity</span>
@@ -329,13 +403,6 @@ export default function FlowerDetailClient({
                   className="w-full rounded-md border border-ink/10 bg-white/60 px-4 py-3 text-sm outline-none focus:border-gold"
                 />
               </div>
-              <div className="mt-7">
-                <p className="mb-3 text-sm font-semibold">Delivery slot</p>
-                <DeliverySlotSelector
-                  selectedSlotId={slotId}
-                  onChange={setSlotId}
-                />
-              </div>
             </div>
             <div className="mt-6 flex items-start gap-3 rounded-lg border border-sage-ink/15 bg-sage/70 p-4 text-sm font-semibold text-sage-ink">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/70">
@@ -344,7 +411,7 @@ export default function FlowerDetailClient({
               <div>
                 <p>{estimatedDeliveryLabel}</p>
                 <p className="mt-1 text-xs font-normal leading-5 text-ink-soft">
-                  Rider will be assigned on a bike after order confirmation.
+                  Porter rider will be assigned after order confirmation. Porter delivery charge: ₹{DELIVERY_CHARGE.toLocaleString("en-IN")}.
                 </p>
               </div>
             </div>

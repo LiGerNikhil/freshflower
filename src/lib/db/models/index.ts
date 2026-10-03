@@ -56,6 +56,21 @@ const FlowerSchema = new Schema(
     shortDescription: { type: String, default: "" },
     price: { type: Number, required: true },
     compareAtPrice: Number,
+    colorVariants: {
+      type: [
+        new Schema(
+          {
+            _id: false,
+            color: { type: String, required: true },
+            price: { type: Number, required: true },
+            image: String,
+            compareAtPrice: Number,
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
     stemCount: Number,
     colors: { type: [String], default: [] },
     images: { type: [String], default: [] },
@@ -124,6 +139,7 @@ const OrderItemSchema = new Schema(
     price: { type: Number, required: true },
     quantity: { type: Number, required: true, min: 1 },
     image: String,
+    color: String,
   },
   { _id: false },
 );

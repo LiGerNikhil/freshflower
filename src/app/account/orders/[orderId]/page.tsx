@@ -7,6 +7,7 @@ import { AccountShell } from "@/components/sections/AccountShell";
 import { getAccountPageData } from "@/lib/account/account-page-data";
 import { getFlowers, getOrderById, getOrders } from "@/lib/db/repositories";
 import { resolveProductImage } from "@/lib/product-media";
+import { formatAppDate } from "@/lib/utils";
 
 export const metadata = {
   robots: { index: false, follow: false },
@@ -42,13 +43,15 @@ export default async function AccountOrderDetailPage({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm text-ink-soft">
-              Placed {new Date(order.createdAt).toLocaleDateString("en-IN")}
+              Placed {formatAppDate(order.createdAt, { dateStyle: "medium" })}
             </p>
             <p className="mt-2 text-2xl font-bold">
               ₹{order.total.toLocaleString("en-IN")}
             </p>
           </div>
-          <p className="text-sm text-ink-soft">Delivery {order.deliveryDate}</p>
+          <p className="text-sm text-ink-soft">
+            Delivery {formatAppDate(order.deliveryDate, { dateStyle: "medium" })}
+          </p>
         </div>
         <div className="mt-10">
           <OrderStatusStepper status={order.status} />
@@ -64,9 +67,9 @@ export default async function AccountOrderDetailPage({
         </p>
       </div>
       <div className="mt-5 divide-y divide-ink/10 rounded-lg bg-white/70 px-6">
-        {order.items.map((item) => (
+{order.items.map((item) => (
           <div
-            key={item.productId}
+            key={`${item.productId}-${item.color ?? ""}`}
             className="flex items-center gap-3 py-5 text-sm"
           >
             <ProductItemImage
@@ -76,7 +79,14 @@ export default async function AccountOrderDetailPage({
             />
             <span className="min-w-0 flex-1">
               <span className="block truncate">{item.name}</span>
-              <span className="text-ink-soft">× {item.quantity}</span>
+              <span className="text-ink-soft">
+                × {item.quantity}
+                {item.color && (
+                  <span className="ml-1.5 inline-flex rounded-full bg-ink/5 px-2 py-0.5 font-semibold text-ink">
+                    {item.color}
+                  </span>
+                )}
+              </span>
             </span>
             <span className="font-semibold">
               ₹{(item.price * item.quantity).toLocaleString("en-IN")}

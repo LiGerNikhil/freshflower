@@ -12,7 +12,7 @@ type EmailTemplate =
       name: string;
       orderNumber: string;
       total: number;
-      items: { name: string; quantity: number; price: number }[];
+      items: { name: string; quantity: number; price: number; color?: string }[];
       deliveryAddress: { line1?: string; city?: string; pincode?: string };
     }
   | {
@@ -80,7 +80,7 @@ function renderTemplate(template: EmailTemplate): { subject: string; html: strin
     const items = template.items
       .map(
         (item) =>
-          `<li>${escapeHtml(item.name)} × ${item.quantity} — ₹${(item.price * item.quantity).toLocaleString("en-IN")}</li>`,
+          `<li>${escapeHtml(item.name)}${item.color ? ` — ${escapeHtml(item.color)}` : ""} × ${item.quantity} — ₹${(item.price * item.quantity).toLocaleString("en-IN")}</li>`,
       )
       .join("");
     const address = [template.deliveryAddress.line1, template.deliveryAddress.city, template.deliveryAddress.pincode]

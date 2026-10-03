@@ -57,7 +57,15 @@ export async function POST(req: NextRequest) {
     const deliveryDate = toDateInput(input.deliveryDate);
 
     // ---- verify products + punch in DB prices --------------------------------
-    const items: { productId: string; productType: "flower" | "bouquet"; name: string; price: number; quantity: number; image?: string }[] = [];
+    const items: {
+      productId: string;
+      productType: "flower" | "bouquet";
+      name: string;
+      price: number;
+      quantity: number;
+      image?: string;
+      color?: string;
+    }[] = [];
     let subtotal = 0;
     for (const item of input.items) {
       const catalog =
@@ -66,7 +74,22 @@ export async function POST(req: NextRequest) {
           : await FlowerModel.findById(item.productId).lean();
       if (!catalog) throw new Error(`"${item.name}" is no longer available.`);
       if (catalog.active === false) throw new Error(`"${item.name}" is currently unavailable.`);
-      const price = typeof catalog.price === "number" ? catalog.price : item.price;
+
+      let price = typeof catalog.price === "number" ? catalog.price : item.price;
+      let image = Array.isArray(catalog.images) ? catalog.images[0] : undefined;
+      if (item.color) {
+        const variants = Array.isArray(catalog.colorVariants)
+          ? (catalog.colorVariants as Array<{ color: string; price?: number; image?: string }>)
+          : [];
+        const variant = variants.find(
+          (candidate) => candidate.color.toLowerCase() === item.color?.toLowerCase(),
+        );
+        if (variant) {
+          if (typeof variant.price === "number" && variant.price >= 0) price = variant.price;
+          if (variant.image) image = variant.image;
+        }
+      }
+
       subtotal += price * item.quantity;
       items.push({
         productId: String(catalog._id),
@@ -74,7 +97,8 @@ export async function POST(req: NextRequest) {
         name: typeof catalog.name === "string" ? catalog.name : item.name,
         price,
         quantity: item.quantity,
-        image: Array.isArray(catalog.images) ? catalog.images[0] : undefined,
+        image,
+        color: item.color,
       });
     }
 

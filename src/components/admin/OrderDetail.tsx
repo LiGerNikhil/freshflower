@@ -3,26 +3,30 @@
 import Link from "next/link";
 import {
   ArrowLeft,
+  BadgeCheck,
   CalendarDays,
   Check,
   CreditCard,
+  ExternalLink,
   MapPin,
   ShoppingCart,
   StickyNote,
+  Truck,
   User,
 } from "lucide-react";
 import { useOperations } from "@/components/providers/OperationsContext";
+import { ProductItemImage } from "@/components/sections/ProductItemImage";
 import {
   OrderStatusBadge,
   PaymentStatusBadge,
 } from "@/components/admin/OrderStatusBadge";
 import { STATUS_LABELS, formatINR } from "@/lib/admin/analytics";
-import { customers } from "@/lib/data";
 import {
   OrderStatus,
   type Order,
   type PaymentStatus,
 } from "@/lib/types";
+import { formatAppDate } from "@/lib/utils";
 
 const PAYMENT_OPTIONS: { value: PaymentStatus; label: string }[] = [
   { value: "paid", label: "Paid" },
@@ -66,7 +70,9 @@ function Totals({ order }: { order: Order }) {
         <span>{formatINR(order.subtotal)}</span>
       </div>
       <div className="flex justify-between text-ink-soft">
-        <span>Delivery fee</span>
+        <span className="inline-flex items-center gap-1.5">
+          <Truck size={13} aria-hidden="true" /> Porter delivery charge
+        </span>
         <span>{formatINR(order.deliveryFee)}</span>
       </div>
       {order.discount > 0 && (
@@ -86,12 +92,12 @@ function Totals({ order }: { order: Order }) {
 }
 
 export function OrderDetail({ orderId }: { orderId: string }) {
-  const { orders, slotById, areaById, setOrderStatus, setOrderPayment } =
+  const { orders, customersById, slotById, areaById, setOrderStatus, setOrderPayment } =
     useOperations();
   const order = orders.find((candidate) => candidate.id === orderId);
   if (!order) return <NotFound orderId={orderId} />;
 
-  const customer = customers.find((c) => c.id === order.customerId);
+  const customer = customersById[order.customerId];
   const slot = slotById[order.deliverySlotId];
   const area = areaById[order.deliveryAreaId];
 
@@ -113,9 +119,10 @@ export function OrderDetail({ orderId }: { orderId: string }) {
           </div>
           <p className="mt-2 flex items-center gap-2 text-sm text-ink-soft">
             <CalendarDays size={14} /> Delivers{" "}
-            {new Date(`${order.deliveryDate}T00:00:00`).toLocaleDateString(
-              "en-IN",
+            {formatAppDate(
+              order.deliveryDate,
               { weekday: "long", day: "numeric", month: "long" },
+              "Delivery date pending",
             )}{" "}
             · {slot?.label ?? order.deliverySlotId} · {area?.name ?? "Area"}
           </p>
@@ -134,18 +141,57 @@ export function OrderDetail({ orderId }: { orderId: string }) {
             <p className="mb-4 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gold">
               <User size={13} /> Customer
             </p>
-            <div className="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
-              <p className="font-semibold text-ink">
-                {customer?.name ?? "Customer"}
-              </p>
-              <p className="text-ink-soft">{customer?.phone ?? "—"}</p>
-              {customer?.email && (
-                <p className="text-ink-soft">{customer.email}</p>
-              )}
-              <p className="text-ink-soft">
-                {order.paymentMethod === "online" ? "Online payment" : "Cash on delivery"}
-              </p>
-            </div>
+            {customer ? (
+              <div className="flex flex-wrap justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink text-sm font-bold text-ivory">
+                    {customer.name
+                      .split(" ")
+                      .slice(0, 2)
+                      .map((part) => part[0])
+                      .join("")
+                      .toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="flex flex-wrap items-center gap-2 font-semibold text-ink">
+                      {customer.name}
+                      {customer.emailVerified && (
+                        <span
+                          title="Email verified"
+                          className="inline-flex items-center gap-1 rounded-full bg-sage-ink/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sage-ink"
+                        >
+                          <BadgeCheck size={11} /> Verified
+                        </span>
+                      )}
+                    </p>
+                    <p className="mt-0.5 text-sm text-ink-soft">{customer.phone}</p>
+                    {customer.email && (
+                      <p className="text-sm text-ink-soft">{customer.email}</p>
+                    )}
+                    <p className="mt-1 text-xs text-ink-soft">
+                      {customer.totalOrders > 0
+                        ? `${customer.totalOrders} order${
+                            customer.totalOrders > 1 ? "s" : ""
+                          } on account`
+                        : "First order"}
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href={`/admin/customers/${customer.id}`}
+                  className="inline-flex h-fit items-center gap-2 rounded-md border border-ink/10 bg-white/70 px-3.5 py-2 text-sm font-medium text-ink transition hover:border-gold hover:text-gold"
+                >
+                  <ExternalLink size={14} /> Full profile
+                </Link>
+              </div>
+            ) : (
+              <div className="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
+                <p className="text-ink-soft">Guest / walk-in checkout</p>
+                <p className="text-ink-soft">
+                  {order.paymentMethod === "online" ? "Online payment" : "Cash on delivery"}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="rounded-xl border border-ink/10 bg-white/80 p-6 shadow-sm">
@@ -156,12 +202,29 @@ export function OrderDetail({ orderId }: { orderId: string }) {
               {order.items.map((item, index) => (
                 <div
                   key={`${item.productId}-${index}`}
-                  className="flex items-center justify-between py-2.5 text-sm"
+                  className="flex items-center justify-between gap-3 py-2.5 text-sm"
                 >
-                  <span className="text-ink">
-                    {item.quantity}× {item.name}
-                  </span>
-                  <span className="font-medium text-ink">
+                  <div className="flex min-w-0 items-center gap-3">
+                    {item.image && (
+                      <ProductItemImage
+                        image={item.image}
+                        name={item.name}
+                        className="h-10 w-10 shrink-0 rounded-md"
+                      />
+                    )}
+                    <span className="min-w-0 text-ink">
+                      {item.quantity}× {item.name}
+                      {item.color && (
+                        <span className="ml-1.5 inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 text-[11px] font-semibold text-ink">
+                          {item.color}
+                        </span>
+                      )}
+                      <span className="mt-0.5 block text-[11px] text-ink-soft">
+                        {formatINR(item.price)} each
+                      </span>
+                    </span>
+                  </div>
+                  <span className="shrink-0 font-medium text-ink">
                     {formatINR(item.price * item.quantity)}
                   </span>
                 </div>
@@ -277,8 +340,8 @@ export function OrderDetail({ orderId }: { orderId: string }) {
           </div>
 
           <div className="rounded-xl border border-ink/10 bg-white/80 p-6 text-xs leading-5 text-ink-soft shadow-sm">
-            <p>Placed {new Date(order.createdAt).toLocaleString("en-IN")}</p>
-            <p>Last updated {new Date(order.updatedAt).toLocaleString("en-IN")}</p>
+            <p>Placed {formatAppDate(order.createdAt, { dateStyle: "medium" })}</p>
+            <p>Last updated {formatAppDate(order.updatedAt, { dateStyle: "medium" })}</p>
           </div>
         </div>
       </div>
