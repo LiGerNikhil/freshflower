@@ -21,6 +21,7 @@ import { OrderStatusStepper } from "@/components/sections/OrderStatusStepper";
 import { ProductItemImage } from "@/components/sections/ProductItemImage";
 import { useCart } from "@/components/providers/CartContext";
 import { useWishlist } from "@/components/providers/WishlistContext";
+import EmailOtpDialog from "@/components/auth/EmailOtpDialog";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { GRADIENT_TOKENS, isRemoteImage } from "@/lib/utils";
@@ -59,9 +60,19 @@ export default function AccountContent({
   flowers,
   reviews,
 }: AccountContentProps) {
+  const [otpEmail, setOtpEmail] = useState<string | null>(null);
+  const [otpKey, setOtpKey] = useState(0);
+  const [verifiedLocally, setVerifiedLocally] = useState(false);
+  const emailVerified = customer.emailVerified || verifiedLocally;
+  const openVerify = () => {
+    setOtpEmail(customer.email);
+    setOtpKey((value) => value + 1);
+  };
   return (
     <AccountShell title={titles[mode]}>
-      {mode === "overview" && <Overview customer={customer} orders={orders} />}
+      {mode === "overview" && (
+        <Overview customer={customer} orders={orders} emailVerified={emailVerified} onVerifyEmail={openVerify} />
+      )}
       {mode === "profile" && <Profile customer={customer} />}
       {mode === "orders" && <Orders orders={orders} flowers={flowers} />}
       {mode === "addresses" && <Addresses initial={customer.addresses} />}
@@ -69,15 +80,29 @@ export default function AccountContent({
       {mode === "password" && <ChangePassword />}
       {mode === "notifications" && <Notifications orders={orders} />}
       {mode === "reviews" && <Reviews reviews={reviews} />}
+      <EmailOtpDialog
+        key={`${otpEmail ?? "closed"}-${otpKey}`}
+        email={otpEmail ?? ""}
+        open={Boolean(otpEmail)}
+        onClose={() => setOtpEmail(null)}
+        onVerified={() => {
+          setVerifiedLocally(true);
+          setOtpEmail(null);
+        }}
+      />
     </AccountShell>
   );
 }
 function Overview({
   customer,
   orders,
+  emailVerified,
+  onVerifyEmail,
 }: {
   customer: Customer;
   orders: Order[];
+  emailVerified: boolean;
+  onVerifyEmail: () => void;
 }) {
   const upcoming = orders.filter(
     (order) => order.status !== "delivered" && order.status !== "cancelled",
@@ -90,9 +115,19 @@ function Overview({
         <p className="mt-2 text-sm text-ink-soft">
           {customer.email} · {customer.phone}
         </p>
-        <p className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-bold ${customer.emailVerified ? "bg-sage text-sage-ink" : "bg-gold/20 text-ink"}`}>
-          {customer.emailVerified ? "Email verified" : "Email verification pending"}
-        </p>
+        {emailVerified ? (
+          <p className="mt-3 inline-flex rounded-full px-3 py-1 text-xs font-bold bg-sage text-sage-ink">
+            Email verified
+          </p>
+        ) : (
+          <button
+            type="button"
+            onClick={onVerifyEmail}
+            className="mt-3 inline-flex rounded-full bg-gold/20 px-3 py-1 text-xs font-bold text-ink transition hover:bg-gold hover:shadow"
+          >
+            Email verification pending · Verify now
+          </button>
+        )}
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Link href="/account/orders" className="rounded-lg bg-white/70 p-6">

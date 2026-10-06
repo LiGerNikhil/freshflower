@@ -394,8 +394,10 @@ const CustomerSchema = new Schema(
     phone: { type: String, required: true },
     passwordHash: String,
     emailVerified: { type: Boolean, default: false },
-    emailVerificationToken: String,
-    emailVerificationTokenExpiresAt: Date,
+    emailOtpHash: String,
+    emailOtpExpiresAt: Date,
+    emailOtpAttempts: { type: Number, default: 0 },
+    emailOtpResendAt: Date,
     wishlist: {
       type: [
         {

@@ -1,5 +1,4 @@
 import nodemailer from "nodemailer";
-import { canonical } from "@/lib/seo";
 
 export type EmailAttachment = {
   filename: string;
@@ -9,9 +8,9 @@ export type EmailAttachment = {
 
 type EmailTemplate =
   | {
-      type: "verify-email";
+      type: "email-otp";
       name: string;
-      token: string;
+      otp: string;
     }
   | {
       type: "order-confirmation";
@@ -104,14 +103,14 @@ function baseLayout({ title, body }: { title: string; body: string }) {
 }
 
 function renderTemplate(template: EmailTemplate): { subject: string; html: string; text: string } {
-  if (template.type === "verify-email") {
-    const url = canonical(`/account/verify-email?token=${encodeURIComponent(template.token)}`);
+  if (template.type === "email-otp") {
+    const expiryMinutes = 15;
     return {
-      subject: "Verify your FreshFlower.zone account",
-      text: `Hi ${template.name}, verify your FreshFlower.zone account: ${url}`,
+      subject: `Your FreshFlower.zone verification code`,
+      text: `Hi ${template.name}, your FreshFlower.zone email verification code is ${template.otp}. This code is valid for ${expiryMinutes} minutes. If you did not create this account, you can ignore this email.`,
       html: baseLayout({
         title: "Verify your email",
-        body: `<p>Hi ${escapeHtml(template.name)},</p><p>Confirm your email address to finish setting up your FreshFlower.zone account.</p><p><a href="${url}" style="display:inline-block;background:#d6aa5a;color:#1f1b16;text-decoration:none;border-radius:10px;padding:12px 18px;font-weight:700;">Verify email</a></p><p>If you did not create this account, you can ignore this email.</p>`,
+        body: `<p>Hi ${escapeHtml(template.name)},</p><p>Enter this code on the FreshFlower.zone page to finish setting up your account.</p><p style="margin:22px 0;text-align:center;font-size:34px;font-weight:800;letter-spacing:0.22em;color:#1f1b16;">${escapeHtml(template.otp)}</p><p style="text-align:center;font-size:13px;color:#8a8377;">This code is valid for ${expiryMinutes} minutes.</p><p>If you did not create this account, you can ignore this email.</p>`,
       }),
     };
   }

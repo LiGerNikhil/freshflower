@@ -5,11 +5,14 @@ import { CustomerModel } from "@/lib/db/models";
 import { dbConnect } from "@/lib/db/connect";
 import { jsonError, jsonOk, readJson, safe } from "@/lib/api/helpers";
 import {
-  createEmailVerificationToken,
+  createEmailOtp,
+  EMAIL_OTP_RESEND_COOLDOWN_MS,
+  EMAIL_OTP_TTL_MS,
   hashCustomerPassword,
+  hashEmailOtp,
   validatePassword,
 } from "@/lib/auth/customer-passwords";
-import { sendVerificationEmail } from "@/lib/auth/customer-email";
+import { sendEmailOtp } from "@/lib/auth/customer-email";
 import { setCustomerSessionCookie } from "@/lib/auth/customer-session";
 
 const registerSchema = z.object({
@@ -45,13 +48,29 @@ export async function POST(req: NextRequest) {
     const existing = await CustomerModel.findOne({ email }).lean<{ _id: string; passwordHash?: string; addresses?: unknown[] }>();
     const passwordHash = await hashCustomerPassword(input.password);
     const nameParts = input.name.trim().split(/\s+/);
-    const verificationExpiry = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
+    const otp = createEmailOtp();
+    const otpHash = await hashEmailOtp(otp);
+    const otpExpiresAt = new Date(Date.now() + EMAIL_OTP_TTL_MS);
+
+    async function deliverOtp(customerId: string, name: string) {
+      let emailSent = false;
+      try {
+        await sendEmailOtp({ email, name, otp });
+        emailSent = true;
+      } catch (err) {
+        console.error("register: failed to send verification OTP", email, err);
+      }
+      await CustomerModel.updateOne(
+        { _id: customerId },
+        { $set: { emailOtpResendAt: new Date(emailSent ? Date.now() + EMAIL_OTP_RESEND_COOLDOWN_MS : 0) } },
+      ).lean();
+      return emailSent;
+    }
 
     let customerId: string;
     if (existing) {
       if (existing.passwordHash) return jsonError("An account already exists for this email.", 409);
       customerId = String(existing._id);
-      const verificationToken = await createEmailVerificationToken(customerId, email);
       await CustomerModel.updateOne(
         { _id: customerId },
         {
@@ -63,19 +82,20 @@ export async function POST(req: NextRequest) {
             email,
             passwordHash,
             emailVerified: false,
-            emailVerificationToken: verificationToken,
-            emailVerificationTokenExpiresAt: verificationExpiry,
+            emailOtpHash: otpHash,
+            emailOtpExpiresAt: otpExpiresAt,
+            emailOtpAttempts: 0,
+            emailOtpResendAt: new Date(Date.now() + EMAIL_OTP_RESEND_COOLDOWN_MS),
             ...(!existing.addresses?.length ? { addresses: [defaultProfileAddress(input)] } : {}),
           },
         },
       ).lean();
-      await sendVerificationEmail({ email, name: input.name.trim(), token: verificationToken });
-      const response = jsonOk({ ok: true, customerId }, 201);
-      await setCustomerSessionCookie(response, customerId);
-      return response;
+      const emailSentExisting = await deliverOtp(customerId, input.name.trim());
+      const responseExisting = jsonOk({ ok: true, customerId, requiresEmailVerification: true, emailSent: emailSentExisting }, 201);
+      await setCustomerSessionCookie(responseExisting, customerId);
+      return responseExisting;
     } else {
       customerId = `cust-${Date.now().toString(36)}${crypto.randomInt(1000)}`;
-      const token = await createEmailVerificationToken(customerId, email);
       await CustomerModel.create({
         _id: customerId,
         name: input.name.trim(),
@@ -85,14 +105,16 @@ export async function POST(req: NextRequest) {
         phone: input.phone,
         passwordHash,
         emailVerified: false,
-        emailVerificationToken: token,
-        emailVerificationTokenExpiresAt: verificationExpiry,
+        emailOtpHash: otpHash,
+        emailOtpExpiresAt: otpExpiresAt,
+        emailOtpAttempts: 0,
+        emailOtpResendAt: new Date(Date.now() + EMAIL_OTP_RESEND_COOLDOWN_MS),
         wishlist: [],
         addresses: [defaultProfileAddress(input)],
         totalOrders: 0,
       });
-      await sendVerificationEmail({ email, name: input.name.trim(), token });
-      const response = jsonOk({ ok: true, customerId }, 201);
+      const emailSent = await deliverOtp(customerId, input.name.trim());
+      const response = jsonOk({ ok: true, customerId, requiresEmailVerification: true, emailSent }, 201);
       await setCustomerSessionCookie(response, customerId);
       return response;
     }

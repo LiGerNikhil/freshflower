@@ -3,17 +3,25 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Mail, MailCheck, Phone, UserRound } from "lucide-react";
+import { Mail, Phone, UserRound } from "lucide-react";
 import { useCustomerAuth } from "@/components/providers/CustomerAuthContext";
 import { Button } from "@/components/ui/Button";
+import EmailOtpDialog from "@/components/auth/EmailOtpDialog";
 
 type Mode = "login" | "register";
+
+interface OtpState {
+  email: string;
+  note?: string;
+  next: () => void;
+}
 
 export default function LoginRegisterForm() {
   const [mode, setMode] = useState<Mode>("login");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [verifyPopup, setVerifyPopup] = useState<string | null>(null);
+  const [otpState, setOtpState] = useState<OtpState | null>(null);
+  const [otpKey, setOtpKey] = useState(0);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { refresh } = useCustomerAuth();
@@ -41,16 +49,31 @@ export default function LoginRegisterForm() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    const body = (await response.json().catch(() => null)) as
+      | { error?: string; emailSent?: boolean; customer?: { emailVerified?: boolean } }
+      | null;
     setSubmitting(false);
     if (!response.ok) {
       setError(body?.error ?? "Could not sign you in. Please try again.");
       return;
     }
+    const email = String(form.get("email") ?? "").toLowerCase();
     if (mode === "register") {
       await refresh();
-      const email = String(form.get("email") ?? "");
-      setVerifyPopup(email);
+      setOtpKey((value) => value + 1);
+      setOtpState({
+        email,
+        note: body?.emailSent === false ? "We couldn't send the code right now. Tap Resend code once you're ready." : undefined,
+        next: () => router.push(returnUrl.startsWith("/") ? returnUrl : "/account"),
+      });
+      return;
+    }
+    if (body?.customer?.emailVerified === false) {
+      setOtpKey((value) => value + 1);
+      setOtpState({
+        email,
+        next: () => router.push("/cart"),
+      });
       return;
     }
     void refresh();
@@ -136,37 +159,14 @@ export default function LoginRegisterForm() {
           </p>
         </section>
       </div>
-      {verifyPopup && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/50 px-5 backdrop-blur-sm" role="dialog" aria-modal="true">
-          <div className="w-full max-w-md rounded-3xl border border-white/70 bg-ivory/95 p-7 text-center shadow-2xl">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-sage">
-              <MailCheck size={30} className="text-sage-ink" />
-            </div>
-            <h2 className="mt-5 font-display text-3xl text-ink">Verification email sent</h2>
-            <p className="mt-3 text-sm leading-7 text-ink-soft">
-              We&apos;ve sent a verification link to
-              <span className="mx-1 font-semibold text-ink">{verifyPopup}</span>.
-              Check your Gmail inbox (and spam folder) and click the link to verify
-              your email before placing an order.
-            </p>
-            <div className="mt-6 rounded-2xl bg-white/70 p-4 text-left text-sm text-ink-soft">
-              <p className="font-semibold text-ink">Next steps:</p>
-              <ul className="mt-2 list-disc space-y-1 pl-5">
-                <li>Open Gmail and find the verification mail.</li>
-                <li>Tap the <span className="font-semibold text-ink">Verify email</span> button.</li>
-                <li>Come back and use your account normally.</li>
-              </ul>
-            </div>
-            <button
-              type="button"
-              onClick={() => router.push(returnUrl.startsWith("/") ? returnUrl : "/account")}
-              className="mt-7 w-full rounded-full bg-ink px-6 py-3 text-sm font-bold text-ivory transition hover:bg-ink-soft"
-            >
-              Got it, go to my account
-            </button>
-          </div>
-        </div>
-      )}
+      <EmailOtpDialog
+        key={`${otpState?.email ?? "closed"}-${otpKey}`}
+        email={otpState?.email ?? ""}
+        open={Boolean(otpState)}
+        onClose={() => setOtpState(null)}
+        onVerified={() => otpState?.next()}
+        initialNote={otpState?.note}
+      />
     </main>
   );
 }

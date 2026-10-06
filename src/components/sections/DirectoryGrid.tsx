@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { motion, type Variants } from "framer-motion";
 import { Flower2 } from "lucide-react";
 import { HeroVideo } from "@/components/sections/HeroVideo";
-import { GRADIENT_TOKENS } from "@/lib/utils";
-import type { Category, Occasion } from "@/lib/types";
+import { GRADIENT_TOKENS, isRemoteImage } from "@/lib/utils";
+import type { Category, Flower, Occasion } from "@/lib/types";
 
 const reveal: Variants = {
   hidden: { opacity: 0, y: 18 },
@@ -14,9 +15,11 @@ const reveal: Variants = {
 
 export function CategoryDirectory({
   categories,
+  flowers,
   counts,
 }: {
   categories: Category[];
+  flowers: Flower[];
   counts: Record<string, number>;
 }) {
   return (
@@ -25,9 +28,12 @@ export function CategoryDirectory({
       eyebrow="Find your flower"
       title="A world of beautiful stems."
       copy="From familiar favourites to fragrant Delhi classics, browse by bloom and find the right feeling for your space."
+      video="/assets/video/bg2.mp4"
       items={categories.map((item) => ({
         ...item,
         count: counts[item.id] ?? 0,
+        cover: flowers.find((flower) => flower.categoryId === item.id)
+          ?.images?.[0],
       }))}
     />
   );
@@ -68,7 +74,7 @@ function DirectoryShell({
   title: string;
   copy: string;
   video?: string;
-  items: Array<Category & { count?: number }>;
+  items: Array<Category & { count?: number; cover?: string }>;
 }) {
   return (
     <main className="min-h-screen bg-ivory">
@@ -96,35 +102,57 @@ function DirectoryShell({
           animate="visible"
           className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
         >
-          {items.map((item) => (
-            <motion.article key={item.id} variants={reveal}>
-              <Link href={`${basePath}/${item.slug}`} className="group block">
-                <div
-                  className="relative flex aspect-[1.15] items-center justify-center overflow-hidden rounded-xl"
-                  style={{ background: GRADIENT_TOKENS[item.heroImage] }}
-                >
-                  <Flower2
-                    size={105}
-                    strokeWidth={0.5}
-                    className="text-ink/20 transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <span className="absolute bottom-5 left-5 font-display text-3xl text-ink">
-                    {item.name}
-                  </span>
-                </div>
-                <div className="flex items-start justify-between gap-4 px-1 pt-4">
-                  <p className="max-w-sm text-sm leading-6 text-ink-soft">
-                    {item.description}
-                  </p>
-                  {item.count !== undefined && (
-                    <span className="whitespace-nowrap text-xs text-ink-soft">
-                      {item.count} flowers
+          {items.map((item) => {
+            const coverImage = isRemoteImage(item.imageUrl)
+              ? item.imageUrl
+              : isRemoteImage(item.cover)
+                ? item.cover
+                : null;
+            return (
+              <motion.article key={item.id} variants={reveal}>
+                <Link href={`${basePath}/${item.slug}`} className="group block">
+                  <div
+                    className="relative flex aspect-[1.15] items-center justify-center overflow-hidden rounded-xl"
+                    style={{ background: GRADIENT_TOKENS[item.heroImage] }}
+                  >
+                    {coverImage ? (
+                      <>
+                        <Image
+                          src={coverImage as string}
+                          alt=""
+                          fill
+                          sizes="(max-width: 640px) 92vw, (max-width: 1024px) 45vw, 30vw"
+                          className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-ink/55 via-ink/10 to-transparent" />
+                      </>
+                    ) : (
+                      <Flower2
+                        size={105}
+                        strokeWidth={0.5}
+                        className="text-ink/20 transition-transform duration-500 group-hover:scale-110"
+                      />
+                    )}
+                    <span
+                      className={`absolute bottom-5 left-5 right-5 font-display text-3xl ${coverImage ? "text-ivory" : "text-ink"}`}
+                    >
+                      {item.name}
                     </span>
-                  )}
-                </div>
-              </Link>
-            </motion.article>
-          ))}
+                  </div>
+                  <div className="flex items-start justify-between gap-4 px-1 pt-4">
+                    <p className="max-w-sm text-sm leading-6 text-ink-soft">
+                      {item.description}
+                    </p>
+                    {item.count !== undefined && (
+                      <span className="whitespace-nowrap text-xs text-ink-soft">
+                        {item.count} flowers
+                      </span>
+                    )}
+                  </div>
+                </Link>
+              </motion.article>
+            );
+          })}
         </motion.div>
       </section>
     </main>

@@ -21,5 +21,5 @@ export default async function CategoriesPage() {
       flowers.filter((flower) => flower.categoryId === category.id).length,
     ]),
   );
-  return <CategoryDirectory categories={categories} counts={counts} />;
+  return <CategoryDirectory categories={categories} flowers={flowers} counts={counts} />;
 }

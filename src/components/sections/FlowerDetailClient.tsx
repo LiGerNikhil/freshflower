@@ -15,11 +15,8 @@ import {
   Heart,
   Minus,
   Plus,
-  Quote,
   ShieldCheck,
-  Sparkles,
   Truck,
-  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -58,16 +55,25 @@ function availability(flower: Flower) {
   return { label: "Pre-order", tone: "lavender" as const };
 }
 
-function FAQItem({ question, answer }: { question: string; answer: string }) {
-  const [open, setOpen] = useState(false);
+function Collapsible({
+  title,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="border-b border-ink/10 py-5">
       <button
         type="button"
+        aria-expanded={open}
         onClick={() => setOpen(!open)}
         className="flex w-full items-center justify-between gap-4 text-left font-display text-xl text-ink"
       >
-        {question}
+        {title}
         <ChevronDown
           size={18}
           className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
@@ -75,18 +81,22 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
       </button>
       <AnimatePresence initial={false}>
         {open && (
-          <motion.p
+          <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden pt-3 text-sm leading-7 text-ink-soft"
           >
-            {answer}
-          </motion.p>
+            {children}
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
   );
+}
+
+function FAQItem({ question, answer }: { question: string; answer: string }) {
+  return <Collapsible title={question}>{answer}</Collapsible>;
 }
 
 export default function FlowerDetailClient({
@@ -175,7 +185,7 @@ export default function FlowerDetailClient({
         >
           <ArrowLeft size={16} /> Back to flowers
         </Link>
-        <div className="mt-8 grid gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20">
+        <div className="mt-8 grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20">
           <motion.section variants={reveal} initial="hidden" animate="visible">
             <button
               type="button"
@@ -269,7 +279,7 @@ export default function FlowerDetailClient({
                 <p className="mb-3 text-xs font-bold uppercase tracking-[0.22em] text-sage-ink">
                   {categoryName} · Fresh from our studio
                 </p>
-                <h1 className="text-5xl leading-[1.02] md:text-6xl">
+                <h1 className="text-4xl leading-[1.02] sm:text-5xl md:text-6xl">
                   {flower.name}
                 </h1>
               </div>
@@ -317,7 +327,7 @@ export default function FlowerDetailClient({
                         type="button"
                         onClick={() => chooseVariant(variant)}
                         aria-pressed={active}
-                        className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition ${
+                        className={`inline-flex min-h-12 items-center gap-2 rounded-xl border px-4 text-sm font-semibold transition ${
                           active
                             ? "border-ink bg-ink text-ivory shadow"
                             : "border-ink/10 bg-white/60 text-ink hover:border-ink/30"
@@ -325,7 +335,7 @@ export default function FlowerDetailClient({
                       >
                         <span
                           aria-hidden="true"
-                          className="h-4 w-4 rounded-full border border-ink/10"
+                          className="h-5 w-5 rounded-full border border-ink/10"
                           style={{
                             background: isRemoteImage(variant.image)
                               ? "conic-gradient(#e5e7eb, #9ca3af)"
@@ -368,21 +378,23 @@ export default function FlowerDetailClient({
             <div className="mt-8 border-y border-ink/10 py-6">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold">Quantity</span>
-                <div className="flex items-center gap-4 rounded-md border border-ink/10 bg-white/50 px-3 py-2">
+                <div className="flex items-center rounded-md border border-ink/10 bg-white/50">
                   <button
                     type="button"
                     aria-label="Decrease quantity"
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="flex h-11 w-11 items-center justify-center text-ink transition hover:text-gold active:scale-95"
                   >
                     <Minus size={16} />
                   </button>
-                  <span className="min-w-5 text-center text-sm">
+                  <span className="min-w-6 text-center text-sm">
                     {quantity}
                   </span>
                   <button
                     type="button"
                     aria-label="Increase quantity"
                     onClick={() => setQuantity(quantity + 1)}
+                    className="flex h-11 w-11 items-center justify-center text-ink transition hover:text-gold active:scale-95"
                   >
                     <Plus size={16} />
                   </button>
@@ -415,13 +427,13 @@ export default function FlowerDetailClient({
                 </p>
               </div>
             </div>
-            <div className="mt-6 grid grid-cols-2 gap-2 sm:gap-3">
+<div className="mt-6 hidden grid-cols-2 gap-2 lg:grid sm:gap-3">
               <Button
                 size="sm"
                 variant="secondary"
                 disabled={!flower.inStock}
                 onClick={addFlower}
-                className="min-h-10 w-full whitespace-nowrap border-blush bg-blush/85 px-3 text-xs text-ink hover:bg-blush sm:min-h-11 sm:text-sm"
+                className="min-h-12 w-full whitespace-nowrap border-blush bg-blush/85 px-3 text-xs text-ink hover:bg-blush sm:text-sm"
               >
                 Add to Cart <Plus size={17} />
               </Button>
@@ -430,7 +442,7 @@ export default function FlowerDetailClient({
                 variant="gold"
                 disabled={!flower.inStock}
                 onClick={buyNow}
-                className="min-h-10 w-full whitespace-nowrap border border-gold/30 bg-ivory-deep px-3 text-xs text-ink hover:bg-gold/25 sm:min-h-11 sm:text-sm"
+                className="min-h-12 w-full whitespace-nowrap border border-gold/30 bg-ivory-deep px-3 text-xs text-ink hover:bg-gold/25 sm:text-sm"
               >
                 Buy Now <ArrowRight size={17} />
               </Button>
@@ -450,30 +462,16 @@ export default function FlowerDetailClient({
           </motion.section>
         </div>
       </div>
-      <section className="mt-20 bg-ivory-deep px-5 py-20 md:px-10">
-        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-sage-ink">
-              The details
+      <section className="px-5 py-12 md:px-10 md:py-20">
+        <div className="mx-auto max-w-4xl">
+          <Collapsible title="The details">
+            <p>{flower.description}</p>
+            <p className="mt-4 font-semibold text-ink">Freshness & sourcing.</p>
+            <p>
+              Selected in small batches from trusted growers and prepared close
+              to dispatch, so your flowers arrive with their best days ahead.
             </p>
-            <h2 className="text-4xl">Grown for the moment.</h2>
-            <p className="mt-6 max-w-2xl text-sm leading-8 text-ink-soft">
-              {flower.description}
-            </p>
-          </div>
-          <div className="rounded-lg bg-white/60 p-6">
-            <div className="flex items-start gap-3">
-              <Sparkles size={20} className="mt-1 text-gold" />
-              <div>
-                <h3 className="font-display text-2xl">Freshness & sourcing</h3>
-                <p className="mt-3 text-sm leading-7 text-ink-soft">
-                  Selected in small batches from trusted growers and prepared
-                  close to dispatch, so your flowers arrive with their best days
-                  ahead.
-                </p>
-              </div>
-            </div>
-          </div>
+          </Collapsible>
         </div>
       </section>
       <section className="px-5 py-20 md:px-10">
@@ -566,61 +564,98 @@ export default function FlowerDetailClient({
           </div>
         </section>
       )}
-      <section className="bg-ink px-5 py-20 text-ivory md:px-10">
-        <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.75fr_1.25fr]">
-          <div>
-            <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-gold-soft">
-              Customer notes
-            </p>
-            <h2 className="text-4xl">Reviews for {flower.name}.</h2>
-          </div>
-          <div>
+      <section className="px-5 py-12 md:px-10 md:py-20">
+        <div className="mx-auto max-w-4xl">
+          <Collapsible title={`Reviews (${reviews.length})`}>
             {reviews.length ? (
-              reviews.map((review) => (
-                <div key={review.id} className="border-t border-ivory/20 py-6">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex gap-1 text-gold">
-                      {Array.from({ length: 5 }, (_, index) => (
-                        <span
-                          key={index}
-                          className={
-                            index < review.rating
-                              ? "text-gold"
-                              : "text-ivory/20"
-                          }
-                        >
-                          ★
-                        </span>
-                      ))}
+              <div>
+                {reviews.map((review) => (
+                  <div
+                    key={review.id}
+                    className="border-b border-ink/10 py-5 last:border-b-0"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex gap-1 text-gold">
+                        {Array.from({ length: 5 }, (_, index) => (
+                          <span
+                            key={index}
+                            className={
+                              index < review.rating ? "text-gold" : "text-ink/15"
+                            }
+                          >
+                            ★
+                          </span>
+                        ))}
+                      </div>
+                      <span className="text-xs text-ink-soft">
+                        {review.customerName}
+                      </span>
                     </div>
-                    <span className="text-xs text-ivory/50">
-                      {review.customerName}
-                    </span>
+                    <p className="mt-3 font-display text-xl leading-snug text-ink">
+                      &quot;{review.comment}&quot;
+                    </p>
                   </div>
-                  <p className="mt-4 font-display text-2xl leading-snug">
-                    &quot;{review.comment}&quot;
-                  </p>
-                </div>
-              ))
+                ))}
+              </div>
             ) : (
-              <p className="text-sm text-ivory/60">
+              <p className="text-ink-soft">
                 Be the first to leave a note about this flower.
               </p>
             )}
-          </div>
+          </Collapsible>
         </div>
       </section>
-      <section className="px-5 py-20 md:px-10">
+      <section className="px-5 py-12 md:px-10 md:py-20">
         <div className="mx-auto max-w-4xl">
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-sage-ink">
             Need to know
           </p>
-          <h2 className="mb-8 text-4xl">About this flower</h2>
+          <h2 className="mb-8 text-3xl md:text-4xl">About this flower</h2>
           {faqItems.map((item) => (
             <FAQItem key={item.question} {...item} />
           ))}
         </div>
       </section>
+
+      {/* Sticky mobile buy bar — replaces the inline Add/Buy buttons below lg. */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-ivory/95 px-5 py-3 backdrop-blur-md lg:hidden"
+        style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
+      >
+        <div className="mx-auto flex max-w-7xl items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold text-ink">
+              {flower.name}
+            </p>
+            <p className="text-base font-bold text-ink">
+              ₹{activePrice.toLocaleString("en-IN")}
+              {activeComparePrice && activeComparePrice > activePrice ? (
+                <span className="ml-1.5 text-xs font-normal text-ink-soft line-through">
+                  ₹{activeComparePrice.toLocaleString("en-IN")}
+                </span>
+              ) : null}
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={!flower.inStock}
+            onClick={addFlower}
+            className="inline-flex min-h-12 shrink-0 items-center justify-center gap-1.5 rounded-md border border-blush bg-blush/85 px-4 text-xs font-bold uppercase tracking-wider text-ink transition hover:bg-blush active:scale-[0.98] disabled:bg-ink/5 disabled:text-ink-soft"
+          >
+            <Plus size={15} /> Add
+          </button>
+          <button
+            type="button"
+            disabled={!flower.inStock}
+            onClick={buyNow}
+            className="inline-flex min-h-12 shrink-0 items-center justify-center gap-1.5 rounded-md bg-ink px-4 text-xs font-bold uppercase tracking-wider text-ivory transition hover:bg-ink/90 active:scale-[0.98] disabled:bg-ink/5 disabled:text-ink-soft"
+          >
+            Buy <ArrowRight size={15} />
+          </button>
+        </div>
+      </div>
+      <div className="h-24 lg:hidden" aria-hidden="true" />
+
       <Modal
         open={lightboxOpen}
         onClose={() => setLightboxOpen(false)}

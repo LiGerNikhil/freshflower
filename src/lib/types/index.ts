@@ -281,8 +281,10 @@ export interface Customer {
   phone: string;
   passwordHash?: string;
   emailVerified: boolean;
-  emailVerificationToken?: string;
-  emailVerificationTokenExpiresAt?: string;
+  emailOtpHash?: string;
+  emailOtpExpiresAt?: string;
+  emailOtpAttempts?: number;
+  emailOtpResendAt?: string;
   wishlist: Array<{ productId: string; productType: "flower" | "bouquet" }>;
   addresses: Address[];
   createdAt: string;

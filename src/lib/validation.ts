@@ -161,31 +161,31 @@ export const blogUpsertSchema = z.object({
   keywords: z.array(z.string().max(60)).max(30).default([]),
 });
 
+export const offerBannerUpsertSchema = z.object({
+  id: z.string().min(1).max(80),
+  badge: z.string().max(60).default(""),
+  title: z.string().max(160).default(""),
+  copy: z.string().max(500).default(""),
+  ctaLabel: z.string().max(40).default(""),
+  ctaHref: z.string().max(500).default(""),
+});
+
+/** Must mirror `HomepageConfig` — the admin saves that exact object. */
 export const homepageUpsertSchema = z.object({
   hero: z.object({
     eyebrow: z.string().max(80).default(""),
-    title: z.string().max(160).default(""),
+    titleLines: z.array(z.string().max(160)).max(6).default([]),
+    accentLineIndex: z.number().int().min(0).max(6).default(0),
     subtitle: z.string().max(500).default(""),
-    ctaLabel: z.string().max(40).default(""),
-    ctaLink: z.string().max(500).default(""),
-    image: z.string().max(1000).default("gradient-ivory"),
-    tint: z.number().min(0).max(100).default(0),
+    ctaPrimaryLabel: z.string().max(40).default(""),
+    ctaPrimaryHref: z.string().max(500).default(""),
+    ctaSecondaryLabel: z.string().max(40).default(""),
+    ctaSecondaryHref: z.string().max(500).default(""),
   }),
-  stats: z.array(
-    z.object({
-      value: z.string().max(40),
-      label: z.string().max(80),
-    }),
-  ).max(8).default([]),
-  featuredCategoryIds: z.array(z.string()).max(12).default([]),
-  themeImage: z.string().max(1000).default("gradient-sage"),
-  promoCard: z.object({
-    title: z.string().max(120).default(""),
-    description: z.string().max(500).default(""),
-    ctaLabel: z.string().max(40).default(""),
-    ctaLink: z.string().max(500).default(""),
-    badge: z.string().max(40).default(""),
-  }),
+  featuredFlowerIds: z.array(z.string().max(120)).max(24).default([]),
+  showsFreshToday: z.boolean().default(true),
+  offers: z.array(offerBannerUpsertSchema).max(6).default([]),
+  testimonialReviewIds: z.array(z.string().max(120)).max(12).default([]),
 });
 
 export const settingsUpsertSchema = z.object({

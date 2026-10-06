@@ -1,17 +1,17 @@
 import { sendEmail } from "@/lib/email/nodemailer";
 
-export async function sendVerificationEmail({
+export async function sendEmailOtp({
   email,
   name,
-  token,
+  otp,
 }: {
   email: string;
   name: string;
-  token: string;
+  otp: string;
 }) {
   await sendEmail({
     to: email,
-    template: { type: "verify-email", name, token },
+    template: { type: "email-otp", name, otp },
   });
 }
 

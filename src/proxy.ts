@@ -31,7 +31,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/admin/login", request.url));
   }
 
-  if (pathname.startsWith("/account") && pathname !== "/account/verify-email") {
+  if (pathname.startsWith("/account")) {
     if (await getCustomerSession(request)) return NextResponse.next();
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("returnUrl", `${pathname}${request.nextUrl.search}`);

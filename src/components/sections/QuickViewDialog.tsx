@@ -7,6 +7,10 @@ import { Flower2, Minus, Plus } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import {
+  effectiveCompareAtPrice,
+  lowestPrice,
+} from "@/lib/pricing";
 import { GRADIENT_TOKENS, isRemoteImage } from "@/lib/utils";
 import { useCart } from "@/components/providers/CartContext";
 import type { Flower } from "@/lib/types";
@@ -20,6 +24,8 @@ export function QuickViewDialog({
 }) {
   const { addItem } = useCart();
   const [quantity, setQuantity] = useState(1);
+  const compareAtPrice = flower ? effectiveCompareAtPrice(flower) : undefined;
+  const displayPrice = flower ? lowestPrice(flower) : 0;
 
   const status = !flower?.inStock
     ? { label: "Sold Out", tone: "blush" as const }
@@ -44,6 +50,7 @@ export function QuickViewDialog({
     <Modal
       open={Boolean(flower)}
       onClose={onClose}
+      position="sheet"
       className="max-w-3xl p-0 sm:p-0"
     >
       {flower && (
@@ -102,35 +109,36 @@ export function QuickViewDialog({
             <div className="mt-8 flex-1 border-t border-ink/10 px-6 py-6 md:pr-8">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  {flower.compareAtPrice && flower.compareAtPrice > flower.price ? (
+                  {compareAtPrice ? (
                     <p className="text-sm text-ink-soft line-through">
-                      ₹{flower.compareAtPrice.toLocaleString("en-IN")}
+                      ₹{compareAtPrice.toLocaleString("en-IN")}
                     </p>
                   ) : null}
                   <span className="text-2xl font-bold text-ink">
-                    ₹{flower.price.toLocaleString("en-IN")}
+                    {flower.colorVariants?.length ? "From " : ""}₹
+                    {displayPrice.toLocaleString("en-IN")}
                   </span>
                 </div>
                 <div
-                  className="flex items-center gap-4 rounded-md border border-ink/10 bg-white/50 px-3 py-2"
+                  className="flex items-center rounded-md border border-ink/10 bg-white/50"
                   aria-label={`Quantity, currently ${quantity}`}
                 >
                   <button
                     type="button"
                     aria-label="Decrease quantity"
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="text-ink transition hover:text-gold"
+                    className="flex h-12 w-12 items-center justify-center text-ink transition hover:text-gold active:scale-95"
                   >
                     <Minus size={16} />
                   </button>
-                  <span className="min-w-5 text-center text-sm font-semibold">
+                  <span className="min-w-6 text-center text-sm font-semibold">
                     {quantity}
                   </span>
                   <button
                     type="button"
                     aria-label="Increase quantity"
                     onClick={() => setQuantity(quantity + 1)}
-                    className="text-ink transition hover:text-gold"
+                    className="flex h-12 w-12 items-center justify-center text-ink transition hover:text-gold active:scale-95"
                   >
                     <Plus size={16} />
                   </button>
