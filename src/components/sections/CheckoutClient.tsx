@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -13,7 +13,6 @@ import {
 import { useCart } from "@/components/providers/CartContext";
 import { ProductItemImage } from "@/components/sections/ProductItemImage";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import { deliveryAreas } from "@/lib/data";
 import { DELIVERY_CHARGE, DELIVERY_NOTE } from "@/lib/cart";
 
@@ -22,7 +21,15 @@ const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
   .slice(0, 10);
 const defaultDeliverySlotId = "slot-10-11";
 const estimatedDeliveryLabel = "Estimated delivery by Tomorrow 11:00 AM";
-type PaymentMethod = "online" | "cod";
+const checkoutRequestStorageKey = "freshflower-checkout-request-id";
+type PaymentMethod = "upi" | "cod";
+type UpiAccount = {
+  id: string;
+  label: string;
+  receiverName: string;
+  upiId: string;
+  qrAsset: { secureUrl: string; publicId: string };
+};
 interface CheckoutForm {
   name: string;
   mobile: string;
@@ -51,7 +58,7 @@ const emptyForm: CheckoutForm = {
   instructions: "",
   date: tomorrow,
   slotId: defaultDeliverySlotId,
-  payment: "online",
+  payment: "upi",
 };
 
 export default function CheckoutClient() {
@@ -63,6 +70,8 @@ export default function CheckoutClient() {
   const [form, setForm] = useState<CheckoutForm>(emptyForm);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [upiAccount, setUpiAccount] = useState<UpiAccount | null>(null);
+  const [paymentLoading, setPaymentLoading] = useState(true);
   const selectedArea =
     deliveryAreas.find((area) => area.id === form.areaId) ??
     deliveryAreas.find((area) => area.id === form.areaId);
@@ -89,12 +98,48 @@ export default function CheckoutClient() {
       );
     setStep(Math.min(3, step + 1));
   };
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const response = await fetch("/api/payment-accounts/default");
+        const body = (await response.json().catch(() => null)) as { account?: UpiAccount | null } | null;
+        if (!mounted) return;
+        const account = body?.account ?? null;
+        setUpiAccount(account);
+        if (!account) {
+          setForm((current) => current.payment === "upi" ? { ...current, payment: "cod" } : current);
+        }
+      } catch {
+        if (!mounted) return;
+        setUpiAccount(null);
+        setForm((current) => current.payment === "upi" ? { ...current, payment: "cod" } : current);
+      } finally {
+        if (mounted) setPaymentLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const placeOrder = async () => {
     if (!items.length)
       return setError(
         "Your cart is empty. Add flowers before placing an order.",
       );
     setError("");
+    if (form.payment === "upi" && !upiAccount) {
+      return setError("Manual UPI is temporarily unavailable. Please choose Cash / Pay on Delivery.");
+    }
+    const checkoutRequestId = (() => {
+      const existing = window.sessionStorage.getItem(checkoutRequestStorageKey);
+      if (existing) return existing;
+      const nextId = `checkout-${Date.now().toString(36)}-${crypto.randomUUID()}`;
+      window.sessionStorage.setItem(checkoutRequestStorageKey, nextId);
+      return nextId;
+    })();
     setSubmitting(true);
     try {
       const res = await fetch("/api/checkout", {
@@ -129,24 +174,30 @@ items: items.map((item) => ({
           deliveryFee: DELIVERY_CHARGE,
           total,
           paymentMethod: form.payment,
+          paymentAccountId: form.payment === "upi" ? upiAccount?.id : undefined,
+          checkoutRequestId,
           agreedToTos: true,
         }),
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error ?? "Something went wrong, please try again.");
       const orderId: string = body.orderId;
-      const paymentSuccess = await fetch("/api/payment/success", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId }),
-      });
-      const paymentSuccessBody = await paymentSuccess.json().catch(() => null);
-      if (!paymentSuccess.ok) {
-        throw new Error(paymentSuccessBody?.error ?? "Payment succeeded, but confirmation failed.");
+      const orderNumber: string = body.orderNumber;
+      if (form.payment === "cod") {
+        const paymentSuccess = await fetch("/api/payment/success", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId }),
+        });
+        const paymentSuccessBody = await paymentSuccess.json().catch(() => null);
+        if (!paymentSuccess.ok) {
+          throw new Error(paymentSuccessBody?.error ?? "Order saved, but confirmation failed.");
+        }
       }
       // Keep the confirmation-page preview payload (its shape is unchanged).
       const order = {
         id: orderId,
+        orderNumber,
         items,
         customer: {
           name: form.name,
@@ -167,6 +218,7 @@ items: items.map((item) => ({
           slotLabel: estimatedDeliveryLabel,
         },
         payment: form.payment,
+        upiAccount: form.payment === "upi" ? upiAccount : undefined,
         subtotal,
         deliveryFee: DELIVERY_CHARGE,
         total,
@@ -178,6 +230,7 @@ items: items.map((item) => ({
         JSON.stringify(order),
       );
       clearCart();
+      window.sessionStorage.removeItem(checkoutRequestStorageKey);
       router.push(`/order-confirmation/${orderId}`);
     } catch (err) {
       setError(
@@ -381,15 +434,41 @@ if (!items.length)
                   </div>
                   <div>
                     <p className="mb-3 text-sm font-semibold">Payment method</p>
-                    <label className="flex items-center gap-3 rounded-md border border-ink/10 bg-white/60 p-4 text-sm">
+                    <label className={`flex items-start gap-3 rounded-md border border-ink/10 bg-white/60 p-4 text-sm ${!upiAccount ? "opacity-60" : ""}`}>
                       <input
                         type="radio"
-                        checked={form.payment === "online"}
-                        onChange={() => update("payment", "online")}
+                        checked={form.payment === "upi"}
+                        disabled={!upiAccount}
+                        onChange={() => update("payment", "upi")}
                       />{" "}
-Online · UPI / Card / Netbanking{" "}
-                       <Badge tone="sage">Coming soon</Badge>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-semibold">Manual UPI payment</span>
+                        {paymentLoading ? (
+                          <span className="mt-1 block text-xs text-ink-soft">Checking UPI availability...</span>
+                        ) : upiAccount ? (
+                          <span className="mt-1 block text-xs text-ink-soft">
+                            Pay to {upiAccount.receiverName} via {upiAccount.upiId}. You will submit the UPI reference after placing the order.
+                          </span>
+                        ) : (
+                          <span className="mt-1 block text-xs font-semibold text-red-700">
+                            Manual UPI is temporarily unavailable because no active UPI account is configured.
+                          </span>
+                        )}
+                      </span>
                     </label>
+                    {upiAccount && form.payment === "upi" && (
+                      <div className="mt-3 rounded-lg border border-gold/20 bg-gold/5 p-4 text-sm">
+                        <div className="flex flex-wrap items-center gap-4">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={upiAccount.qrAsset.secureUrl} alt="UPI QR" className="h-28 w-28 rounded-md bg-white object-contain" />
+                          <div>
+                            <p className="font-semibold text-ink">{upiAccount.label}</p>
+                            <p className="mt-1 text-ink-soft">Receiver: {upiAccount.receiverName}</p>
+                            <p className="break-all text-ink-soft">UPI ID: {upiAccount.upiId}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <label className="mt-2 flex items-center gap-3 rounded-md border border-ink/10 bg-white/60 p-4 text-sm">
                       <input
                         type="radio"

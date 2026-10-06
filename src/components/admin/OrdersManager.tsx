@@ -17,10 +17,12 @@ import { useOperations } from "@/components/providers/OperationsContext";
 import {
   OrderStatusBadge,
   PaymentStatusBadge,
+  PaymentStateBadge,
 } from "@/components/admin/OrderStatusBadge";
 
-const STATUS_OPTIONS: { value: OrderStatus | "all"; label: string }[] = [
+const STATUS_OPTIONS: { value: OrderStatus | "all" | "payment_verification_pending"; label: string }[] = [
   { value: "all", label: "All statuses" },
+  { value: "payment_verification_pending", label: "Payment verification pending" },
   ...(Object.values(OrderStatus) as OrderStatus[]).map((status) => ({
     value: status,
     label: STATUS_LABELS[status],
@@ -30,7 +32,7 @@ const STATUS_OPTIONS: { value: OrderStatus | "all"; label: string }[] = [
 export function OrdersManager() {
   const { orders, customersById, slotById, areaById } = useOperations();
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | "all" | "payment_verification_pending">("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
@@ -38,7 +40,10 @@ export function OrdersManager() {
     const q = query.trim().toLowerCase();
     return orders
       .filter((order) => {
-        if (statusFilter !== "all" && order.status !== statusFilter) {
+        if (statusFilter === "payment_verification_pending" && order.paymentState !== "verification_pending") {
+          return false;
+        }
+        if (statusFilter !== "all" && statusFilter !== "payment_verification_pending" && order.status !== statusFilter) {
           return false;
         }
         const deliveryDay = order.deliveryDate.slice(0, 10);
@@ -70,6 +75,7 @@ export function OrdersManager() {
       outForDelivery: orders.filter(
         (order) => order.status === OrderStatus.OutForDelivery,
       ).length,
+      paymentVerificationPending: orders.filter((order) => order.paymentState === "verification_pending").length,
     };
   }, [orders]);
 
@@ -119,7 +125,7 @@ export function OrdersManager() {
           <h1 className="mt-2 font-display text-3xl md:text-4xl">Orders</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-soft">
             {summary.total} orders · {summary.today} today · {summary.outForDelivery}{" "}
-            out for delivery. Status changes sync to the public track-order page.
+            out for delivery · {summary.paymentVerificationPending} payment verification pending.
           </p>
         </div>
       </div>
@@ -265,9 +271,10 @@ export function OrdersManager() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-ink-soft">
-                          {order.paymentMethod === "online" ? "Online" : "COD"}
+                          {order.paymentMethod === "upi" ? "UPI" : order.paymentMethod === "online" ? "Online" : "COD"}
                         </span>
                         <PaymentStatusBadge status={order.paymentStatus} />
+                        <PaymentStateBadge state={order.paymentState} />
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-ink">
@@ -353,9 +360,10 @@ export function OrdersManager() {
                   </span>
                   <div className="flex items-center gap-2">
                     <span>
-                      {order.paymentMethod === "online" ? "Online" : "COD"}
+                      {order.paymentMethod === "upi" ? "UPI" : order.paymentMethod === "online" ? "Online" : "COD"}
                     </span>
                     <PaymentStatusBadge status={order.paymentStatus} />
+                    <PaymentStateBadge state={order.paymentState} />
                   </div>
                 </div>
               </div>

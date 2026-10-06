@@ -89,6 +89,40 @@ export const orderStatusPatchSchema = z.object({
   notes: z.string().max(2000).optional(),
 });
 
+const cloudinaryImageAssetSchema = z.object({
+  publicId: z.string().trim().min(1).max(500),
+  secureUrl: z.string().trim().url().max(1000),
+  resourceType: z.literal("image").default("image"),
+  version: z.string().trim().max(80).optional(),
+});
+
+export const paymentAccountSchema = z.object({
+  id: z.string().trim().min(4).max(80).regex(/^payacct-/, 'Payment account ids must start with "payacct-".'),
+  label: z.string().trim().min(1).max(80),
+  receiverName: z.string().trim().min(1).max(120),
+  upiId: z.string().trim().toLowerCase().min(3).max(120).regex(/^[a-z0-9._-]+@[a-z0-9.-]+$/, "Enter a valid UPI ID."),
+  qrAsset: cloudinaryImageAssetSchema,
+  active: z.boolean().default(true),
+  defaultAccount: z.boolean().default(false),
+});
+
+export const paymentAccountPatchSchema = paymentAccountSchema.partial().extend({
+  id: z.string().optional(),
+});
+
+export const paymentSubmissionSchema = z.object({
+  upiTransactionRef: z.string().trim().min(4).max(160),
+  submissionRequestId: z.string().trim().min(8).max(160),
+});
+
+export const paymentReviewSchema = z.object({
+  decision: z.enum(["approved", "rejected", "correction_requested"]),
+  correctionReason: z.string().trim().max(1000).optional(),
+}).refine(
+  (value) => value.decision === "approved" || Boolean(value.correctionReason?.trim()),
+  { message: "Correction reason is required when a payment is not approved." },
+);
+
 export const slotConfigPatchSchema = z.object({
   enabled: z.boolean().optional(),
   maxOrders: z.number().int().min(0).max(1000).optional(),
@@ -242,7 +276,9 @@ export const checkoutSchema = z.object({
   discount: z.number().finite().min(0),
   deliveryFee: z.number().finite().min(0),
   total: z.number().finite().min(0),
-  paymentMethod: z.enum(["online", "cod"]).default("online").describe("placeholder for payment wiring"),
+  paymentMethod: z.enum(["online", "cod", "upi"]).default("online").describe("placeholder for payment wiring"),
+  paymentAccountId: z.string().trim().max(80).optional(),
+  checkoutRequestId: z.string().trim().min(8).max(120).optional(),
   agreedToTos: z.boolean().refine((value) => value === true, {
     message: "Please accept the terms.",
   }),

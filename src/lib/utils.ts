@@ -26,13 +26,20 @@ export function parseAppDate(value?: string | Date | null): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+/** Option keys that `toLocaleDateString` rejects because they carry time. */
+const TIME_BEARING_KEYS = ["timeStyle", "hour", "minute", "second", "fractionalSecondDigits"] as const;
+
 export function formatAppDate(
   value: string | Date | null | undefined,
   options: Intl.DateTimeFormatOptions,
   fallback = "Date pending",
 ): string {
   const date = parseAppDate(value);
-  return date ? date.toLocaleDateString("en-IN", options) : fallback;
+  if (!date) return fallback;
+  // `timeStyle`/`hour`/... throw "Invalid option" on toLocaleDateString, so
+  // delegate to toLocaleString when a caller asks for a time component.
+  const wantsTime = TIME_BEARING_KEYS.some((key) => options[key] !== undefined);
+  return wantsTime ? date.toLocaleString("en-IN", options) : date.toLocaleDateString("en-IN", options);
 }
 
 export function formatAppDateTime(

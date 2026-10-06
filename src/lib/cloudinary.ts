@@ -35,12 +35,18 @@ export interface UploadedAsset {
   secureUrl: string;
   publicId: string;
   resourceType: "image" | "video";
+  deliveryType?: "upload" | "authenticated" | "private";
 }
 
 /** Upload a raw buffer as a Cloudinary asset. Keeps no local copy. */
 export async function uploadMediaBuffer(
   buffer: Buffer,
-  options: { folder?: string; filename?: string; resourceType?: "image" | "video" } = {},
+  options: {
+    folder?: string;
+    filename?: string;
+    resourceType?: "image" | "video";
+    deliveryType?: "upload" | "authenticated" | "private";
+  } = {},
 ): Promise<UploadedAsset> {
   configure();
   const result = await new Promise<{ secure_url: string; public_id: string }>(
@@ -49,6 +55,7 @@ export async function uploadMediaBuffer(
         {
           folder: options.folder ?? "freshflower",
           resource_type: options.resourceType ?? "image",
+          type: options.deliveryType ?? "upload",
           ...(options.resourceType === "video" ? {} : { format: "jpg" }),
           use_filename: true,
           unique_filename: true,
@@ -70,7 +77,24 @@ export async function uploadMediaBuffer(
     secureUrl: result.secure_url,
     publicId: result.public_id,
     resourceType: options.resourceType ?? "image",
+    deliveryType: options.deliveryType ?? "upload",
   };
+}
+
+/** Short-lived signed URL for authenticated evidence previews/downloads. */
+export function buildAuthenticatedImageUrl(
+  publicId: string,
+  options: { expiresAt?: number; width?: number } = {},
+): string {
+  configure();
+  return cloudinary.url(publicId, {
+    resource_type: "image",
+    type: "authenticated",
+    secure: true,
+    sign_url: true,
+    expires_at: options.expiresAt ?? Math.floor(Date.now() / 1000) + 10 * 60,
+    transformation: options.width ? [{ width: options.width, crop: "limit" }] : undefined,
+  });
 }
 
 /** Delete an asset by public_id (used when a product/category/blog image is replaced). */

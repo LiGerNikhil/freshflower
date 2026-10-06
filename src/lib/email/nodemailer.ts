@@ -1,6 +1,12 @@
 import nodemailer from "nodemailer";
 import { canonical } from "@/lib/seo";
 
+export type EmailAttachment = {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+};
+
 type EmailTemplate =
   | {
       type: "verify-email";
@@ -18,12 +24,47 @@ type EmailTemplate =
   | {
       type: "password-changed";
       name: string;
+    }
+  | {
+      type: "payment-verification-required";
+      orderNumber: string;
+      customerName: string;
+      customerEmail?: string;
+      customerPhone?: string;
+      total: number;
+      paymentAccount: { label: string; receiverName: string; upiId: string };
+      upiTransactionRef: string;
+      submittedAt: Date;
+      adminOrderUrl: string;
+    }
+  | {
+      type: "payment-verified-customer";
+      name: string;
+      orderNumber: string;
+      total: number;
+    }
+  | {
+      type: "payment-correction-customer";
+      name: string;
+      orderNumber: string;
+      reason: string;
+      orderUrl: string;
     };
 
 export type SendEmailInput = {
   to: string;
   template: EmailTemplate;
+  attachments?: EmailAttachment[];
 };
+
+export function adminPaymentNotificationRecipient(): string {
+  return (
+    process.env.PAYMENT_NOTIFICATION_EMAIL ??
+    process.env.ADMIN_NOTIFICATION_EMAIL ??
+    process.env.SMTP_USER ??
+    ""
+  ).trim();
+}
 
 function smtpConfig() {
   const user = process.env.SMTP_USER;
@@ -96,6 +137,51 @@ function renderTemplate(template: EmailTemplate): { subject: string; html: strin
     };
   }
 
+  if (template.type === "payment-verification-required") {
+    const total = `₹${template.total.toLocaleString("en-IN")}`;
+    const submittedAt = new Intl.DateTimeFormat("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Asia/Kolkata",
+    }).format(template.submittedAt);
+    const body = `<p>A manual UPI payment needs admin verification.</p>
+      <p><strong>Order:</strong> ${escapeHtml(template.orderNumber)}</p>
+      <p><strong>Customer:</strong> ${escapeHtml(template.customerName)}${template.customerPhone ? ` · ${escapeHtml(template.customerPhone)}` : ""}${template.customerEmail ? ` · ${escapeHtml(template.customerEmail)}` : ""}</p>
+      <p><strong>Amount:</strong> ${total}</p>
+      <p><strong>Payment account:</strong> ${escapeHtml(template.paymentAccount.label)} · ${escapeHtml(template.paymentAccount.receiverName)} · ${escapeHtml(template.paymentAccount.upiId)}</p>
+      <p><strong>UPI reference:</strong> ${escapeHtml(template.upiTransactionRef)}</p>
+      <p><strong>Submitted:</strong> ${escapeHtml(submittedAt)} IST</p>
+      <p><a href="${template.adminOrderUrl}" style="display:inline-block;background:#d6aa5a;color:#1f1b16;text-decoration:none;border-radius:10px;padding:12px 18px;font-weight:700;">Open admin order</a></p>`;
+    return {
+      subject: `Payment verification required — Order ${template.orderNumber}`,
+      text: `Payment verification required — Order ${template.orderNumber}\nCustomer: ${template.customerName}${template.customerPhone ? ` · ${template.customerPhone}` : ""}${template.customerEmail ? ` · ${template.customerEmail}` : ""}\nAmount: ${total}\nPayment account: ${template.paymentAccount.label} · ${template.paymentAccount.receiverName} · ${template.paymentAccount.upiId}\nUPI reference: ${template.upiTransactionRef}\nSubmitted: ${submittedAt} IST\nAdmin: ${template.adminOrderUrl}`,
+      html: baseLayout({ title: "Payment verification required", body }),
+    };
+  }
+
+  if (template.type === "payment-verified-customer") {
+    const total = `₹${template.total.toLocaleString("en-IN")}`;
+    return {
+      subject: `Payment verified for order ${template.orderNumber}`,
+      text: `Hi ${template.name}, your payment for order ${template.orderNumber} (${total}) has been verified.`,
+      html: baseLayout({
+        title: "Payment verified",
+        body: `<p>Hi ${escapeHtml(template.name)},</p><p>Your payment for order <strong>${escapeHtml(template.orderNumber)}</strong> has been verified.</p><p>Amount: <strong>${total}</strong></p><p>We will continue preparing your flowers and keep you updated.</p>`,
+      }),
+    };
+  }
+
+  if (template.type === "payment-correction-customer") {
+    return {
+      subject: `Payment details need correction — Order ${template.orderNumber}`,
+      text: `Hi ${template.name}, payment details for order ${template.orderNumber} need correction. Reason: ${template.reason}. Update here: ${template.orderUrl}`,
+      html: baseLayout({
+        title: "Payment details need correction",
+        body: `<p>Hi ${escapeHtml(template.name)},</p><p>We could not verify the payment details for order <strong>${escapeHtml(template.orderNumber)}</strong>.</p><p><strong>Reason:</strong> ${escapeHtml(template.reason)}</p><p><a href="${template.orderUrl}" style="display:inline-block;background:#d6aa5a;color:#1f1b16;text-decoration:none;border-radius:10px;padding:12px 18px;font-weight:700;">Update payment details</a></p>`,
+      }),
+    };
+  }
+
   return {
     subject: "Your FreshFlower.zone password was changed",
     text: `Hi ${template.name}, your FreshFlower.zone password was changed. If this was not you, contact us immediately.`,
@@ -106,7 +192,7 @@ function renderTemplate(template: EmailTemplate): { subject: string; html: strin
   };
 }
 
-export async function sendEmail({ to, template }: SendEmailInput) {
+export async function sendEmail({ to, template, attachments }: SendEmailInput) {
   const { user, pass } = smtpConfig();
   const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
@@ -119,11 +205,12 @@ export async function sendEmail({ to, template }: SendEmailInput) {
     auth: { user, pass },
   });
   const rendered = renderTemplate(template);
-  await transporter.sendMail({
+  return transporter.sendMail({
     from: `FreshFlower.zone <${user}>`,
     to,
     subject: rendered.subject,
     text: rendered.text,
     html: rendered.html,
+    attachments,
   });
 }

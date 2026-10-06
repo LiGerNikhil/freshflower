@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "test:e2e:customer-flow": "tsx scripts/e2e-customer-flow.ts",
+    "test:manual-upi-flow": "tsx scripts/test-manual-upi-flow.ts",
+    "payments:process-email-outbox": "tsx scripts/process-payment-email-outbox.ts",
     "report:customer-duplicates": "tsx scripts/report-customer-duplicates.ts",
     "seed": "tsx scripts/seed.ts"
   },

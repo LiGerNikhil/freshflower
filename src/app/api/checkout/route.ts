@@ -5,6 +5,8 @@ import {
   CustomerModel,
   FlowerModel,
   OrderModel,
+  PaymentAccountModel,
+  PaymentAttemptModel,
 } from "@/lib/db/models";
 import { dbConnect } from "@/lib/db/connect";
 import { getCouponByCode, getDeliveryAreaById } from "@/lib/db/repositories";
@@ -14,6 +16,19 @@ import { deliveryAreas } from "@/lib/data";
 import { DELIVERY_CHARGE } from "@/lib/cart";
 import { getCustomerSession } from "@/lib/auth/customer-session";
 import { OrderStatus } from "@/lib/types";
+
+type PaymentAccountDoc = {
+  _id: string;
+  label: string;
+  receiverName: string;
+  upiId: string;
+  qrAsset: {
+    publicId: string;
+    secureUrl: string;
+    resourceType: "image";
+    version?: string;
+  };
+};
 
 function toDateInput(value: string): string {
   // Accept both the HTML date (YYYY-MM-DD) and full ISO forms.
@@ -122,10 +137,38 @@ export async function POST(req: NextRequest) {
     // Customer identity comes only from the signed auth session.
     const customerId = session.customerId;
     const customer = await CustomerModel.findById(customerId)
-      .select({ emailVerified: 1 })
-      .lean<{ emailVerified?: boolean }>();
+      .select({ _id: 1 })
+      .lean<{ _id: string }>();
     if (!customer) return jsonError("Please sign in before placing an order.", 401);
-    if (!customer.emailVerified) return jsonError("Please verify your email before placing an order.", 403);
+
+    if (input.checkoutRequestId) {
+      const existingOrder = await OrderModel.findOne({
+        customerId,
+        checkoutRequestId: input.checkoutRequestId,
+      }).lean<{
+        _id: string;
+        orderNumber: string;
+        subtotal: number;
+        discount: number;
+        deliveryFee: number;
+        total: number;
+        paymentState?: string;
+      }>();
+      if (existingOrder) {
+        return jsonOk({
+          ok: true,
+          orderId: String(existingOrder._id),
+          orderNumber: existingOrder.orderNumber,
+          paymentState: existingOrder.paymentState,
+          totals: {
+            subtotal: existingOrder.subtotal,
+            discount: existingOrder.discount,
+            deliveryFee: existingOrder.deliveryFee,
+            total: existingOrder.total,
+          },
+        });
+      }
+    }
 
     // ---- order (unique orderNumber with retry) --------------------------------
     let orderNumber = randomOrderNumber();
@@ -135,9 +178,21 @@ export async function POST(req: NextRequest) {
       orderNumber = randomOrderNumber();
     }
     const orderId = `ord-${Date.now().toString(36)}${crypto.randomInt(1000)}`;
+    const paymentAccount = input.paymentMethod === "upi"
+      ? await PaymentAccountModel.findOne(
+          input.paymentAccountId
+            ? { _id: input.paymentAccountId, active: true }
+            : { active: true, defaultAccount: true },
+        ).lean<PaymentAccountDoc>()
+      : null;
+    if (input.paymentMethod === "upi" && !paymentAccount) {
+      return jsonError("No active UPI payment account is available.", 400);
+    }
+
     await OrderModel.create({
       _id: orderId,
       orderNumber,
+      checkoutRequestId: input.checkoutRequestId,
       customerId,
       items,
       subtotal: Math.round(subtotal * 100) / 100,
@@ -159,9 +214,37 @@ export async function POST(req: NextRequest) {
       notes: input.customer.notes || undefined,
       paymentMethod: input.paymentMethod,
       paymentStatus: "pending",
+      paymentState: input.paymentMethod === "upi" ? "awaiting_payment" : undefined,
+      paymentCurrency: "INR",
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+
+    if (paymentAccount) {
+      const attemptId = `payatt-${Date.now().toString(36)}${crypto.randomInt(1000)}`;
+      await PaymentAttemptModel.create({
+        _id: attemptId,
+        orderId,
+        orderNumber,
+        customerId,
+        attemptNumber: 1,
+        state: "awaiting_payment",
+        amount: total,
+        currency: "INR",
+        paymentAccountSnapshot: {
+          accountId: String(paymentAccount._id),
+          label: paymentAccount.label,
+          receiverName: paymentAccount.receiverName,
+          upiId: paymentAccount.upiId,
+          qrAsset: paymentAccount.qrAsset,
+          capturedAt: new Date(),
+        },
+      });
+      await OrderModel.updateOne(
+        { _id: orderId },
+        { $set: { latestPaymentAttemptId: attemptId } },
+      ).lean();
+    }
 
     const nameParts = input.customer.name.trim().split(/\s+/);
     await CustomerModel.updateOne(
@@ -202,6 +285,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       orderId,
       orderNumber,
+      paymentState: input.paymentMethod === "upi" ? "awaiting_payment" : undefined,
       totals: { subtotal, discount, deliveryFee, total },
     }, 201);
   });

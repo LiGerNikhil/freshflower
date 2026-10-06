@@ -17,6 +17,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   return safe(async () => {
     const { id } = await params;
     const parsed = parseOrThrow(orderStatusPatchSchema, await readJson(req));
+    const order = await OrderModel.findById(id)
+      .select({ paymentMethod: 1, paymentStatus: 1 })
+      .lean<{ paymentMethod?: string; paymentStatus?: string }>();
+    if (parsed.paymentStatus === "paid") {
+      if (order?.paymentMethod === "upi") {
+        return jsonOk({ error: "Review UPI payments from the payment verification panel." }, 409);
+      }
+    }
+    if (
+      parsed.status &&
+      order?.paymentMethod === "upi" &&
+      order.paymentStatus !== "paid" &&
+      !["received", "cancelled"].includes(parsed.status)
+    ) {
+      return jsonOk({ error: "Verify UPI payment before moving this order into fulfillment." }, 409);
+    }
     return jsonOk(await crud.patch(id, parsed as Record<string, unknown>));
   });
 }

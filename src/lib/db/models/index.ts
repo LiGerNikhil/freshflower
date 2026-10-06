@@ -148,6 +148,7 @@ const OrderSchema = new Schema(
   {
     _id: { type: String },
     orderNumber: { type: String, required: true, unique: true },
+    checkoutRequestId: String,
     customerId: { type: String, required: true },
     items: { type: [OrderItemSchema], default: [] },
     subtotal: { type: Number, default: 0 },
@@ -166,17 +167,194 @@ const OrderSchema = new Schema(
     couponCode: String,
     notes: String,
     paymentStatus: { type: String, enum: ["paid", "pending", "refunded"] },
-    paymentMethod: { type: String, enum: ["online", "cod"] },
+    paymentMethod: { type: String, enum: ["online", "cod", "upi"] },
+    paymentState: {
+      type: String,
+      enum: ["awaiting_payment", "verification_pending", "correction_requested", "paid"],
+    },
+    paymentCurrency: { type: String, enum: ["INR"], default: "INR" },
+    latestPaymentAttemptId: String,
     orderConfirmationEmailSentAt: Date,
   },
   { timestamps: true },
 );
 
 OrderSchema.index({ customerId: 1 });
+OrderSchema.index({ customerId: 1, checkoutRequestId: 1 }, { unique: true, sparse: true });
 OrderSchema.index({ status: 1 });
 OrderSchema.index({ deliveryDate: 1 });
 OrderSchema.index({ deliverySlotId: 1 });
 OrderSchema.index({ "deliveryAddress.pincode": 1 });
+OrderSchema.index({ paymentState: 1 });
+OrderSchema.index({ latestPaymentAttemptId: 1 });
+
+// ---- Manual UPI payments -----------------------------------------------------
+
+const CloudinaryAssetRefSchema = new Schema(
+  {
+    publicId: { type: String, required: true },
+    secureUrl: { type: String, required: true },
+    resourceType: { type: String, enum: ["image", "video"], default: "image" },
+    deliveryType: { type: String, enum: ["upload", "authenticated", "private"], default: "upload" },
+    version: String,
+  },
+  { _id: false },
+);
+
+const PaymentAccountSnapshotSchema = new Schema(
+  {
+    accountId: { type: String, required: true },
+    label: { type: String, required: true },
+    receiverName: { type: String, required: true },
+    upiId: { type: String, required: true },
+    qrAsset: { type: CloudinaryAssetRefSchema, required: true },
+    capturedAt: { type: Date, required: true },
+  },
+  { _id: false },
+);
+
+const PaymentAccountSchema = new Schema(
+  {
+    _id: { type: String },
+    label: { type: String, required: true, trim: true },
+    receiverName: { type: String, required: true, trim: true },
+    upiId: { type: String, required: true, trim: true, lowercase: true },
+    qrAsset: { type: CloudinaryAssetRefSchema, required: true },
+    active: { type: Boolean, default: true },
+    defaultAccount: { type: Boolean, default: false },
+  },
+  { timestamps: true },
+);
+
+PaymentAccountSchema.index({ active: 1, defaultAccount: 1 });
+PaymentAccountSchema.index({ upiId: 1 });
+
+const PaymentAttemptSchema = new Schema(
+  {
+    _id: { type: String },
+    orderId: { type: String, required: true, immutable: true },
+    orderNumber: { type: String, required: true, immutable: true },
+    customerId: { type: String, required: true, immutable: true },
+    attemptNumber: { type: Number, required: true, min: 1, immutable: true },
+    state: {
+      type: String,
+      enum: ["awaiting_payment", "verification_pending", "correction_requested", "paid"],
+      required: true,
+      default: "awaiting_payment",
+    },
+    amount: { type: Number, required: true, min: 0, immutable: true },
+    currency: { type: String, enum: ["INR"], default: "INR", immutable: true },
+    paymentAccountSnapshot: { type: PaymentAccountSnapshotSchema, required: true, immutable: true },
+    upiTransactionRef: { type: String, trim: true },
+    normalizedUpiTransactionRef: { type: String, trim: true, lowercase: true },
+    screenshotAsset: CloudinaryAssetRefSchema,
+    submissionRequestId: String,
+    submittedAt: Date,
+    reviewedAt: Date,
+    reviewingAdminEmail: String,
+    reviewDecision: { type: String, enum: ["approved", "rejected", "correction_requested"] },
+    correctionReason: String,
+    reusedTransactionReference: { type: Boolean, default: false },
+    reusedReferenceOrderIds: { type: [String], default: [] },
+    events: {
+      type: [
+        new Schema(
+          {
+            _id: false,
+            type: {
+              type: String,
+              enum: [
+                "payment.submitted",
+                "payment.screenshot_uploaded",
+                "payment.email_sent",
+                "payment.email_failed",
+                "payment.verified",
+                "payment.correction_requested",
+              ],
+              required: true,
+            },
+            createdAt: { type: Date, required: true },
+            metadata: { type: Schema.Types.Mixed },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
+  },
+  { timestamps: true },
+);
+
+PaymentAttemptSchema.index({ orderId: 1, attemptNumber: 1 }, { unique: true });
+PaymentAttemptSchema.index({ orderId: 1, createdAt: -1 });
+PaymentAttemptSchema.index({ customerId: 1, createdAt: -1 });
+PaymentAttemptSchema.index({ state: 1, submittedAt: -1 });
+PaymentAttemptSchema.index({ normalizedUpiTransactionRef: 1 });
+PaymentAttemptSchema.index({ "paymentAccountSnapshot.accountId": 1 });
+PaymentAttemptSchema.index({ orderId: 1, submissionRequestId: 1 }, { unique: true, sparse: true });
+
+const DurablePaymentEventSchema = new Schema(
+  {
+    _id: { type: String },
+    type: {
+      type: String,
+      enum: [
+        "payment.submitted",
+        "payment.screenshot_uploaded",
+        "payment.email_sent",
+        "payment.email_failed",
+        "payment.verified",
+        "payment.correction_requested",
+      ],
+      required: true,
+    },
+    orderId: { type: String, required: true },
+    paymentAttemptId: { type: String, required: true },
+    actor: String,
+    metadata: { type: Schema.Types.Mixed },
+    createdAt: { type: Date, default: () => new Date() },
+  },
+  { timestamps: false },
+);
+
+DurablePaymentEventSchema.index({ orderId: 1, createdAt: -1 });
+DurablePaymentEventSchema.index({ paymentAttemptId: 1, createdAt: -1 });
+DurablePaymentEventSchema.index({ type: 1, createdAt: -1 });
+
+const EmailOutboxSchema = new Schema(
+  {
+    _id: { type: String },
+    kind: {
+      type: String,
+      enum: ["payment-verification-required", "payment-verified-customer", "payment-correction-customer"],
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: ["pending", "processing", "sent", "failed"],
+      default: "pending",
+    },
+    orderId: { type: String, required: true },
+    paymentAttemptId: { type: String, required: true },
+    submissionRequestId: String,
+    recipient: { type: String, required: true },
+    attemptCount: { type: Number, default: 0 },
+    maxAttempts: { type: Number, default: 5 },
+    nextAttemptAt: { type: Date, default: () => new Date() },
+    lockedAt: Date,
+    lockedUntil: Date,
+    lockToken: String,
+    sentAt: Date,
+    notificationId: String,
+    failureReason: String,
+    lastErrorAt: Date,
+  },
+  { timestamps: true },
+);
+
+EmailOutboxSchema.index({ status: 1, nextAttemptAt: 1, lockedUntil: 1 });
+EmailOutboxSchema.index({ orderId: 1, paymentAttemptId: 1 });
+EmailOutboxSchema.index({ kind: 1, paymentAttemptId: 1, submissionRequestId: 1 }, { unique: true });
 
 // ---- Delivery ---------------------------------------------------------------
 
@@ -465,6 +643,10 @@ export const OccasionModel = register<any>("Occasion", OccasionSchema);
 export const FlowerModel = register<any>("Flower", FlowerSchema);
 export const BouquetModel = register<any>("Bouquet", BouquetSchema);
 export const OrderModel = register<any>("Order", OrderSchema);
+export const PaymentAccountModel = register<any>("PaymentAccount", PaymentAccountSchema);
+export const PaymentAttemptModel = register<any>("PaymentAttempt", PaymentAttemptSchema);
+export const DurablePaymentEventModel = register<any>("DurablePaymentEvent", DurablePaymentEventSchema);
+export const EmailOutboxModel = register<any>("EmailOutbox", EmailOutboxSchema);
 export const DeliverySlotModel = register<any>("DeliverySlot", DeliverySlotSchema);
 export const DeliveryAreaModel = register<any>("DeliveryArea", DeliveryAreaSchema);
 export const CustomerModel = register<any>("Customer", CustomerSchema);

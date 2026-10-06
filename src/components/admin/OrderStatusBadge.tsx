@@ -1,4 +1,4 @@
-import { OrderStatus, type PaymentStatus } from "@/lib/types";
+import { OrderStatus, type PaymentState, type PaymentStatus } from "@/lib/types";
 import { STATUS_LABELS } from "@/lib/admin/analytics";
 
 const ORDER_TONES: Record<OrderStatus, string> = {
@@ -38,6 +38,29 @@ export function PaymentStatusBadge({
       className={`inline-flex items-center rounded-sm px-2.5 py-0.5 text-xs font-semibold ${PAYMENT_TONES[status]}`}
     >
       {status.charAt(0).toUpperCase() + status.slice(1)}
+    </span>
+  );
+}
+
+const PAYMENT_STATE_LABELS: Record<PaymentState, string> = {
+  awaiting_payment: "Awaiting payment",
+  verification_pending: "Verification pending",
+  correction_requested: "Correction requested",
+  paid: "Paid",
+};
+
+const PAYMENT_STATE_TONES: Record<PaymentState, string> = {
+  awaiting_payment: "bg-gold/10 text-gold",
+  verification_pending: "bg-blush text-ink",
+  correction_requested: "bg-lavender/60 text-lavender-ink",
+  paid: "bg-sage/60 text-sage-ink",
+};
+
+export function PaymentStateBadge({ state }: { state: PaymentState | undefined }) {
+  if (!state) return null;
+  return (
+    <span className={`inline-flex items-center rounded-sm px-2.5 py-0.5 text-xs font-semibold ${PAYMENT_STATE_TONES[state]}`}>
+      {PAYMENT_STATE_LABELS[state]}
     </span>
   );
 }

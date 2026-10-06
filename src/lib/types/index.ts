@@ -117,7 +117,86 @@ export enum OrderStatus {
 }
 
 export type PaymentStatus = "paid" | "pending" | "refunded";
-export type PaymentMethod = "online" | "cod";
+export type PaymentMethod = "online" | "cod" | "upi";
+export type PaymentState =
+  | "awaiting_payment"
+  | "verification_pending"
+  | "correction_requested"
+  | "paid";
+
+export interface CloudinaryAssetRef {
+  publicId: string;
+  secureUrl: string;
+  resourceType: "image" | "video";
+  deliveryType?: "upload" | "authenticated" | "private";
+  version?: string;
+}
+
+export type PaymentEventType = "payment.submitted" | "payment.screenshot_uploaded";
+export type DurablePaymentEventType =
+  | PaymentEventType
+  | "payment.email_sent"
+  | "payment.email_failed"
+  | "payment.verified"
+  | "payment.correction_requested";
+
+export interface PaymentEvent {
+  type: DurablePaymentEventType;
+  orderId?: string;
+  paymentAttemptId?: string;
+  createdAt: string;
+  actor?: string;
+  metadata?: Record<string, string | number | boolean>;
+}
+
+export interface PaymentAccountSnapshot {
+  accountId: string;
+  label: string;
+  receiverName: string;
+  upiId: string;
+  qrAsset: CloudinaryAssetRef;
+  capturedAt: string;
+}
+
+export interface PaymentAccount {
+  id: string;
+  label: string;
+  receiverName: string;
+  upiId: string;
+  qrAsset: CloudinaryAssetRef;
+  active: boolean;
+  defaultAccount: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type PaymentReviewDecision = "approved" | "rejected" | "correction_requested";
+
+export interface PaymentAttempt {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  customerId: string;
+  attemptNumber: number;
+  state: PaymentState;
+  amount: number;
+  currency: "INR";
+  paymentAccountSnapshot: PaymentAccountSnapshot;
+  upiTransactionRef?: string;
+  normalizedUpiTransactionRef?: string;
+  screenshotAsset?: CloudinaryAssetRef;
+  submissionRequestId?: string;
+  submittedAt?: string;
+  reviewedAt?: string;
+  reviewingAdminEmail?: string;
+  reviewDecision?: PaymentReviewDecision;
+  correctionReason?: string;
+  reusedTransactionReference: boolean;
+  reusedReferenceOrderIds: string[];
+  events: PaymentEvent[];
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface OrderItem {
   productId: string;
@@ -132,6 +211,7 @@ export interface OrderItem {
 export interface Order {
   id: string;
   orderNumber: string;
+  checkoutRequestId?: string;
   customerId: string;
   items: OrderItem[];
   subtotal: number;
@@ -147,6 +227,9 @@ export interface Order {
   notes?: string;
   paymentStatus?: PaymentStatus;
   paymentMethod?: PaymentMethod;
+  paymentState?: PaymentState;
+  paymentCurrency?: "INR";
+  latestPaymentAttemptId?: string;
   orderConfirmationEmailSentAt?: string;
   createdAt: string; // ISO datetime
   updatedAt: string; // ISO datetime
