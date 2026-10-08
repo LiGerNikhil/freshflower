@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, Clipboard, Clock3, Download, Loader2, MapPin, QrCode, Upload } from "lucide-react";
+import { Check, ChevronDown, Clipboard, Clock3, Download, Loader2, MapPin, QrCode, Upload } from "lucide-react";
 import { useCart } from "@/components/providers/CartContext";
 import { ProductItemImage } from "@/components/sections/ProductItemImage";
 import { DELIVERY_CHARGE, DELIVERY_NOTE } from "@/lib/cart";
@@ -173,8 +173,140 @@ export default function OrderConfirmationClient({ orderId }: { orderId: string }
 
   return (
     <main className="min-h-screen bg-ivory px-5 py-10 md:py-12">
-      <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1fr_420px]">
-        <section>
+      <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[420px_1fr]">
+        <aside className="order-first h-fit rounded-2xl border border-ink/10 bg-white/85 p-5 shadow-sm md:p-6 lg:sticky lg:top-6">
+          {loadingPayment ? (
+            <p className="text-sm text-ink-soft">Loading payment instructions...</p>
+          ) : !isUpiOrder ? (
+            <div className="text-sm leading-6 text-ink-soft">
+              <p className="font-semibold text-ink">Payment method: Cash / Pay on Delivery</p>
+              <p className="mt-2">No online payment evidence is required for this order.</p>
+            </div>
+          ) : selectedAccount ? (
+            <div>
+              <div className="rounded-lg border border-gold/30 bg-gold/15 px-4 py-3">
+                <p className="text-sm font-bold text-ink">
+                  Payment required — pay ₹{total.toLocaleString("en-IN")} to confirm your order
+                </p>
+                <p className="mt-1 text-xs leading-5 text-ink/70">
+                  Your order is on hold until our team verifies your payment. Please pay the
+                  amount below, then submit the UPI reference.
+                </p>
+              </div>
+              <p className="mt-5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gold"><QrCode size={13} /> Manual UPI payment</p>
+              <h2 className="mt-2 font-display text-3xl">Pay ₹{total.toLocaleString("en-IN")}</h2>
+              <p className="mt-2 text-sm leading-6 text-ink-soft">Payment is confirmed only after admin verification. UPI app return screens, screenshots, or references are not automatic proof of payment.</p>
+
+              {payment?.accounts.length && payment.accounts.length > 1 && (
+                <label className="mt-5 block text-sm font-semibold">
+                  Payment account
+                  <select disabled={!payment.canSwitchAccount} value={selectedAccount.accountId} onChange={(event) => void selectAccount(event.target.value)} className="mt-2 w-full rounded-md border border-ink/10 bg-white px-3 py-2 text-sm disabled:opacity-60">
+                    {payment.accounts.map((account) => (
+                      <option key={account.id} value={account.id}>{account.label}{account.defaultAccount ? " (default)" : ""}</option>
+                    ))}
+                  </select>
+                  {!payment.canSwitchAccount && <span className="mt-1 block text-xs text-ink-soft">Account selection is locked after payment evidence is submitted.</span>}
+                </label>
+              )}
+
+              <div className="mt-5 rounded-xl border border-ink/10 bg-ivory-deep/40 p-4 text-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={selectedAccount.qrAsset.secureUrl} alt="Selected UPI QR" className="mx-auto h-56 w-56 rounded-md bg-white object-contain" />
+                <a href={selectedAccount.qrAsset.secureUrl} download className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-gold hover:text-ink"><Download size={13} /> Download QR</a>
+              </div>
+
+              <div className="mt-5 space-y-3 text-sm">
+                <InfoRow label="Order number" value={payment.order.orderNumber} />
+                <InfoRow label="Receiver" value={selectedAccount.receiverName} />
+                <InfoRow label="UPI ID" value={selectedAccount.upiId} />
+                <InfoRow label="Amount" value={`₹${total.toLocaleString("en-IN")}`} />
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                <button type="button" onClick={() => void copy(selectedAccount.upiId)} className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/10 bg-white px-3 py-2 text-sm font-semibold text-ink hover:border-gold"><Clipboard size={14} /> Copy UPI ID</button>
+                <button type="button" onClick={() => void copy(String(total))} className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/10 bg-white px-3 py-2 text-sm font-semibold text-ink hover:border-gold"><Clipboard size={14} /> Copy Amount</button>
+              </div>
+
+              <details className="group mt-4 rounded-lg border border-ink/10 bg-ivory-deep/30">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-semibold text-ink [&::-webkit-details-marker]:hidden">
+                  How to pay
+                  <ChevronDown size={15} className="shrink-0 text-gold transition-transform group-open:rotate-180" />
+                </summary>
+                <ol className="space-y-3 px-4 pb-4">
+                  <li className="flex items-start gap-3 text-sm leading-5">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-bold text-ivory">1</span>
+                    <span className="text-ink-soft">Open any UPI app (GPay, PhonePe, Paytm or BHIM).</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-sm leading-5">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-bold text-ivory">2</span>
+                    <span className="text-ink-soft">Scan the QR above (or pay to the UPI ID) and enter <strong className="text-ink">₹{total.toLocaleString("en-IN")}</strong> — the exact amount.</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-sm leading-5">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-bold text-ivory">3</span>
+                    <span className="text-ink-soft">From the success screen, copy the <strong className="text-ink">UTR / reference number</strong>.</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-sm leading-5">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-bold text-ivory">4</span>
+                    <span className="text-ink-soft">Tap <strong className="text-ink">“I have paid”</strong> below, enter the UTR / reference (a screenshot is optional), then submit. Our team verifies it and confirms your order.</span>
+                  </li>
+                </ol>
+              </details>
+
+              {paymentError && <p role="alert" className="mt-4 rounded-md bg-blush px-3 py-2 text-sm font-semibold text-red-800">{paymentError}</p>}
+              {submitted && <p className="mt-4 rounded-md bg-sage px-3 py-2 text-sm font-semibold text-sage-ink">Payment details submitted for admin verification.</p>}
+
+              {paymentState === "verification_pending" ? (
+                <p className="mt-5 rounded-md bg-gold/10 px-4 py-3 text-sm font-semibold text-gold">Verification pending. Our admin team will review your UPI reference and screenshot if provided.</p>
+              ) : (
+                <div className="mt-5">
+                  {!paidFormOpen ? (
+                    <button type="button" onClick={() => setPaidFormOpen(true)} className="w-full rounded-md bg-ink px-5 py-3 text-sm font-semibold text-ivory transition hover:bg-ink-soft">I have paid</button>
+                  ) : (
+                    <div className="rounded-xl border border-ink/10 bg-white p-4">
+                      <label className="block text-sm font-semibold">
+                        UPI transaction reference <span className="text-red-700">*</span>
+                        <input value={transactionRef} onChange={(event) => setTransactionRef(event.target.value)} placeholder="Enter UTR / UPI ref no." className="mt-2 w-full rounded-md border border-ink/10 bg-white px-3 py-2 text-sm" />
+                      </label>
+                      <label className="mt-4 block text-sm font-semibold">
+                        Payment screenshot <span className="font-normal text-ink-soft">optional</span>
+                        <span className="mt-2 flex min-w-0 cursor-pointer items-center gap-2 rounded-md border border-dashed border-ink/20 px-3 py-2 text-sm text-ink-soft hover:border-gold">
+                          <Upload size={14} className="shrink-0" />
+                          <span className="min-w-0 flex-1 truncate" title={screenshot?.name}>
+                            {screenshot ? screenshot.name : "Choose screenshot"}
+                          </span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0] ?? null;
+                            if (file && file.size > 5 * 1024 * 1024) {
+                              setPaymentError("Screenshot must be 5 MB or smaller. You can submit without a screenshot if needed.");
+                              setScreenshot(null);
+                              return;
+                            }
+                            setPaymentError("");
+                            setScreenshot(file);
+                          }}
+                          className="sr-only"
+                        />
+                      </span>
+                      <span className="mt-1 block text-xs font-normal text-ink-soft">JPEG, PNG, or WebP up to 5 MB. If upload fails, retry or submit without screenshot.</span>
+                      </label>
+                      <button type="button" disabled={submitting} onClick={() => void submitPaymentEvidence()} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-gold px-5 py-3 text-sm font-semibold text-ivory transition hover:bg-gold-soft disabled:opacity-60">
+                        {submitting && <Loader2 size={15} className="animate-spin" />} Submit for verification
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-ink-soft">Payment instructions are unavailable. Please contact support with order {orderId}.</p>
+          )}
+
+          <Link href="/flowers" className="mt-6 inline-flex w-full justify-center rounded-md border border-ink/10 bg-white px-5 py-3 text-sm font-semibold text-ink transition hover:border-gold">Continue shopping</Link>
+        </aside>
+
+        <section className="order-last">
           <div className="rounded-2xl bg-white/75 p-6 text-center shadow-sm md:p-8">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-sage">
               <Check size={30} className="text-sage-ink" />
@@ -182,7 +314,10 @@ export default function OrderConfirmationClient({ orderId }: { orderId: string }
             <p className="mt-6 text-xs font-bold uppercase tracking-[0.22em] text-sage-ink">Booking received</p>
             <h1 className="mt-3 font-display text-4xl md:text-5xl">Order created successfully.</h1>
             <p className="mt-4 text-sm leading-7 text-ink-soft">
-              Order <strong className="text-ink">{payment?.order.orderNumber ?? order?.orderNumber ?? orderId}</strong> is saved. {isUpiOrder ? "Complete the UPI step below so our team can verify your payment." : "We'll use the details below to prepare the next step."}
+              Order <strong className="text-ink">{payment?.order.orderNumber ?? order?.orderNumber ?? orderId}</strong> is saved.
+              {isUpiOrder
+                ? <> Your order will be confirmed once you pay the <strong className="text-ink">₹{total.toLocaleString("en-IN")}</strong> shown above and our team verifies it.</>
+                : " We'll use the details below to prepare the next step."}
             </p>
           </div>
 
@@ -224,101 +359,6 @@ export default function OrderConfirmationClient({ orderId }: { orderId: string }
             </div>
           )}
         </section>
-
-        <aside className="h-fit rounded-2xl border border-ink/10 bg-white/85 p-5 shadow-sm md:p-6 lg:sticky lg:top-6">
-          {loadingPayment ? (
-            <p className="text-sm text-ink-soft">Loading payment instructions...</p>
-          ) : !isUpiOrder ? (
-            <div className="text-sm leading-6 text-ink-soft">
-              <p className="font-semibold text-ink">Payment method: Cash / Pay on Delivery</p>
-              <p className="mt-2">No online payment evidence is required for this order.</p>
-            </div>
-          ) : selectedAccount ? (
-            <div>
-              <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gold"><QrCode size={13} /> Manual UPI payment</p>
-              <h2 className="mt-2 font-display text-3xl">Pay ₹{total.toLocaleString("en-IN")}</h2>
-              <p className="mt-2 text-sm leading-6 text-ink-soft">Payment is confirmed only after admin verification. UPI app return screens, screenshots, or references are not automatic proof of payment.</p>
-
-              {payment?.accounts.length && payment.accounts.length > 1 && (
-                <label className="mt-5 block text-sm font-semibold">
-                  Payment account
-                  <select disabled={!payment.canSwitchAccount} value={selectedAccount.accountId} onChange={(event) => void selectAccount(event.target.value)} className="mt-2 w-full rounded-md border border-ink/10 bg-white px-3 py-2 text-sm disabled:opacity-60">
-                    {payment.accounts.map((account) => (
-                      <option key={account.id} value={account.id}>{account.label}{account.defaultAccount ? " (default)" : ""}</option>
-                    ))}
-                  </select>
-                  {!payment.canSwitchAccount && <span className="mt-1 block text-xs text-ink-soft">Account selection is locked after payment evidence is submitted.</span>}
-                </label>
-              )}
-
-              <div className="mt-5 rounded-xl border border-ink/10 bg-ivory-deep/40 p-4 text-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={selectedAccount.qrAsset.secureUrl} alt="Selected UPI QR" className="mx-auto h-56 w-56 rounded-md bg-white object-contain" />
-                <a href={selectedAccount.qrAsset.secureUrl} download className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-gold hover:text-ink"><Download size={13} /> Download QR</a>
-              </div>
-
-              <div className="mt-5 space-y-3 text-sm">
-                <InfoRow label="Order number" value={payment.order.orderNumber} />
-                <InfoRow label="Receiver" value={selectedAccount.receiverName} />
-                <InfoRow label="UPI ID" value={selectedAccount.upiId} />
-                <InfoRow label="Amount" value={`₹${total.toLocaleString("en-IN")}`} />
-              </div>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                <button type="button" onClick={() => void copy(selectedAccount.upiId)} className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/10 bg-white px-3 py-2 text-sm font-semibold text-ink hover:border-gold"><Clipboard size={14} /> Copy UPI ID</button>
-                <button type="button" onClick={() => void copy(String(total))} className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/10 bg-white px-3 py-2 text-sm font-semibold text-ink hover:border-gold"><Clipboard size={14} /> Copy Amount</button>
-              </div>
-
-              {paymentError && <p role="alert" className="mt-4 rounded-md bg-blush px-3 py-2 text-sm font-semibold text-red-800">{paymentError}</p>}
-              {submitted && <p className="mt-4 rounded-md bg-sage px-3 py-2 text-sm font-semibold text-sage-ink">Payment details submitted for admin verification.</p>}
-
-              {paymentState === "verification_pending" ? (
-                <p className="mt-5 rounded-md bg-gold/10 px-4 py-3 text-sm font-semibold text-gold">Verification pending. Our admin team will review your UPI reference and screenshot if provided.</p>
-              ) : (
-                <div className="mt-5">
-                  {!paidFormOpen ? (
-                    <button type="button" onClick={() => setPaidFormOpen(true)} className="w-full rounded-md bg-ink px-5 py-3 text-sm font-semibold text-ivory transition hover:bg-ink-soft">I have paid</button>
-                  ) : (
-                    <div className="rounded-xl border border-ink/10 bg-white p-4">
-                      <label className="block text-sm font-semibold">
-                        UPI transaction reference <span className="text-red-700">*</span>
-                        <input value={transactionRef} onChange={(event) => setTransactionRef(event.target.value)} placeholder="Enter UTR / UPI ref no." className="mt-2 w-full rounded-md border border-ink/10 bg-white px-3 py-2 text-sm" />
-                      </label>
-                      <label className="mt-4 block text-sm font-semibold">
-                        Payment screenshot <span className="font-normal text-ink-soft">optional</span>
-                        <span className="mt-2 flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-ink/20 px-3 py-2 text-sm text-ink-soft hover:border-gold">
-                          <Upload size={14} /> {screenshot ? screenshot.name : "Choose screenshot"}
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          onChange={(event) => {
-                            const file = event.target.files?.[0] ?? null;
-                            if (file && file.size > 5 * 1024 * 1024) {
-                              setPaymentError("Screenshot must be 5 MB or smaller. You can submit without a screenshot if needed.");
-                              setScreenshot(null);
-                              return;
-                            }
-                            setPaymentError("");
-                            setScreenshot(file);
-                          }}
-                          className="sr-only"
-                        />
-                      </span>
-                      <span className="mt-1 block text-xs font-normal text-ink-soft">JPEG, PNG, or WebP up to 5 MB. If upload fails, retry or submit without screenshot.</span>
-                      </label>
-                      <button type="button" disabled={submitting} onClick={() => void submitPaymentEvidence()} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-gold px-5 py-3 text-sm font-semibold text-ivory transition hover:bg-gold-soft disabled:opacity-60">
-                        {submitting && <Loader2 size={15} className="animate-spin" />} Submit for verification
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-ink-soft">Payment instructions are unavailable. Please contact support with order {orderId}.</p>
-          )}
-
-          <Link href="/flowers" className="mt-6 inline-flex w-full justify-center rounded-md border border-ink/10 bg-white px-5 py-3 text-sm font-semibold text-ink transition hover:border-gold">Continue shopping</Link>
-        </aside>
       </div>
     </main>
   );

@@ -16,7 +16,7 @@ export function Hero({ hero }: { hero: HomepageHeroConfig }) {
   const reduceMotion = useReducedMotion();
 
   return (
-    <section className="relative min-h-[560px] overflow-hidden bg-blush px-5 pb-16 pt-24 sm:min-h-[640px] md:min-h-[720px] md:px-10 md:pb-20 md:pt-36">
+    <section className="relative min-h-[560px] overflow-hidden bg-blush px-5 pb-20 pt-24 sm:min-h-[640px] md:min-h-[720px] md:px-10 md:pb-24 md:pt-36">
       {!reduceMotion && (
         <video
           autoPlay
@@ -49,7 +49,7 @@ export function Hero({ hero }: { hero: HomepageHeroConfig }) {
           <p className="mb-5 text-xs font-bold uppercase tracking-[0.25em] text-sage-ink">
             {hero.eyebrow}
           </p>
-          <h1 className="max-w-4xl text-[2.6rem] leading-[0.98] text-ink sm:text-5xl md:text-7xl lg:text-[5.8rem]">
+          <h1 className="max-w-4xl text-[2.4rem] leading-[0.98] text-ink min-[480px]:text-[2.6rem] sm:text-5xl md:text-7xl lg:text-[5.8rem]">
             {hero.titleLines.map((line, lineIndex) => (
               <span key={line}>
                 {lineIndex === hero.accentLineIndex ? (

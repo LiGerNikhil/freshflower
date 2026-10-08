@@ -19,6 +19,8 @@ import { HeroVideo } from "@/components/sections/HeroVideo";
 import { QuickViewDialog } from "@/components/sections/QuickViewDialog";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { useCart } from "@/components/providers/CartContext";
+import { useCustomerAuth } from "@/components/providers/CustomerAuthContext";
 import { categories, occasions } from "@/lib/data";
 import {
   MAX_PRICE,
@@ -278,6 +280,8 @@ export default function FlowersCatalogue({
   initialState,
 }: FlowersCatalogueProps) {
   const router = useRouter();
+  const { addItem } = useCart();
+  const { requireAuth } = useCustomerAuth();
   const [state, setState] = useState(initialState);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [quickView, setQuickView] = useState<Flower | null>(null);
@@ -372,9 +376,17 @@ export default function FlowersCatalogue({
     safePage * PAGE_SIZE,
   );
   const buyNow = (flower: Flower) => {
-    if (flower.inStock) {
-      router.push("/checkout");
-    }
+    if (!flower.inStock) return;
+    if (!requireAuth()) return;
+    addItem({
+      productId: flower.id,
+      productType: "flower",
+      name: flower.name,
+      price: flower.price,
+      quantity: 1,
+      image: flower.images[0],
+    });
+    router.push("/checkout");
   };
 
   return (

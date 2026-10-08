@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { after, NextRequest } from "next/server";
 import crypto from "crypto";
 import { OrderModel, PaymentAttemptModel } from "@/lib/db/models";
 import { dbConnect } from "@/lib/db/connect";
@@ -6,6 +6,10 @@ import { getCustomerSession } from "@/lib/auth/customer-session";
 import { uploadMediaBuffer } from "@/lib/cloudinary";
 import { jsonError, jsonOk, safe } from "@/lib/api/helpers";
 import { eventId, queuePaymentVerificationEmail, recordPaymentEvent } from "@/lib/payments/events";
+import { processPaymentEmailOutbox } from "@/lib/payments/email-outbox";
+
+// Allow the after() callback enough budget to send the admin notification email.
+export const maxDuration = 60;
 
 type OrderDoc = {
   _id: string;
@@ -146,6 +150,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ord
         paymentAttemptId: String(existingSubmission._id),
         submissionRequestId,
       });
+      after(() => {
+        processPaymentEmailOutbox({ limit: 20 }).catch((error) => {
+          console.error("Payment notification email outbox processing failed:", error);
+        });
+      });
       return jsonOk({
         ok: true,
         attemptId: String(existingSubmission._id),
@@ -281,6 +290,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ord
       orderId,
       paymentAttemptId: attemptId,
       submissionRequestId,
+    });
+    after(() => {
+      processPaymentEmailOutbox({ limit: 20 }).catch((error) => {
+        console.error("Payment notification email outbox processing failed:", error);
+      });
     });
 
     return jsonOk({

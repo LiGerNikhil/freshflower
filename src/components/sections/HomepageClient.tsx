@@ -130,7 +130,7 @@ export default function HomepageClient({
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, amount: 0.1 }}
-          className="flex snap-x gap-4 overflow-x-auto pb-5 md:grid md:grid-cols-3 md:overflow-visible lg:grid-cols-6"
+          className="flex snap-x gap-4 overflow-x-auto pb-6 md:grid md:grid-cols-3 md:overflow-visible lg:grid-cols-6"
         >
           {categories.slice(0, 6).map((category) => (
             <motion.div
@@ -207,7 +207,7 @@ export default function HomepageClient({
 
       {/* 5. Offers */}
       {homepage.offers.length > 0 && (
-        <section className="mx-5 grid gap-4 md:mx-10 md:grid-cols-2">
+        <section className="grid gap-4 px-5 py-8 sm:px-6 md:grid-cols-2 md:px-10 md:py-12">
           {homepage.offers.map((offer) => (
             <Reveal key={offer.id}>
               <div className="overflow-hidden rounded-xl bg-gold px-7 py-10 md:px-14 md:py-14">
@@ -318,7 +318,7 @@ export default function HomepageClient({
       </Section>
 
       {/* 9. By colour */}
-      <Section className="bg-white/55 px-5 py-16 md:px-10 md:py-24">
+      <Section className="bg-white/55">
         <Reveal>
           <SectionIntro
             eyebrow="Shop by colour"
@@ -328,7 +328,7 @@ export default function HomepageClient({
             linkLabel="Browse all colours"
           />
         </Reveal>
-        <div className="mb-8 flex snap-x gap-2 overflow-x-auto pb-2">
+        <div className="mb-8 flex snap-x gap-2 overflow-x-auto pb-4">
           {Object.entries(colourTokens).map(([colour, token]) => {
             const active = selectedColour === colour;
             return (

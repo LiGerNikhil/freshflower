@@ -24,6 +24,7 @@ import { Modal } from "@/components/ui/Modal";
 import { ProductCard } from "@/components/sections/ProductCard";
 import { QuickViewDialog } from "@/components/sections/QuickViewDialog";
 import { useCart } from "@/components/providers/CartContext";
+import { useCustomerAuth } from "@/components/providers/CustomerAuthContext";
 import { DELIVERY_CHARGE } from "@/lib/cart";
 import { GRADIENT_TOKENS, isRemoteImage } from "@/lib/utils";
 import type { ColorVariant, Flower, Review } from "@/lib/types";
@@ -106,8 +107,9 @@ export default function FlowerDetailClient({
   similarFlowers,
   reviews,
 }: FlowerDetailClientProps) {
-  const router = useRouter();
+const router = useRouter();
   const { addItem } = useCart();
+  const { requireAuth } = useCustomerAuth();
   const status = availability(flower);
   const variants = flower.colorVariants ?? [];
   const [selectedVariant, setSelectedVariant] = useState<ColorVariant | null>(
@@ -148,14 +150,11 @@ export default function FlowerDetailClient({
       color: selectedVariant?.color,
     });
   const buyNow = () => {
-    if (flower.inStock) {
-      addFlower();
-      router.push("/checkout");
-    }
+    if (!flower.inStock) return;
+    if (!requireAuth()) return;
+    addFlower();
+    router.push("/checkout");
   };
-  const whatsappText = encodeURIComponent(
-    `Hello FreshFlower.zone, I would like to order ${flower.name} (qty: ${quantity}).`,
-  );
   const faqItems = [
     {
       question: `How long will ${flower.name} stay fresh?`,
@@ -445,19 +444,11 @@ export default function FlowerDetailClient({
                 className="min-h-12 w-full whitespace-nowrap border border-gold/30 bg-ivory-deep px-3 text-xs text-ink hover:bg-gold/25 sm:text-sm"
               >
                 Buy Now <ArrowRight size={17} />
-              </Button>
+</Button>
             </div>
-            <a
-              href={`https://wa.me/919999999999?text=${whatsappText}`}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 flex items-center justify-center rounded-md border border-ink/10 bg-white/55 px-5 py-3 text-sm font-semibold text-ink"
-            >
-              Order on WhatsApp
-            </a>
             <p className="mt-5 text-center text-xs text-ink-soft">
               Added items stay in your cart — review and change quantities
-              anytime from the cart icon. Checkout connects in a later phase.
+              anytime from the cart icon.
             </p>
           </motion.section>
         </div>

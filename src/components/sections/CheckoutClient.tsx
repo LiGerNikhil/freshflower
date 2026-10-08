@@ -22,7 +22,7 @@ const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
 const defaultDeliverySlotId = "slot-10-11";
 const estimatedDeliveryLabel = "Estimated delivery by Tomorrow 11:00 AM";
 const checkoutRequestStorageKey = "freshflower-checkout-request-id";
-type PaymentMethod = "upi" | "cod";
+type PaymentMethod = "upi";
 type UpiAccount = {
   id: string;
   label: string;
@@ -106,15 +106,11 @@ export default function CheckoutClient() {
         const response = await fetch("/api/payment-accounts/default");
         const body = (await response.json().catch(() => null)) as { account?: UpiAccount | null } | null;
         if (!mounted) return;
-        const account = body?.account ?? null;
+const account = body?.account ?? null;
         setUpiAccount(account);
-        if (!account) {
-          setForm((current) => current.payment === "upi" ? { ...current, payment: "cod" } : current);
-        }
       } catch {
         if (!mounted) return;
         setUpiAccount(null);
-        setForm((current) => current.payment === "upi" ? { ...current, payment: "cod" } : current);
       } finally {
         if (mounted) setPaymentLoading(false);
       }
@@ -130,8 +126,8 @@ export default function CheckoutClient() {
         "Your cart is empty. Add flowers before placing an order.",
       );
     setError("");
-    if (form.payment === "upi" && !upiAccount) {
-      return setError("Manual UPI is temporarily unavailable. Please choose Cash / Pay on Delivery.");
+if (!upiAccount) {
+      return setError("Manual UPI payment is temporarily unavailable. Please try again later.");
     }
     const checkoutRequestId = (() => {
       const existing = window.sessionStorage.getItem(checkoutRequestStorageKey);
@@ -173,27 +169,16 @@ items: items.map((item) => ({
           discount: 0,
           deliveryFee: DELIVERY_CHARGE,
           total,
-          paymentMethod: form.payment,
-          paymentAccountId: form.payment === "upi" ? upiAccount?.id : undefined,
+paymentMethod: form.payment,
+          paymentAccountId: upiAccount?.id,
           checkoutRequestId,
           agreedToTos: true,
         }),
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error ?? "Something went wrong, please try again.");
-      const orderId: string = body.orderId;
+const orderId: string = body.orderId;
       const orderNumber: string = body.orderNumber;
-      if (form.payment === "cod") {
-        const paymentSuccess = await fetch("/api/payment/success", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ orderId }),
-        });
-        const paymentSuccessBody = await paymentSuccess.json().catch(() => null);
-        if (!paymentSuccess.ok) {
-          throw new Error(paymentSuccessBody?.error ?? "Order saved, but confirmation failed.");
-        }
-      }
       // Keep the confirmation-page preview payload (its shape is unchanged).
       const order = {
         id: orderId,
@@ -217,8 +202,8 @@ items: items.map((item) => ({
           slotId: defaultDeliverySlotId,
           slotLabel: estimatedDeliveryLabel,
         },
-        payment: form.payment,
-        upiAccount: form.payment === "upi" ? upiAccount : undefined,
+payment: form.payment,
+        upiAccount,
         subtotal,
         deliveryFee: DELIVERY_CHARGE,
         total,
@@ -432,51 +417,43 @@ if (!items.length)
                       <Bike size={16} /> {estimatedDeliveryLabel}
                     </p>
                   </div>
-                  <div>
+<div>
                     <p className="mb-3 text-sm font-semibold">Payment method</p>
-                    <label className={`flex items-start gap-3 rounded-md border border-ink/10 bg-white/60 p-4 text-sm ${!upiAccount ? "opacity-60" : ""}`}>
-                      <input
-                        type="radio"
-                        checked={form.payment === "upi"}
-                        disabled={!upiAccount}
-                        onChange={() => update("payment", "upi")}
-                      />{" "}
-                      <span className="min-w-0 flex-1">
-                        <span className="block font-semibold">Manual UPI payment</span>
-                        {paymentLoading ? (
-                          <span className="mt-1 block text-xs text-ink-soft">Checking UPI availability...</span>
-                        ) : upiAccount ? (
-                          <span className="mt-1 block text-xs text-ink-soft">
-                            Pay to {upiAccount.receiverName} via {upiAccount.upiId}. You will submit the UPI reference after placing the order.
-                          </span>
-                        ) : (
-                          <span className="mt-1 block text-xs font-semibold text-red-700">
-                            Manual UPI is temporarily unavailable because no active UPI account is configured.
-                          </span>
-                        )}
+                    <div className="rounded-md border border-ink/10 bg-white/60 p-4 text-sm">
+                      <span className="flex items-start gap-3">
+                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink">
+                          <Check size={12} className="text-ivory" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-semibold">Manual UPI payment</span>
+                          {paymentLoading ? (
+                            <span className="mt-1 block text-xs text-ink-soft">Checking UPI availability...</span>
+                          ) : upiAccount ? (
+                            <span className="mt-1 block text-xs text-ink-soft">
+                              Pay to {upiAccount.receiverName} via {upiAccount.upiId}. You will submit the UPI
+                              reference after placing the order.
+                            </span>
+                          ) : (
+                            <span className="mt-1 block text-xs font-semibold text-red-700">
+                              Manual UPI is temporarily unavailable because no active UPI account is configured.
+                            </span>
+                          )}
+                        </span>
                       </span>
-                    </label>
-                    {upiAccount && form.payment === "upi" && (
-                      <div className="mt-3 rounded-lg border border-gold/20 bg-gold/5 p-4 text-sm">
-                        <div className="flex flex-wrap items-center gap-4">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={upiAccount.qrAsset.secureUrl} alt="UPI QR" className="h-28 w-28 rounded-md bg-white object-contain" />
-                          <div>
-                            <p className="font-semibold text-ink">{upiAccount.label}</p>
-                            <p className="mt-1 text-ink-soft">Receiver: {upiAccount.receiverName}</p>
-                            <p className="break-all text-ink-soft">UPI ID: {upiAccount.upiId}</p>
+                      {upiAccount && (
+                        <div className="mt-3 rounded-lg border border-gold/20 bg-gold/5 p-4">
+                          <div className="flex flex-wrap items-center gap-4">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={upiAccount.qrAsset.secureUrl} alt="UPI QR" className="h-28 w-28 rounded-md bg-white object-contain" />
+                            <div>
+                              <p className="font-semibold text-ink">{upiAccount.label}</p>
+                              <p className="mt-1 text-ink-soft">Receiver: {upiAccount.receiverName}</p>
+                              <p className="break-all text-ink-soft">UPI ID: {upiAccount.upiId}</p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
-                    <label className="mt-2 flex items-center gap-3 rounded-md border border-ink/10 bg-white/60 p-4 text-sm">
-                      <input
-                        type="radio"
-                        checked={form.payment === "cod"}
-                        onChange={() => update("payment", "cod")}
-                      />{" "}
-                      Cash / Pay on Delivery
-                    </label>
+                      )}
+                    </div>
                   </div>
                   <div className="border-t border-ink/10 pt-5 text-sm">
                     <div className="flex justify-between">

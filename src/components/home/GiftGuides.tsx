@@ -69,7 +69,7 @@ function guideHref(guide: Guide, occasions: Occasion[]): string {
 
 export function GiftGuides({ occasions }: { occasions: Occasion[] }) {
   return (
-    <section className="bg-white/55 px-5 py-16 md:px-10 md:py-24">
+    <section className="bg-white/55 px-5 py-20 sm:px-6 md:px-10 md:py-24">
       <div className="mx-auto max-w-7xl">
         <Reveal>
           <SectionIntro

@@ -8,7 +8,7 @@ export function CartCta() {
   const { itemCount } = useCart();
 
   return (
-    <section className="border-y border-ink/10 bg-ivory-deep px-5 py-12 md:px-10 md:py-14">
+    <section className="border-y border-ink/10 bg-ivory-deep px-5 py-14 md:px-10 md:py-16">
       <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 md:flex-row md:items-center">
         <div>
           <p className="font-display text-3xl leading-tight text-ink">

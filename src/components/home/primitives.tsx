@@ -52,9 +52,9 @@ export function SectionIntro({
   linkLabel?: string;
 }) {
   return (
-    <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+    <div className="mb-10 flex flex-col gap-5 md:items-end md:justify-between lg:mb-12 md:flex-row">
       <div className="max-w-xl">
-        <p className="mb-3 text-xs font-bold uppercase tracking-[0.22em] text-sage-ink">
+        <p className="mb-4 text-xs font-bold uppercase tracking-[0.22em] text-sage-ink">
           {eyebrow}
         </p>
         <h2 className="text-3xl leading-[1.05] text-ink md:text-5xl">
@@ -83,13 +83,20 @@ export function SectionIntro({
 }
 
 export const PRODUCT_GRID =
-  "grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 sm:gap-y-12 lg:grid-cols-4";
+  "grid grid-cols-2 gap-x-3 gap-y-10 sm:gap-x-5 sm:gap-y-12 lg:grid-cols-4";
 
-/** Full-bleed section wrapper: max-width container + horizontal padding. */
+/**
+ * Full-bleed section wrapper: max-width container + horizontal padding.
+ * The base spacing classes are always applied; `className` only ADDS extras
+ * (backgrounds, refinements). It never replaces the section padding, so a
+ * caller passing `className="bg-white/60"` cannot accidentally strip the
+ * vertical rhythm and make content touch the neighbouring section.
+ */
+const SECTION_PADDING = "px-5 py-20 sm:px-6 md:px-10 md:py-24";
 export function Section({
   id,
   children,
-  className = "px-5 py-16 md:px-10 md:py-24",
+  className = "",
   innerClassName = "mx-auto max-w-7xl",
 }: {
   id?: string;
@@ -98,7 +105,10 @@ export function Section({
   innerClassName?: string;
 }) {
   return (
-    <section id={id} className={className}>
+    <section
+      id={id}
+      className={`scroll-mt-28 ${SECTION_PADDING} ${className ?? ""}`.trim()}
+    >
       <div className={innerClassName}>{children}</div>
     </section>
   );

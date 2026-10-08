@@ -3,31 +3,14 @@ import { buildAuthenticatedImageUrl } from "@/lib/cloudinary";
 import { CustomerModel, EmailOutboxModel, OrderModel, PaymentAttemptModel } from "@/lib/db/models";
 import { dbConnect } from "@/lib/db/connect";
 import { canonical } from "@/lib/seo";
-import { sendEmail, type EmailAttachment } from "@/lib/email/nodemailer";
+import { sendEmail } from "@/lib/email/nodemailer";
 import { eventId, recordPaymentEvent } from "@/lib/payments/events";
 
 const LOCK_MS = 2 * 60 * 1000;
 
-function safeFilename(orderNumber: string, attemptId: string): string {
-  const safeOrder = orderNumber.replace(/[^a-z0-9-]/gi, "-");
-  const safeAttempt = attemptId.replace(/[^a-z0-9-]/gi, "-").slice(-24);
-  return `payment-${safeOrder}-${safeAttempt}.jpg`;
-}
-
 function failureMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : "Unknown email error";
   return message.slice(0, 500);
-}
-
-async function attachmentFor(attempt: { _id: string; orderNumber: string; screenshotAsset?: { publicId?: string } }): Promise<EmailAttachment[]> {
-  const publicId = attempt.screenshotAsset?.publicId;
-  if (!publicId) return [];
-  const signedUrl = buildAuthenticatedImageUrl(publicId, { width: 1600 });
-  const response = await fetch(signedUrl);
-  if (!response.ok) throw new Error(`Could not fetch payment screenshot from Cloudinary (${response.status}).`);
-  const contentType = response.headers.get("content-type") ?? "image/jpeg";
-  const content = Buffer.from(await response.arrayBuffer());
-  return [{ filename: safeFilename(attempt.orderNumber, String(attempt._id)), content, contentType }];
 }
 
 export async function processPaymentEmailOutbox({ limit = 10 } = {}) {
@@ -88,14 +71,19 @@ export async function processPaymentEmailOutbox({ limit = 10 } = {}) {
       const customer = await CustomerModel.findById(order.customerId)
         .select({ name: 1, email: 1, phone: 1 })
         .lean<{ name?: string; email?: string; phone?: string }>();
-      let attachments: EmailAttachment[] = [];
+      let screenshotUrl: string | undefined;
+      if (attempt.screenshotAsset?.publicId) {
+        screenshotUrl = buildAuthenticatedImageUrl(attempt.screenshotAsset.publicId, {
+          width: 1400,
+          expiresAt: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60,
+        });
+      }
       const customerName = customer?.name ?? "Customer";
       const info = job.kind === "payment-verification-required"
         ? await (async () => {
             if (!attempt.paymentAccountSnapshot || !attempt.upiTransactionRef || !attempt.submittedAt) {
               throw new Error("Payment attempt is missing submission details.");
             }
-            attachments = await attachmentFor(attempt);
             return sendEmail({
               to: job.recipient,
               template: {
@@ -109,8 +97,8 @@ export async function processPaymentEmailOutbox({ limit = 10 } = {}) {
                 upiTransactionRef: attempt.upiTransactionRef,
                 submittedAt: new Date(attempt.submittedAt),
                 adminOrderUrl: canonical(`/admin/orders/${encodeURIComponent(String(order._id))}`),
+                screenshotUrl,
               },
-              attachments,
             });
           })()
         : job.kind === "payment-verified-customer"
@@ -156,7 +144,7 @@ export async function processPaymentEmailOutbox({ limit = 10 } = {}) {
           notificationId: info.messageId ?? "",
           acceptedCount: Array.isArray(info.accepted) ? info.accepted.length : 0,
           rejectedCount: Array.isArray(info.rejected) ? info.rejected.length : 0,
-          hadScreenshotAttachment: attachments.length > 0,
+          hadScreenshotLink: Boolean(screenshotUrl),
           kind: job.kind,
         },
       });

@@ -148,7 +148,11 @@ export function TrackOrderClient({
             <div className="flex items-center gap-3">
               <PaymentStatusBadge status={order.paymentStatus} />
               <span className="text-xs text-ink-soft">
-                {order.paymentMethod === "online" ? "Online" : "COD"}
+                {order.paymentMethod === "online"
+                  ? "Online"
+                  : order.paymentMethod === "upi"
+                    ? "UPI"
+                    : "COD"}
               </span>
             </div>
           </div>

@@ -35,6 +35,7 @@ type EmailTemplate =
       upiTransactionRef: string;
       submittedAt: Date;
       adminOrderUrl: string;
+      screenshotUrl?: string;
     }
   | {
       type: "payment-verified-customer";
@@ -60,8 +61,7 @@ export function adminPaymentNotificationRecipient(): string {
   return (
     process.env.PAYMENT_NOTIFICATION_EMAIL ??
     process.env.ADMIN_NOTIFICATION_EMAIL ??
-    process.env.SMTP_USER ??
-    ""
+    "admin@freshflower.zone"
   ).trim();
 }
 
@@ -143,17 +143,22 @@ function renderTemplate(template: EmailTemplate): { subject: string; html: strin
       timeStyle: "short",
       timeZone: "Asia/Kolkata",
     }).format(template.submittedAt);
+    const screenshotLink = template.screenshotUrl
+      ? `<p><strong>Payment screenshot</strong> (Cloudinary, valid for 7 days):</p>
+      <p><a href="${escapeHtml(template.screenshotUrl)}" style="display:inline-block;background:#1f1b16;color:#d6aa5a;text-decoration:none;border-radius:10px;padding:12px 18px;font-weight:700;">View screenshot on Cloudinary</a></p>`
+      : `<p><em>No screenshot was uploaded.</em></p>`;
     const body = `<p>A manual UPI payment needs admin verification.</p>
       <p><strong>Order:</strong> ${escapeHtml(template.orderNumber)}</p>
       <p><strong>Customer:</strong> ${escapeHtml(template.customerName)}${template.customerPhone ? ` · ${escapeHtml(template.customerPhone)}` : ""}${template.customerEmail ? ` · ${escapeHtml(template.customerEmail)}` : ""}</p>
       <p><strong>Amount:</strong> ${total}</p>
       <p><strong>Payment account:</strong> ${escapeHtml(template.paymentAccount.label)} · ${escapeHtml(template.paymentAccount.receiverName)} · ${escapeHtml(template.paymentAccount.upiId)}</p>
-      <p><strong>UPI reference:</strong> ${escapeHtml(template.upiTransactionRef)}</p>
+      <p><strong>UPI reference:</strong> <span style="background:#f3e9d3;border-radius:6px;padding:2px 8px;font-weight:700;">${escapeHtml(template.upiTransactionRef)}</span></p>
+      ${screenshotLink}
       <p><strong>Submitted:</strong> ${escapeHtml(submittedAt)} IST</p>
       <p><a href="${template.adminOrderUrl}" style="display:inline-block;background:#d6aa5a;color:#1f1b16;text-decoration:none;border-radius:10px;padding:12px 18px;font-weight:700;">Open admin order</a></p>`;
     return {
       subject: `Payment verification required — Order ${template.orderNumber}`,
-      text: `Payment verification required — Order ${template.orderNumber}\nCustomer: ${template.customerName}${template.customerPhone ? ` · ${template.customerPhone}` : ""}${template.customerEmail ? ` · ${template.customerEmail}` : ""}\nAmount: ${total}\nPayment account: ${template.paymentAccount.label} · ${template.paymentAccount.receiverName} · ${template.paymentAccount.upiId}\nUPI reference: ${template.upiTransactionRef}\nSubmitted: ${submittedAt} IST\nAdmin: ${template.adminOrderUrl}`,
+      text: `Payment verification required — Order ${template.orderNumber}\nCustomer: ${template.customerName}${template.customerPhone ? ` · ${template.customerPhone}` : ""}${template.customerEmail ? ` · ${template.customerEmail}` : ""}\nAmount: ${total}\nPayment account: ${template.paymentAccount.label} · ${template.paymentAccount.receiverName} · ${template.paymentAccount.upiId}\nUPI reference: ${template.upiTransactionRef}\nPayment screenshot: ${template.screenshotUrl ?? "(none)"}\nSubmitted: ${submittedAt} IST\nAdmin: ${template.adminOrderUrl}`,
       html: baseLayout({ title: "Payment verification required", body }),
     };
   }

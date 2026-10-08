@@ -29,7 +29,7 @@ const PROMISES = [
 
 export function TrustStrip() {
   return (
-    <section id="delivery" className="bg-ink px-5 py-16 text-ivory md:px-10 md:py-20">
+    <section id="delivery" className="scroll-mt-28 bg-ink px-5 py-20 text-ivory md:px-10 md:py-24">
       <div className="mx-auto max-w-7xl">
         <Reveal>
           <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">

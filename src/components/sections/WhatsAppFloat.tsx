@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { MessageCircle } from "lucide-react";
 import { useSiteContent } from "@/components/providers/SiteContentProvider";
 import { waMeHref } from "@/lib/utils";
@@ -9,9 +10,14 @@ import { waMeHref } from "@/lib/utils";
  * Floating WhatsApp button (bottom-right). Reads the business WhatsApp number
  * from SiteContentProvider, so an admin edit in /admin/settings updates this
  * everywhere on the next visitor render.
+ *
+ * Hidden on product detail pages (/flowers/[slug]): there it sits on top of the
+ * sticky Add/Buy bar and reads as an "order on WhatsApp" button, which we no
+ * longer want (orders go through cart → checkout only).
  */
 export function WhatsAppFloat() {
   const { settings } = useSiteContent();
+  const pathname = usePathname() ?? "";
   const [visible, setVisible] = useState(false);
   const shownRef = useRef(false);
 
@@ -21,6 +27,8 @@ export function WhatsAppFloat() {
     const timer = window.setTimeout(() => setVisible(true), 800);
     return () => window.clearTimeout(timer);
   }, []);
+
+  if (/^\/flowers\/.+/.test(pathname)) return null;
 
   const href = waMeHref(settings.whatsappNumber);
 

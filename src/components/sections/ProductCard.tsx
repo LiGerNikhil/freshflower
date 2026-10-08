@@ -56,7 +56,10 @@ export function ProductCard({
   const href = `/flowers/${flower.slug}`;
 
   return (
-    <motion.article variants={cardReveal} className="group min-w-0">
+    <motion.article
+      variants={cardReveal}
+      className="group flex h-full min-w-0 flex-col"
+    >
       <div
         className="relative aspect-[4/5] overflow-hidden rounded-lg sm:aspect-[0.88]"
         style={{
@@ -121,39 +124,37 @@ export function ProductCard({
       </div>
 
       <div className="flex items-start justify-between gap-3 pt-3 sm:pt-4">
-        <div className="min-w-0">
-          <h3 className="font-display text-lg leading-tight text-ink sm:text-xl">
+        <div className="min-w-0 flex-1">
+          <h3 className="line-clamp-2 min-h-[2.5em] font-display text-lg leading-tight text-ink sm:text-xl">
             <Link href={href} className="hover:text-gold">
               {flower.name}
             </Link>
           </h3>
-          <p className="mt-1 text-[11px] text-ink-soft sm:text-xs">
+          <p className="mt-1 truncate text-[11px] text-ink-soft sm:text-xs">
             {flower.stemCount ?? flower.quantity
               ? `${flower.stemCount ?? flower.quantity} ${flower.unit?.toLowerCase() ?? "stems"}`
               : "Fresh seasonal bunch"}
           </p>
-          {variants.length > 0 && (
-            <div
-              className="mt-2 flex flex-wrap gap-1.5"
-              aria-label={`${flower.name} colours`}
-            >
-              {variants.slice(0, 6).map((variant) => (
-                <span
-                  key={variant.color}
-                  title={variant.color}
-                  className="h-3 w-3 rounded-full border border-ink/10"
-                  style={{
-                    background: isRemoteImage(variant.image)
-                      ? "conic-gradient(#e5e7eb, #9ca3af)"
-                      : GRADIENT_TOKENS[variant.image ?? ""] ??
-                        "conic-gradient(#e5e7eb, #9ca3af)",
-                  }}
-                />
-              ))}
-            </div>
-          )}
+          <div
+            className="mt-2 flex min-h-7 flex-wrap items-center gap-1.5"
+            aria-label={`${flower.name} colours`}
+          >
+            {variants.slice(0, 6).map((variant) => (
+              <span
+                key={variant.color}
+                title={variant.color}
+                className="h-3 w-3 rounded-full border border-ink/10"
+                style={{
+                  background: isRemoteImage(variant.image)
+                    ? "conic-gradient(#e5e7eb, #9ca3af)"
+                    : GRADIENT_TOKENS[variant.image ?? ""] ??
+                      "conic-gradient(#e5e7eb, #9ca3af)",
+                }}
+              />
+            ))}
+          </div>
         </div>
-        <div className="shrink-0 text-right">
+        <div className="flex shrink-0 flex-col justify-end gap-0.5 text-right">
           {compareAtPrice ? (
             <p className="text-xs text-ink-soft line-through">
               ₹{compareAtPrice.toLocaleString("en-IN")}
@@ -165,42 +166,44 @@ export function ProductCard({
         </div>
       </div>
 
-      <div className="mt-3 hidden items-start gap-2 rounded-md bg-sage/65 px-3 py-2 text-[10px] font-semibold leading-5 text-sage-ink sm:mt-4 sm:flex sm:text-xs">
-        <Bike size={16} className="mt-0.5 shrink-0" />
-        <span>
-          {estimatedDeliveryLabel} · Porter ₹{DELIVERY_CHARGE}
-        </span>
-      </div>
+      <div className="mt-auto flex flex-col">
+        <div className="mt-3 flex items-start gap-2 rounded-md bg-sage/65 px-2.5 py-2 text-[10px] font-semibold leading-5 text-sage-ink sm:mt-4 sm:px-3 sm:text-xs">
+          <Bike size={16} className="mt-0.5 shrink-0" />
+          <span>
+            {estimatedDeliveryLabel} · Porter ₹{DELIVERY_CHARGE}
+          </span>
+        </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            addItem({
-              productId: flower.id,
-              productType: "flower",
-              name: flower.name,
-              price: flower.price,
-              quantity: 1,
-              image: flower.images[0],
-            });
-            onAdd?.();
-          }}
-          disabled={!flower.inStock}
-          className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-blush bg-blush/85 px-2 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-ink transition hover:bg-blush active:scale-[0.98] disabled:bg-ink/5 disabled:text-ink-soft sm:text-xs"
-        >
-          {flower.inStock ? <Plus size={15} /> : <X size={15} />}
-          {flower.inStock ? "Add" : "Unavailable"}
-        </button>
-        {onBuyNow && flower.inStock && (
+        <div className={`mt-3 grid gap-2 ${onBuyNow ? "grid-cols-2" : ""}`}>
           <button
             type="button"
-            onClick={onBuyNow}
-            className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-gold/30 bg-ivory-deep px-2 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-ink transition hover:bg-gold/25 active:scale-[0.98] sm:text-xs"
+            onClick={() => {
+              addItem({
+                productId: flower.id,
+                productType: "flower",
+                name: flower.name,
+                price: flower.price,
+                quantity: 1,
+                image: flower.images[0],
+              });
+              onAdd?.();
+            }}
+            disabled={!flower.inStock}
+            className="inline-flex min-h-12 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-blush bg-blush/85 px-2 py-2.5 text-[10px] font-bold uppercase tracking-[0.08em] text-ink transition hover:bg-blush active:scale-[0.98] disabled:bg-ink/5 disabled:text-ink-soft sm:text-xs"
           >
-            Buy now <ShoppingBag size={15} />
+            {flower.inStock ? <Plus size={15} /> : <X size={15} />}
+            {flower.inStock ? "Add" : "Unavailable"}
           </button>
-        )}
+          {onBuyNow && flower.inStock && (
+            <button
+              type="button"
+              onClick={onBuyNow}
+              className="inline-flex min-h-12 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-gold/30 bg-ivory-deep px-2 py-2.5 text-[10px] font-bold uppercase tracking-[0.08em] text-ink transition hover:bg-gold/25 active:scale-[0.98] sm:text-xs"
+            >
+              Buy now <ShoppingBag size={15} />
+            </button>
+          )}
+        </div>
       </div>
     </motion.article>
   );
