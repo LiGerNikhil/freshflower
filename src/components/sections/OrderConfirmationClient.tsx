@@ -6,6 +6,7 @@ import { Check, ChevronDown, Clipboard, Clock3, Download, Loader2, MapPin, QrCod
 import { useCart } from "@/components/providers/CartContext";
 import { ProductItemImage } from "@/components/sections/ProductItemImage";
 import { DELIVERY_CHARGE, DELIVERY_NOTE } from "@/lib/cart";
+import { payWithRazorpay } from "@/lib/payments/checkout-client";
 
 interface OrderRecord {
   id: string;
@@ -77,6 +78,7 @@ export default function OrderConfirmationClient({ orderId }: { orderId: string }
       const body = await response.json().catch(() => null);
       if (!response.ok) throw new Error(body?.error ?? "Could not load payment instructions.");
       setPayment(body as PaymentInstructions);
+      if (body.summary) setOrder(body.summary as OrderRecord);
     } catch (err) {
       setPaymentError(err instanceof Error ? err.message : "Could not load payment instructions.");
     } finally {
@@ -91,15 +93,24 @@ export default function OrderConfirmationClient({ orderId }: { orderId: string }
       hydratedOrderId.current = orderId;
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setOrder(JSON.parse(saved) as OrderRecord);
-      clearCart();
     }
-  }, [clearCart, orderId]);
+  }, [orderId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadPaymentInstructions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
+
+  useEffect(() => {
+    if (payment?.order.paymentMethod !== "online" || payment.order.paymentStatus === "paid") return;
+    const timer = window.setInterval(() => {
+      void fetch(`/api/orders/${encodeURIComponent(orderId)}/payment-instructions`)
+        .then(async response => { if (response.ok) setPayment(await response.json() as PaymentInstructions); })
+        .catch(() => {});
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [orderId, payment?.order.paymentMethod, payment?.order.paymentStatus]);
 
   async function copy(value: string) {
     await navigator.clipboard.writeText(value);
@@ -169,6 +180,8 @@ export default function OrderConfirmationClient({ orderId }: { orderId: string }
   const total = payment?.order.total ?? order?.total ?? subtotal + deliveryFee;
   const selectedAccount = payment?.selectedAccount ?? null;
   const isUpiOrder = payment?.order.paymentMethod === "upi" || order?.payment === "upi";
+  const isOnlineOrder = payment?.order.paymentMethod === "online" || order?.payment === "online";
+  const isPaid = payment?.order.paymentStatus === "paid";
   const paymentState = payment?.order.paymentState ?? "awaiting_payment";
 
   return (
@@ -177,6 +190,20 @@ export default function OrderConfirmationClient({ orderId }: { orderId: string }
         <aside className="order-first h-fit rounded-2xl border border-ink/10 bg-white/85 p-5 shadow-sm md:p-6 lg:sticky lg:top-6">
           {loadingPayment ? (
             <p className="text-sm text-ink-soft">Loading payment instructions...</p>
+          ) : isOnlineOrder ? (
+            <div>
+              <h2 className="text-3xl">{isPaid ? "Payment successful" : "Complete your payment"}</h2>
+              <p className="mt-3 text-sm text-ink-soft">{isPaid ? "Your payment has been verified and your order is confirmed." : "Pay securely with Razorpay. No screenshot or UTR submission is needed."}</p>
+              <p className="mt-4 font-semibold">₹{total.toLocaleString("en-IN")}</p>
+              {paymentError && <p role="alert" className="mt-3 text-sm text-red-800">{paymentError}</p>}
+              {!isPaid && <button type="button" disabled={submitting} className="mt-5 w-full rounded-md bg-ink px-5 py-3 text-ivory disabled:opacity-60" onClick={async () => {
+                setSubmitting(true);
+                setPaymentError("");
+                try { await payWithRazorpay(orderId); clearCart(); await loadPaymentInstructions(); }
+                catch (error) { setPaymentError(error instanceof Error ? error.message : "Payment failed."); }
+                finally { setSubmitting(false); }
+              }}>{submitting ? "Verifying payment…" : "Pay / check payment"}</button>}
+            </div>
           ) : !isUpiOrder ? (
             <div className="text-sm leading-6 text-ink-soft">
               <p className="font-semibold text-ink">Payment method: Cash / Pay on Delivery</p>
@@ -312,10 +339,10 @@ export default function OrderConfirmationClient({ orderId }: { orderId: string }
               <Check size={30} className="text-sage-ink" />
             </div>
             <p className="mt-6 text-xs font-bold uppercase tracking-[0.22em] text-sage-ink">Booking received</p>
-            <h1 className="mt-3 font-display text-4xl md:text-5xl">Order created successfully.</h1>
+            <h1 className="mt-3 font-display text-4xl md:text-5xl">{isPaid ? "Order confirmed." : "Order created successfully."}</h1>
             <p className="mt-4 text-sm leading-7 text-ink-soft">
               Order <strong className="text-ink">{payment?.order.orderNumber ?? order?.orderNumber ?? orderId}</strong> is saved.
-              {isUpiOrder
+              {isOnlineOrder ? (isPaid ? " Payment received. We will prepare your flowers." : " Complete your Razorpay payment to confirm this order.") : isUpiOrder
                 ? <> Your order will be confirmed once you pay the <strong className="text-ink">₹{total.toLocaleString("en-IN")}</strong> shown above and our team verifies it.</>
                 : " We'll use the details below to prepare the next step."}
             </p>

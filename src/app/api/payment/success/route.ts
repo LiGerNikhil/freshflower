@@ -35,10 +35,7 @@ export async function POST(req: NextRequest) {
     const order = await OrderModel.findById(parsed.data.orderId).lean<PopulatedOrder>();
     if (!order || order.customerId !== session.customerId) return jsonError("Order not found.", 404);
     if (order.paymentMethod === "online" && order.paymentStatus !== "paid") {
-      await OrderModel.updateOne(
-        { _id: order._id },
-        { $set: { paymentStatus: "paid", updatedAt: new Date() } },
-      ).lean();
+      return jsonError("Payment must be verified through Razorpay first.", 400);
     }
 
     if (!order.orderConfirmationEmailSentAt) {

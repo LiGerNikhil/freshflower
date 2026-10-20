@@ -9,7 +9,6 @@ import { ProductCard } from "@/components/sections/ProductCard";
 import { QuickViewDialog } from "@/components/sections/QuickViewDialog";
 import { useSiteContent } from "@/components/providers/SiteContentProvider";
 import { CartCta } from "@/components/home/CartCta";
-import { GiftGuides } from "@/components/home/GiftGuides";
 import { Hero } from "@/components/home/Hero";
 import { ProductRail } from "@/components/home/ProductRail";
 import { TrustStrip } from "@/components/home/TrustStrip";
@@ -238,10 +237,7 @@ export default function HomepageClient({
         </section>
       )}
 
-      {/* 6. Gift guides */}
-      <GiftGuides occasions={occasions} />
-
-      {/* 7. Fresh today */}
+      {/* 6. Fresh today */}
       {homepage.showsFreshToday && (
         <ProductRail
           eyebrow="Picked this morning"
@@ -255,7 +251,7 @@ export default function HomepageClient({
         />
       )}
 
-      {/* 8. By occasion */}
+      {/* 7. By occasion */}
       <Section>
         <Reveal>
           <SectionIntro eyebrow="For every feeling" title="Flowers by occasion" />
@@ -317,7 +313,7 @@ export default function HomepageClient({
         </motion.div>
       </Section>
 
-      {/* 9. By colour */}
+      {/* 8. By colour */}
       <Section className="bg-white/55">
         <Reveal>
           <SectionIntro

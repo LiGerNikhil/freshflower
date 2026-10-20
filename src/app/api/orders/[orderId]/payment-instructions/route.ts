@@ -23,6 +23,11 @@ type OrderDoc = {
   paymentState?: string;
   paymentCurrency?: "INR";
   latestPaymentAttemptId?: string;
+  items: { name: string; quantity: number; price: number; image?: string; color?: string }[];
+  subtotal: number;
+  deliveryFee: number;
+  deliveryDate?: Date;
+  deliveryAddress?: { line1?: string; city?: string };
 };
 
 async function ownedOrder(req: NextRequest, orderId: string): Promise<OrderDoc | Response> {
@@ -48,6 +53,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ orde
     ]);
     const latest = attempts.at(-1) as { state?: string; paymentAccountSnapshot?: PaymentAccountSnapshot } | undefined;
     return jsonOk({
+      summary: {
+        id: String(order._id), orderNumber: order.orderNumber, items: order.items,
+        subtotal: order.subtotal, deliveryFee: order.deliveryFee, total: order.total,
+        payment: order.paymentMethod,
+        delivery: { date: order.deliveryDate ? new Date(order.deliveryDate).toISOString().slice(0, 10) : "", address: order.deliveryAddress?.line1 ?? "", city: order.deliveryAddress?.city ?? "" },
+      },
       order: {
         id: String(order._id),
         orderNumber: order.orderNumber,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -15,6 +15,7 @@ import { ProductItemImage } from "@/components/sections/ProductItemImage";
 import { Button } from "@/components/ui/Button";
 import { deliveryAreas } from "@/lib/data";
 import { DELIVERY_CHARGE, DELIVERY_NOTE } from "@/lib/cart";
+import { payWithRazorpay } from "@/lib/payments/checkout-client";
 
 const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
   .toISOString()
@@ -22,14 +23,7 @@ const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
 const defaultDeliverySlotId = "slot-10-11";
 const estimatedDeliveryLabel = "Estimated delivery by Tomorrow 11:00 AM";
 const checkoutRequestStorageKey = "freshflower-checkout-request-id";
-type PaymentMethod = "upi";
-type UpiAccount = {
-  id: string;
-  label: string;
-  receiverName: string;
-  upiId: string;
-  qrAsset: { secureUrl: string; publicId: string };
-};
+type PaymentMethod = "online";
 interface CheckoutForm {
   name: string;
   mobile: string;
@@ -58,7 +52,7 @@ const emptyForm: CheckoutForm = {
   instructions: "",
   date: tomorrow,
   slotId: defaultDeliverySlotId,
-  payment: "upi",
+  payment: "online",
 };
 
 export default function CheckoutClient() {
@@ -70,8 +64,7 @@ export default function CheckoutClient() {
   const [form, setForm] = useState<CheckoutForm>(emptyForm);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [upiAccount, setUpiAccount] = useState<UpiAccount | null>(null);
-  const [paymentLoading, setPaymentLoading] = useState(true);
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const selectedArea =
     deliveryAreas.find((area) => area.id === form.areaId) ??
     deliveryAreas.find((area) => area.id === form.areaId);
@@ -99,36 +92,12 @@ export default function CheckoutClient() {
     setStep(Math.min(3, step + 1));
   };
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const response = await fetch("/api/payment-accounts/default");
-        const body = (await response.json().catch(() => null)) as { account?: UpiAccount | null } | null;
-        if (!mounted) return;
-const account = body?.account ?? null;
-        setUpiAccount(account);
-      } catch {
-        if (!mounted) return;
-        setUpiAccount(null);
-      } finally {
-        if (mounted) setPaymentLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
   const placeOrder = async () => {
     if (!items.length)
       return setError(
         "Your cart is empty. Add flowers before placing an order.",
       );
     setError("");
-if (!upiAccount) {
-      return setError("Manual UPI payment is temporarily unavailable. Please try again later.");
-    }
     const checkoutRequestId = (() => {
       const existing = window.sessionStorage.getItem(checkoutRequestStorageKey);
       if (existing) return existing;
@@ -138,6 +107,13 @@ if (!upiAccount) {
     })();
     setSubmitting(true);
     try {
+      if (pendingOrderId) {
+        await payWithRazorpay(pendingOrderId, { name: form.name, email: form.email, contact: form.mobile });
+        clearCart();
+        window.sessionStorage.removeItem(checkoutRequestStorageKey);
+        router.push(`/order-confirmation/${pendingOrderId}`);
+        return;
+      }
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -170,7 +146,6 @@ items: items.map((item) => ({
           deliveryFee: DELIVERY_CHARGE,
           total,
 paymentMethod: form.payment,
-          paymentAccountId: upiAccount?.id,
           checkoutRequestId,
           agreedToTos: true,
         }),
@@ -203,7 +178,6 @@ const orderId: string = body.orderId;
           slotLabel: estimatedDeliveryLabel,
         },
 payment: form.payment,
-        upiAccount,
         subtotal,
         deliveryFee: DELIVERY_CHARGE,
         total,
@@ -214,6 +188,8 @@ payment: form.payment,
         `freshflower-order-${orderId}`,
         JSON.stringify(order),
       );
+      setPendingOrderId(orderId);
+      await payWithRazorpay(orderId, { name: form.name, email: form.email, contact: form.mobile });
       clearCart();
       window.sessionStorage.removeItem(checkoutRequestStorageKey);
       router.push(`/order-confirmation/${orderId}`);
@@ -425,34 +401,10 @@ if (!items.length)
                           <Check size={12} className="text-ivory" />
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block font-semibold">Manual UPI payment</span>
-                          {paymentLoading ? (
-                            <span className="mt-1 block text-xs text-ink-soft">Checking UPI availability...</span>
-                          ) : upiAccount ? (
-                            <span className="mt-1 block text-xs text-ink-soft">
-                              Pay to {upiAccount.receiverName} via {upiAccount.upiId}. You will submit the UPI
-                              reference after placing the order.
-                            </span>
-                          ) : (
-                            <span className="mt-1 block text-xs font-semibold text-red-700">
-                              Manual UPI is temporarily unavailable because no active UPI account is configured.
-                            </span>
-                          )}
+                          <span className="block font-semibold">Secure payment with Razorpay</span>
+                          <span className="mt-1 block text-xs text-ink-soft">Choose UPI, cards or other available methods in the payment window. Your order is confirmed after payment verification.</span>
                         </span>
                       </span>
-                      {upiAccount && (
-                        <div className="mt-3 rounded-lg border border-gold/20 bg-gold/5 p-4">
-                          <div className="flex flex-wrap items-center gap-4">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={upiAccount.qrAsset.secureUrl} alt="UPI QR" className="h-28 w-28 rounded-md bg-white object-contain" />
-                            <div>
-                              <p className="font-semibold text-ink">{upiAccount.label}</p>
-                              <p className="mt-1 text-ink-soft">Receiver: {upiAccount.receiverName}</p>
-                              <p className="break-all text-ink-soft">UPI ID: {upiAccount.upiId}</p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
                   <div className="border-t border-ink/10 pt-5 text-sm">
@@ -487,7 +439,7 @@ if (!items.length)
                 </Button>
               ) : (
                 <Button size="lg" variant="gold" onClick={() => void placeOrder()} disabled={submitting}>
-                  {submitting ? "Placing order…" : "Place Order"} {!submitting && <Check size={17} />}
+                  {submitting ? "Processing payment…" : pendingOrderId ? "Retry payment" : "Pay with Razorpay"} {!submitting && <Check size={17} />}
                 </Button>
               )}
             </div>
