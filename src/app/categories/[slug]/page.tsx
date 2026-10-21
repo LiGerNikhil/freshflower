@@ -115,17 +115,6 @@ export default async function CategoryPage({
   return (
     <main className="bg-ivory">
       <JsonLd data={breadcrumb} />
-      <section className="bg-ivory-deep px-5 py-16 md:px-10 md:py-24">
-        <div className="mx-auto max-w-7xl">
-          <p className="mb-3 text-xs font-bold uppercase tracking-[0.22em] text-sage-ink">
-            Flower category
-          </p>
-          <h1 className="text-5xl md:text-7xl">{category.name}</h1>
-          <p className="mt-5 max-w-2xl text-sm leading-7 text-ink-soft">
-            {copy[slug] ?? category.description}
-          </p>
-        </div>
-      </section>
       <FilteredFlowerCollection
         flowers={categoryFlowers}
         initialState={stateFromParams(query, category.id)}
