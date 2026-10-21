@@ -106,8 +106,8 @@ export default function DeliveryPolicyPage() {
       <h2>10. Contact for delivery queries</h2>
       <p>
         For delivery-related questions, reach us at{" "}
-        <strong>hello@freshflower.zone</strong> or call{" "}
-        <strong>+91 99999 99999</strong> during business hours (Mon–Sat
+        <strong>admin@freshflower.zone</strong> or call{" "}
+        <strong>+91 85069 51873</strong> during business hours (Mon–Sat
         6 AM–8 PM, Sun 7 AM–2 PM).
       </p>
     </LegalPage>
