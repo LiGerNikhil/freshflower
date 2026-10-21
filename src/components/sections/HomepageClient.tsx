@@ -375,17 +375,17 @@ export default function HomepageClient({
       </Section>
   );
 
-  const legacySections = [
-    categorySection,
-    onSaleSection,
-    bestSellersSection,
-    newArrivalsSection,
-    offersSection,
-    freshTodaySection,
-    occasionSection,
-    colourSection,
-    <TrustStrip key="trust" />,
-    <CartCta key="cart-cta" />,
+  const legacySections: Array<{ id: HomepageSectionId; node: ReactNode }> = [
+    { id: "categories", node: categorySection },
+    { id: "on-sale", node: onSaleSection },
+    { id: "best-sellers", node: bestSellersSection },
+    { id: "new-arrivals", node: newArrivalsSection },
+    { id: "offers", node: offersSection },
+    { id: "fresh-today", node: freshTodaySection },
+    { id: "occasions", node: occasionSection },
+    { id: "colours", node: colourSection },
+    { id: "trust", node: <TrustStrip key="trust" /> },
+    { id: "cart-cta", node: <CartCta key="cart-cta" /> },
   ];
 
   const selectedCollections = useMemo(() => {
@@ -397,30 +397,74 @@ export default function HomepageClient({
     return live;
   }, [festivalCollections, homepage.festivalCollectionIds]);
 
+  const selectedCategories = useMemo(
+    () =>
+      homepage.categoryIds?.length
+        ? homepage.categoryIds
+            .map((id) => categories.find((category) => category.id === id))
+            .filter((category): category is Category => Boolean(category))
+        : categories,
+    [categories, homepage.categoryIds],
+  );
+
+  const heroProducts = useMemo(() => {
+    const ordered = [...featured, ...flowers];
+    const seen = new Set<string>();
+    return ordered
+      .filter((flower) => {
+        if (seen.has(flower.id)) return false;
+        seen.add(flower.id);
+        return true;
+      })
+      .slice(0, 8);
+  }, [featured, flowers]);
+
+  const announcementText = homepage.announcementText?.trim();
+  const announcementBar = announcementText ? (
+    <div className="border-b border-ink/10 bg-ink text-ivory">
+      <p className="mx-auto max-w-7xl truncate px-5 py-2 text-center text-xs font-medium sm:text-sm">
+        {announcementText}
+      </p>
+    </div>
+  ) : null;
+
   const configuredHomepage =
     hasFestivalHomepageConfig(homepage) && selectedCollections.length > 0;
 
   if (!configuredHomepage) {
     return (
       <main className="overflow-hidden bg-ivory">
-        <Hero
-          hero={homepage.hero}
-          categories={categories}
-          collections={selectedCollections}
-        />
-        {legacySections.map((section, index) => (
-          <Fragment key={index}>{section}</Fragment>
-        ))}
+        {storefrontHero ? (
+          <StorefrontHero
+            announcement={homepage.announcementText}
+            categories={selectedCategories}
+            collections={selectedCollections}
+            products={heroProducts}
+            onQuickView={setQuickView}
+          />
+        ) : (
+          <>
+            {announcementBar}
+            <Hero
+              hero={homepage.hero}
+              categories={categories}
+              collections={selectedCollections}
+            />
+          </>
+        )}
+        {legacySections
+          .filter(
+            ({ id }) =>
+              !storefrontHero || (id !== "categories" && id !== "best-sellers"),
+          )
+          .map((section) => (
+            <Fragment key={section.id}>{section.node}</Fragment>
+          ))}
         <QuickViewDialog flower={quickView} onClose={() => setQuickView(null)} />
       </main>
     );
   }
 
-  const selectedCategories = homepage.categoryIds?.length
-    ? homepage.categoryIds
-        .map((id) => categories.find((category) => category.id === id))
-        .filter((category): category is Category => Boolean(category))
-    : categories;
   const productsInOrder = (ids: string[]) =>
     [...new Set(ids)]
       .map((id) => flowers.find((flower) => flower.id === id))
@@ -482,6 +526,11 @@ export default function HomepageClient({
 
   const orderedSections = [...(homepage.sections ?? [])]
     .filter((section) => section.enabled)
+    .filter(
+      (section) =>
+        !storefrontHero ||
+        (section.id !== "categories" && section.id !== "best-sellers"),
+    )
     .sort((left, right) => left.sortOrder - right.sortOrder)
     .map((section) => (
       <Fragment key={section.id}>{sectionContent[section.id]}</Fragment>
@@ -489,15 +538,28 @@ export default function HomepageClient({
 
   return (
     <main className="overflow-hidden bg-ivory">
-      <Hero
-        hero={homepage.hero}
-        categories={categories}
-        collections={selectedCollections}
-      />
-      <FestivalBanner
-        collections={selectedCollections}
-        showCutoff={homepage.salesBoosters?.collectionCutoff === true}
-      />
+      {storefrontHero ? (
+        <StorefrontHero
+          announcement={homepage.announcementText}
+          categories={selectedCategories}
+          collections={selectedCollections}
+          products={heroProducts}
+          onQuickView={setQuickView}
+        />
+      ) : (
+        <>
+          {announcementBar}
+          <Hero
+            hero={homepage.hero}
+            categories={categories}
+            collections={selectedCollections}
+          />
+          <FestivalBanner
+            collections={selectedCollections}
+            showCutoff={homepage.salesBoosters?.collectionCutoff === true}
+          />
+        </>
+      )}
       {orderedSections}
       <QuickViewDialog flower={quickView} onClose={() => setQuickView(null)} />
     </main>

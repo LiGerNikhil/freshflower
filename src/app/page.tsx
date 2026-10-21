@@ -26,6 +26,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
+  const storefrontHero = process.env.HOMEPAGE_HERO_V2 !== "0";
   const [categories, flowers, occasions, homepage, festivalCollections] =
     await Promise.all([
     getCategories(),
@@ -41,6 +42,7 @@ export default async function HomePage() {
       occasions={occasions}
       homepage={homepage}
       festivalCollections={festivalCollections}
+      storefrontHero={storefrontHero}
     />
   );
 }

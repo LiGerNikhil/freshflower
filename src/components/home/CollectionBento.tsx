@@ -16,12 +16,12 @@ export function CollectionBento({ collections }: CollectionBentoProps) {
   const containerClass =
     visible.length === 1
       ? "grid gap-3"
-      : "grid grid-cols-2 gap-3 sm:gap-4 lg:h-[32rem] lg:grid-cols-2 lg:grid-rows-2";
+      : "grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:gap-4 lg:h-[32rem] lg:grid-cols-2 lg:grid-rows-2";
 
   return (
     <div className={containerClass}>
       <CollectionCard collection={featured} featured priority />
-      {rest.map((collection, index) => (
+      {rest.map((collection) => (
         <CollectionCard
           key={collection.id}
           collection={collection}
@@ -31,7 +31,6 @@ export function CollectionBento({ collections }: CollectionBentoProps) {
               : "col-span-1"
           }
           priority={false}
-          index={index + 1}
         />
       ))}
     </div>
@@ -42,21 +41,19 @@ function CollectionCard({
   collection,
   featured = false,
   priority = false,
-  index = 0,
   className = "",
 }: {
   collection: FestivalCollection;
   featured?: boolean;
   priority?: boolean;
-  index?: number;
   className?: string;
 }) {
   const image = collection.bannerImage;
   const count = collection.productIds.length;
   const countLabel = `${count} ${count === 1 ? "item" : "items"}`;
   const shape = featured
-    ? "col-span-full aspect-[16/10] min-h-[14rem] sm:aspect-[16/9] lg:col-span-1 lg:row-span-2 lg:aspect-auto lg:h-full lg:min-h-0"
-    : "aspect-[4/3] min-h-[10.5rem] lg:aspect-auto lg:h-full lg:min-h-0";
+    ? "col-span-full min-h-[13.5rem] min-w-0 sm:min-h-[15rem] lg:col-span-1 lg:row-span-2 lg:h-full lg:min-h-0"
+    : "min-h-[11rem] min-w-0 sm:min-h-[12rem] lg:h-full lg:min-h-0";
 
   return (
     <Link
@@ -74,7 +71,7 @@ function CollectionCard({
           sizes={
             featured
               ? "(max-width: 1023px) 100vw, 50vw"
-              : "(max-width: 1023px) 50vw, 25vw"
+              : "(max-width: 479px) 100vw, (max-width: 1023px) 50vw, 25vw"
           }
           className="object-cover transition-transform duration-700 motion-safe:group-hover:scale-[1.04]"
         />
