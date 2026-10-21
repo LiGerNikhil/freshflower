@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type {
@@ -39,6 +40,7 @@ interface OperationsValue {
   areas: DeliveryArea[];
   areaById: Record<string, DeliveryArea>;
   hydrated: boolean;
+  refresh: () => Promise<void>;
   setOrderStatus: (orderId: string, status: OrderStatus) => void;
   setOrderPayment: (orderId: string, paymentStatus: PaymentStatus) => void;
   setSlotConfig: (slotId: string, config: Partial<Pick<SlotWithConfig, "enabled" | "maxOrders">>) => void;
@@ -47,6 +49,8 @@ interface OperationsValue {
 }
 
 const OperationsContext = createContext<OperationsValue | null>(null);
+
+const REFRESH_INTERVAL_MS = 20_000;
 
 const SEED_SLOTS: SlotWithConfig[] = deliverySlots.map((slot) => ({
   ...slot,
@@ -64,45 +68,57 @@ export function OperationsProvider({
   const [slotList, setSlotList] = useState<SlotWithConfig[]>(SEED_SLOTS);
   const [areas, setAreas] = useState<DeliveryArea[]>(deliveryAreas);
   const [hydrated, setHydrated] = useState(false);
+  const alive = useRef(true);
 
-  // Phase 17: hydrate orders + delivery configuration from MongoDB.
+  const refresh = useCallback(async () => {
+    const [remoteOrders, remoteCustomers, remoteSlots, remoteAreas] = await Promise.all([
+      api("/api/admin/orders"),
+      api("/api/admin/customers"),
+      api("/api/admin/delivery-slots"),
+      api("/api/admin/delivery-areas"),
+    ]);
+    if (!alive.current) return;
+    // A successful response is authoritative even when it is empty, so stale
+    // seed data can never mask the live database.
+    if (Array.isArray(remoteOrders)) setOrders(remoteOrders as Order[]);
+    if (Array.isArray(remoteCustomers)) setCustomers(remoteCustomers as Customer[]);
+    if (Array.isArray(remoteSlots)) {
+      setSlotList((remoteSlots as DeliverySlot[]).map((slot) => ({
+        ...slot,
+        enabled: slot.enabled ?? true,
+        maxOrders: slot.maxOrders ?? DEFAULT_MAX_ORDERS,
+      })) as SlotWithConfig[]);
+    }
+    if (Array.isArray(remoteAreas)) setAreas(remoteAreas as DeliveryArea[]);
+  }, []);
+
   useEffect(() => {
-    let mounted = true;
+    alive.current = true;
+    const safeRefresh = () => {
+      refresh().catch(() => undefined);
+    };
     (async () => {
       try {
-        const [remoteOrders, remoteCustomers, remoteSlots, remoteAreas] = await Promise.all([
-          api("/api/admin/orders"),
-          api("/api/admin/customers"),
-          api("/api/admin/delivery-slots"),
-          api("/api/admin/delivery-areas"),
-        ]);
-        if (!mounted) return;
-        if (Array.isArray(remoteCustomers) && remoteCustomers.length) {
-          setCustomers(remoteCustomers as Customer[]);
-        }
-        if (Array.isArray(remoteOrders) && remoteOrders.length) {
-          setOrders(remoteOrders as Order[]);
-        }
-        if (Array.isArray(remoteSlots) && remoteSlots.length) {
-          setSlotList((remoteSlots as DeliverySlot[]).map((slot) => ({
-            ...slot,
-            enabled: slot.enabled ?? true,
-            maxOrders: slot.maxOrders ?? DEFAULT_MAX_ORDERS,
-          })) as SlotWithConfig[]);
-        }
-        if (Array.isArray(remoteAreas) && remoteAreas.length) {
-          setAreas(remoteAreas as DeliveryArea[]);
-        }
+        await refresh();
       } catch {
-        // Fall back to the seeded preview.
+        // Keep the last known snapshot (the seeded preview) if the API is down.
       } finally {
-        if (mounted) setHydrated(true);
+        if (alive.current) setHydrated(true);
       }
     })();
-    return () => {
-      mounted = false;
+    const interval = window.setInterval(safeRefresh, REFRESH_INTERVAL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") safeRefresh();
     };
-  }, []);
+    window.addEventListener("focus", safeRefresh);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      alive.current = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", safeRefresh);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [refresh]);
 
   const slotById = useMemo(
     () => Object.fromEntries(slotList.map((slot) => [slot.id, slot])),
@@ -120,34 +136,40 @@ export function OperationsProvider({
   );
 
   const setOrderStatus = useCallback((orderId: string, status: OrderStatus) => {
-    api(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status, updatedAt: new Date().toISOString() }),
-    }).catch(() => undefined);
+    const updatedAt = new Date().toISOString();
     setOrders((prev) =>
       prev.map((order) =>
-        order.id === orderId
-          ? { ...order, status, updatedAt: new Date().toISOString() }
-          : order,
+        order.id === orderId ? { ...order, status, updatedAt } : order,
       ),
     );
-  }, []);
+    api(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, updatedAt }),
+    })
+      .catch(() => undefined)
+      .finally(() => {
+        refresh().catch(() => undefined);
+      });
+  }, [refresh]);
 
   const setOrderPayment = useCallback(
     (orderId: string, paymentStatus: PaymentStatus) => {
-      api(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
-        method: "PATCH",
-        body: JSON.stringify({ paymentStatus, updatedAt: new Date().toISOString() }),
-      }).catch(() => undefined);
+      const updatedAt = new Date().toISOString();
       setOrders((prev) =>
         prev.map((order) =>
-          order.id === orderId
-            ? { ...order, paymentStatus, updatedAt: new Date().toISOString() }
-            : order,
+          order.id === orderId ? { ...order, paymentStatus, updatedAt } : order,
         ),
       );
+      api(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ paymentStatus, updatedAt }),
+      })
+        .catch(() => undefined)
+        .finally(() => {
+          refresh().catch(() => undefined);
+        });
     },
-    [],
+    [refresh],
   );
 
   const setSlotConfig = useCallback(
@@ -201,6 +223,7 @@ export function OperationsProvider({
       areas,
       areaById,
       hydrated,
+      refresh,
       setOrderStatus,
       setOrderPayment,
       setSlotConfig,
@@ -216,6 +239,7 @@ export function OperationsProvider({
       areas,
       areaById,
       hydrated,
+      refresh,
       setOrderStatus,
       setOrderPayment,
       setSlotConfig,

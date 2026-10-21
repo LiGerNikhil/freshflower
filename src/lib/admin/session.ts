@@ -68,6 +68,7 @@ export async function createAdminSessionToken(email = ADMIN_EMAIL): Promise<stri
 }
 
 export async function verifyAdminSessionToken(token: string | undefined): Promise<AdminSessionPayload | null> {
+  try {
   if (!token) return null;
   const [payloadPart, signature] = token.split(".");
   if (!payloadPart || !signature) return null;
@@ -77,9 +78,12 @@ export async function verifyAdminSessionToken(token: string | undefined): Promis
   if (payload.email !== ADMIN_EMAIL) return null;
   if (payload.exp <= Math.floor(Date.now() / 1000)) return null;
   return payload;
+  } catch {
+    return null;
+  }
 }
 
-export async function verifyAdminRequest(request: NextRequest | Request): Promise<boolean> {
+export async function getAdminSession(request: NextRequest | Request): Promise<AdminSessionPayload | null> {
   const token =
     "cookies" in request
       ? request.cookies.get(ADMIN_SESSION_COOKIE)?.value
@@ -89,5 +93,9 @@ export async function verifyAdminRequest(request: NextRequest | Request): Promis
           .map((part) => part.trim())
           .find((part) => part.startsWith(`${ADMIN_SESSION_COOKIE}=`))
           ?.slice(ADMIN_SESSION_COOKIE.length + 1);
-  return (await verifyAdminSessionToken(token)) !== null;
+  return verifyAdminSessionToken(token);
+}
+
+export async function verifyAdminRequest(request: NextRequest | Request): Promise<boolean> {
+  return (await getAdminSession(request)) !== null;
 }

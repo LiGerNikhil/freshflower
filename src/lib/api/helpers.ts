@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 
+export class ApiError extends Error {
+  constructor(message: string, public status = 400) { super(message); }
+}
+
 export function jsonOk<T>(body: T, status = 200) {
   return NextResponse.json(body, { status });
 }
@@ -20,6 +24,7 @@ export function errorFor(err: unknown): {
   message: string;
   status: number;
 } {
+  if (err instanceof ApiError) return { message: err.message, status: err.status };
   if (err instanceof Error && err.message === "Not found") {
     return { message: "Not found.", status: 404 };
   }
@@ -53,7 +58,7 @@ export function parseOrThrow<T>(schema: {
 }, body: unknown): T {
   const result = schema.safeParse(body);
   if (!result.success) {
-    throw new Error(result.error?.issues[0]?.message ?? "Invalid input.");
+    throw new ApiError(result.error?.issues[0]?.message ?? "Invalid input.");
   }
   return result.data as T;
 }

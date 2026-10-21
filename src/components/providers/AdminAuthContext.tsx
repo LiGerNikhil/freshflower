@@ -77,7 +77,9 @@ export function AdminAuthProvider({
           error: "Invalid email or password.",
         };
       }
-      const body = (await response.json()) as { user: AdminUser };
+      const me = await fetch("/api/admin/auth/me", { credentials: "same-origin" });
+      if (!me.ok) return { ok: false, error: "Could not verify admin permissions." };
+      const body = (await me.json()) as { user: AdminUser };
       const next: AdminSession = {
         user: body.user,
         loggedInAt: new Date().toISOString(),

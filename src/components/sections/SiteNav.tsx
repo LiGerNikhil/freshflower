@@ -9,6 +9,7 @@ import { useCustomerAuth } from "@/components/providers/CustomerAuthContext";
 
 const NAV_LINKS = [
   { label: "Shop", href: "/flowers" },
+  { label: "Collections", href: "/collections" },
   { label: "Bouquets", href: "/bouquets" },
   // Hidden from the main navbar for now; routes remain available directly.
   // { label: "Occasions", href: "/occasions" },

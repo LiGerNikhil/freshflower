@@ -7,6 +7,7 @@ import { useCatalog } from "@/components/providers/CatalogContext";
 import { AdminThumb } from "@/components/admin/AdminThumb";
 import { reviews } from "@/lib/data/reviews";
 import type { OfferBanner } from "@/lib/types";
+import { HomepageFestivalControls } from "@/components/admin/HomepageFestivalControls";
 
 /**
  * /admin/homepage — live controls for the public homepage. Every save bumps
@@ -14,9 +15,17 @@ import type { OfferBanner } from "@/lib/types";
  * hero, featured flowers, offers and testimonials immediately.
  */
 export function HomepageManager() {
-  const { homepage, setHomepage } = useSiteContent();
+  const { hydrated } = useSiteContent();
+  return hydrated ? <HomepageEditor /> : <p role="status">Loading homepage settings…</p>;
+}
+
+function HomepageEditor() {
+  const { homepage: persistedHomepage, setHomepage: saveHomepage } = useSiteContent();
+  const [homepage, setHomepage] = useState(persistedHomepage);
   const { products } = useCatalog();
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const patchHero = (patch: Partial<typeof homepage.hero>) =>
     setHomepage({ ...homepage, hero: { ...homepage.hero, ...patch } });
@@ -71,13 +80,19 @@ export function HomepageManager() {
   const update = (patch: Partial<typeof homepage>) =>
     setHomepage({ ...homepage, ...patch });
 
-  const save = () => {
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 1600);
+  const save = async () => {
+    setSaving(true); setSaved(false); setError("");
+    try {
+      await saveHomepage(homepage);
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 1600);
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not save homepage."); }
+    finally { setSaving(false); }
   };
 
   return (
     <div>
+      <fieldset disabled={saving}>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-gold">
@@ -87,8 +102,7 @@ export function HomepageManager() {
             Homepage controls
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-soft">
-            Changes save to the Phase 16 store and show up on the live
-            homepage on the next load.
+            Edit locally, then save to MongoDB. Existing homepage content stays live until a save succeeds.
           </p>
         </div>
         <button
@@ -96,10 +110,12 @@ export function HomepageManager() {
           onClick={save}
           className="inline-flex items-center gap-2 rounded-md bg-ink px-4 py-2 text-sm font-medium text-ivory transition hover:bg-ink-soft"
         >
-          <Check size={15} /> {saved ? "Saved ✓" : "Save changes"}
+          <Check size={15} /> {saving ? "Saving…" : saved ? "Saved ✓" : "Save changes"}
         </button>
       </div>
 
+      {error && <p role="alert" className="mb-4 rounded-md bg-blush p-3 text-sm text-red-800">{error}</p>}
+      <HomepageFestivalControls value={homepage} onChange={update} />
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Hero */}
         <section className="rounded-xl border border-ink/10 bg-white/80 p-6 shadow-sm">
@@ -107,6 +123,25 @@ export function HomepageManager() {
             <Sparkles size={16} className="text-gold" /> Hero banner
           </h2>
           <div className="space-y-4">
+            <div>
+              <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-ink-soft">
+                Announcement bar
+              </label>
+              <input
+                type="text"
+                value={homepage.announcementText ?? ""}
+                maxLength={180}
+                onChange={(event) =>
+                  update({ announcementText: event.target.value })
+                }
+                placeholder="e.g. Order before 4 PM for tomorrow morning delivery"
+                className="w-full rounded-md border border-ink/10 bg-white px-3 py-2 text-sm text-ink focus:border-transparent focus:ring-2 focus:ring-gold/60 focus:outline-none"
+              />
+              <p className="mt-2 text-xs text-ink-soft">
+                Shown as a single line above the homepage hero. Leave blank to
+                hide it.
+              </p>
+            </div>
             <div>
               <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-ink-soft">
                 Eyebrow
@@ -414,6 +449,7 @@ export function HomepageManager() {
           </div>
         </section>
       </div>
+      </fieldset>
     </div>
   );
 }

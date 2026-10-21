@@ -15,6 +15,11 @@ export interface Category {
   description: string;
   heroImage: string; // path or gradient token for preview
   imageUrl?: string; // real photography when available
+  sortOrder?: number;
+  active?: boolean;
+  seoTitle?: string;
+  metaDescription?: string;
+  keywords?: string[];
 }
 
 export interface Occasion {
@@ -66,6 +71,15 @@ export interface Flower {
   stock?: number; // current inventory count
   stockStatus?: FlowerStockStatus;
   active?: boolean; // false = hidden from the storefront ("disabled")
+  publicationStatus?: "draft" | "published";
+  unitLabel?: string; // complete sellable-package label, e.g. "20 Mala"
+  minQuantity?: number; // purchase units, NOT contents of the package
+  quantityStep?: number;
+  festivalTags?: string[];
+  badges?: ("festival-special" | "limited-stock" | "best-seller")[];
+  poojaEligible?: boolean;
+  requiresAdvancePayment?: boolean;
+  deliveryPolicy?: "standard" | "pooja-morning";
   bestSeller?: boolean;
   newArrival?: boolean;
   seoTitle?: string;
@@ -104,6 +118,9 @@ export interface CartItem {
   quantity: number;
   image: string;
   color?: string;
+  unitLabel?: string;
+  minQuantity?: number;
+  quantityStep?: number;
 }
 
 export enum OrderStatus {
@@ -206,6 +223,7 @@ export interface OrderItem {
   quantity: number;
   image?: string;
   color?: string;
+  unitLabel?: string; // historical snapshot; never derive from an edited product
 }
 
 export interface Order {
@@ -229,6 +247,10 @@ export interface Order {
   paymentMethod?: PaymentMethod;
   paymentState?: PaymentState;
   paymentCurrency?: "INR";
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  razorpayPaymentMethod?: string;
+  paidAt?: string;
   latestPaymentAttemptId?: string;
   orderConfirmationEmailSentAt?: string;
   createdAt: string; // ISO datetime
@@ -445,10 +467,57 @@ export interface HomepageHeroConfig {
 /** The parts of the homepage the admin can control (single source of truth). */
 export interface HomepageConfig {
   hero: HomepageHeroConfig;
+  /** Slim admin-editable announcement shown above the homepage hero. */
+  announcementText?: string;
   featuredFlowerIds: string[];
   showsFreshToday: boolean;
   offers: OfferBanner[];
   testimonialReviewIds: string[];
+  festivalHeroEnabled?: boolean;
+  sections?: HomepageSectionConfig[];
+  categoryIds?: string[];
+  festivalCollectionIds?: string[];
+  salesBoosters?: {
+    festivalBadges?: boolean;
+    lowStockLabels?: boolean;
+    collectionCutoff?: boolean;
+    whatsappBulkOrder?: boolean;
+  };
+}
+
+export type HomepageSectionId =
+  | "categories" | "festival-specials" | "pooja-essentials" | "on-sale"
+  | "best-sellers" | "new-arrivals" | "offers" | "fresh-today"
+  | "occasions" | "colours" | "wholesale" | "reviews" | "trust" | "cart-cta";
+
+export interface HomepageSectionConfig {
+  id: HomepageSectionId;
+  enabled: boolean;
+  sortOrder: number;
+}
+
+export interface FestivalCollection {
+  id: string;
+  title: string;
+  slug: string;
+  subtitle?: string;
+  bannerImage?: string;
+  status: "draft" | "published";
+  active: boolean;
+  startsAt?: string; // ISO instant; admin enters dates in Asia/Kolkata
+  endsAt?: string; // exclusive boundary
+  productIds: string[]; // array order is editorial order
+  categoryIds: string[];
+  sortOrder: number;
+  badgeText?: string;
+  lastOrderByText?: string; // display copy, not a machine-enforced deadline
+  poojaCollection?: boolean;
+  whatsappBulkOrderEnabled?: boolean;
+  seoTitle?: string;
+  metaDescription?: string;
+  keywords?: string[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /** Business-level contact + delivery settings (single source of truth). */

@@ -22,7 +22,10 @@ export async function recordPaymentEvent({
     | "payment.email_sent"
     | "payment.email_failed"
     | "payment.verified"
-    | "payment.correction_requested";
+    | "payment.correction_requested"
+    | "payment.authorized"
+    | "payment.captured"
+    | "payment.failed";
   orderId: string;
   paymentAttemptId: string;
   actor?: string;

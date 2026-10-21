@@ -37,7 +37,7 @@ export interface SiteContentValue {
   setSettings: (value: BusinessSettings) => void;
   // homepage controls
   homepage: HomepageConfig;
-  setHomepage: (value: HomepageConfig) => void;
+  setHomepage: (value: HomepageConfig) => Promise<void>;
   // blog CMS
   blogPosts: BlogPost[];
   addBlogPost: (post: BlogPost) => void;
@@ -196,11 +196,9 @@ export function SiteContentProvider({ children }: { children: ReactNode }) {
         dispatch({ type: "settings", value });
       },
       homepage: state.homepage,
-      setHomepage: (value) => {
-        api("/api/admin/homepage", { method: "PUT", body: JSON.stringify(value) }).catch(
-          () => undefined,
-        );
-        dispatch({ type: "homepage", value });
+      setHomepage: async (value) => {
+        const result = await api("/api/admin/homepage", { method: "PUT", body: JSON.stringify(value) });
+        dispatch({ type: "homepage", value: result.homepage });
       },
       blogPosts: state.blogPosts,
       addBlogPost: (post) => {

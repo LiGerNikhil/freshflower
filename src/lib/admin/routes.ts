@@ -47,6 +47,15 @@ export const ROUTE_REGISTRY: SeoRouteEntry[] = [
     keywords: "bouquet delivery delhi, hand tied bouquet, flower bouquet online",
   },
   {
+    path: "/collections",
+    label: "Collections",
+    group: "Home & catalog",
+    title: "Flower collections | FreshFlower.zone",
+    description:
+      "Shop fresh garlands and malas, loose flowers by weight and exotic cut flowers with same-day delivery across Delhi NCR.",
+    keywords: "flower collections delhi, garlands, loose flowers, exotic cut flowers",
+  },
+  {
     path: "/categories",
     label: "Flower varieties",
     group: "Home & catalog",

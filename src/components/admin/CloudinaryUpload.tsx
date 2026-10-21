@@ -7,21 +7,21 @@ import { ImagePlus, Loader2, Trash2, Video } from "lucide-react";
  * Real Cloudinary-backed image picker for admin forms.
  *
  * Uploads picked files to POST /api/admin/upload (which stores them in
- * Cloudinary) and hands back the returned secure URLs. Replacements call
- * DELETE /api/admin/upload?id=<publicId> for Cloudinary-hosted assets so the
- * media library doesn't fill up with orphaned originals; gradient tokens and
- * other preview URLs are left untouched.
+ * Cloudinary) and hands back the returned secure URLs. Removing a selection
+ * detaches it from the form without deleting media shared by other records.
  */
 export function CloudinaryUpload({
   value,
   onChange,
   label = "Add images",
   mediaType = "image",
+  multiple = true,
 }: {
   value: string[];
   onChange: (urls: string[]) => void;
   label?: string;
   mediaType?: "image" | "video";
+  multiple?: boolean;
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -132,7 +132,7 @@ export function CloudinaryUpload({
               ? "video/mp4,video/webm,video/quicktime"
               : "image/jpeg,image/png,image/webp,image/gif"
           }
-          multiple
+          multiple={multiple}
           disabled={uploading}
           onChange={(event) => handleFiles(event.target.files)}
           className="sr-only"

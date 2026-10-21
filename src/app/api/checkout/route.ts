@@ -214,7 +214,7 @@ export async function POST(req: NextRequest) {
       notes: input.customer.notes || undefined,
       paymentMethod: input.paymentMethod,
       paymentStatus: "pending",
-      paymentState: input.paymentMethod === "upi" ? "awaiting_payment" : undefined,
+      paymentState: input.paymentMethod === "cod" ? undefined : "awaiting_payment",
       paymentCurrency: "INR",
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -285,7 +285,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       orderId,
       orderNumber,
-      paymentState: input.paymentMethod === "upi" ? "awaiting_payment" : undefined,
+      paymentState: input.paymentMethod === "cod" ? undefined : "awaiting_payment",
       totals: { subtotal, discount, deliveryFee, total },
     }, 201);
   });

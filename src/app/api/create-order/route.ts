@@ -25,13 +25,12 @@ export async function POST(req: NextRequest) {
     const { keyId } = razorpayConfig();
     if (order.razorpayOrderId) {
       const payments = await razorpayClient().orders.fetchPayments(order.razorpayOrderId);
-      const captured = payments.items.find(payment => payment.status === "captured");
-      if (captured) {
-        const failure = await confirmRazorpayPayment(order, captured.id);
+      const settled = payments.items.find(payment => payment.status === "captured" || payment.status === "authorized");
+      if (settled) {
+        const failure = await confirmRazorpayPayment(order, settled.id);
         if (failure) return jsonError(failure.error, failure.status);
         return jsonOk({ alreadyPaid: true });
       }
-      if (payments.items.some(payment => payment.status === "authorized")) return jsonError("Payment is awaiting capture. Please check again shortly; do not pay again.", 409);
       return jsonOk({ order_id: order.razorpayOrderId, amount, currency: "INR", key_id: keyId });
     }
     const lock = await OrderModel.updateOne({ _id: order._id, razorpayOrderId: { $exists: false }, $or: [{ razorpayCreatingAt: { $exists: false } }, { razorpayCreatingAt: { $lt: new Date(Date.now() - 120000) } }] }, { $set: { razorpayCreatingAt: new Date() } });

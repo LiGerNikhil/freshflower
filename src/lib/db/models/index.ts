@@ -1,5 +1,6 @@
 import { Schema, model, models, type Model } from "mongoose";
 import { OrderStatus, AdminRole } from "@/lib/types";
+import { FESTIVAL_BADGES, HOMEPAGE_SECTION_IDS } from "@/lib/festivals";
 
 // ---------------------------------------------------------------------------
 // Mongoose models — mirror src/lib/types/index.ts 1:1.
@@ -36,7 +37,13 @@ const CategorySchema = new Schema({
   heroImage: String,
   imageUrl: String,
   sortOrder: { type: Number, default: 0 },
+  active: { type: Boolean, default: true },
+  seoTitle: String,
+  metaDescription: String,
+  keywords: { type: [String], default: [] },
 });
+
+CategorySchema.index({ active: 1, sortOrder: 1 });
 
 const OccasionSchema = new Schema({
   _id: { type: String },
@@ -87,6 +94,15 @@ const FlowerSchema = new Schema(
     stock: Number,
     stockStatus: String,
     active: { type: Boolean, default: true },
+    publicationStatus: { type: String, enum: ["draft", "published"], default: "published" },
+    unitLabel: String,
+    minQuantity: { type: Number, min: 1, max: 99, default: 1, validate: Number.isInteger },
+    quantityStep: { type: Number, min: 1, max: 99, default: 1, validate: Number.isInteger },
+    festivalTags: { type: [String], default: [] },
+    badges: { type: [String], enum: FESTIVAL_BADGES, default: [] },
+    poojaEligible: { type: Boolean, default: false },
+    requiresAdvancePayment: { type: Boolean, default: false },
+    deliveryPolicy: { type: String, enum: ["standard", "pooja-morning"], default: "standard" },
     bestSeller: { type: Boolean, default: false },
     newArrival: { type: Boolean, default: false },
     seoTitle: String,
@@ -103,6 +119,38 @@ FlowerSchema.index({ stockStatus: 1 });
 FlowerSchema.index({ active: 1 });
 FlowerSchema.index({ bestSeller: 1 });
 FlowerSchema.index({ newArrival: 1 });
+FlowerSchema.index({ active: 1, publicationStatus: 1, festivalTags: 1 });
+FlowerSchema.index({ active: 1, poojaEligible: 1 });
+
+const FestivalCollectionSchema = new Schema(
+  {
+    _id: { type: String },
+    title: { type: String, required: true },
+    slug: { type: String, required: true, unique: true },
+    subtitle: String,
+    bannerImage: String,
+    status: { type: String, enum: ["draft", "published"], default: "draft" },
+    active: { type: Boolean, default: false },
+    startsAt: Date,
+    endsAt: Date,
+    productIds: { type: [String], default: [] },
+    categoryIds: { type: [String], default: [] },
+    sortOrder: { type: Number, default: 0 },
+    badgeText: String,
+    lastOrderByText: String,
+    poojaCollection: { type: Boolean, default: false },
+    whatsappBulkOrderEnabled: { type: Boolean, default: false },
+    seoTitle: String,
+    metaDescription: String,
+    keywords: { type: [String], default: [] },
+  },
+  { timestamps: true },
+);
+
+FestivalCollectionSchema.index({ status: 1, active: 1, startsAt: 1, endsAt: 1 });
+FestivalCollectionSchema.index({ sortOrder: 1 });
+FestivalCollectionSchema.index({ productIds: 1 });
+FestivalCollectionSchema.index({ categoryIds: 1 });
 
 const BouquetItemSchema = new Schema(
   {
@@ -140,6 +188,7 @@ const OrderItemSchema = new Schema(
     quantity: { type: Number, required: true, min: 1 },
     image: String,
     color: String,
+    unitLabel: String,
   },
   { _id: false },
 );
@@ -176,7 +225,9 @@ const OrderSchema = new Schema(
     latestPaymentAttemptId: String,
     razorpayOrderId: { type: String, index: true },
     razorpayPaymentId: String,
+    razorpayPaymentMethod: String,
     razorpayCreatingAt: Date,
+    paidAt: Date,
     orderConfirmationEmailSentAt: Date,
   },
   { timestamps: true },
@@ -273,6 +324,9 @@ const PaymentAttemptSchema = new Schema(
                 "payment.email_failed",
                 "payment.verified",
                 "payment.correction_requested",
+                "payment.authorized",
+                "payment.captured",
+                "payment.failed",
               ],
               required: true,
             },
@@ -308,6 +362,9 @@ const DurablePaymentEventSchema = new Schema(
         "payment.email_failed",
         "payment.verified",
         "payment.correction_requested",
+        "payment.authorized",
+        "payment.captured",
+        "payment.failed",
       ],
       required: true,
     },
@@ -591,10 +648,28 @@ const HomepageConfigSchema = new Schema(
       ctaSecondaryLabel: String,
       ctaSecondaryHref: String,
     },
+    announcementText: { type: String, default: "" },
     featuredFlowerIds: { type: [String], default: [] },
     showsFreshToday: { type: Boolean, default: true },
     offers: { type: [OfferBannerSchema], default: [] },
     testimonialReviewIds: { type: [String], default: [] },
+    festivalHeroEnabled: { type: Boolean, default: false },
+    sections: {
+      type: [new Schema({
+        id: { type: String, enum: HOMEPAGE_SECTION_IDS, required: true },
+        enabled: { type: Boolean, default: true },
+        sortOrder: { type: Number, min: 0, default: 0 },
+      }, { _id: false })],
+      default: [],
+    },
+    categoryIds: { type: [String], default: [] },
+    festivalCollectionIds: { type: [String], default: [] },
+    salesBoosters: {
+      festivalBadges: { type: Boolean, default: false },
+      lowStockLabels: { type: Boolean, default: false },
+      collectionCutoff: { type: Boolean, default: false },
+      whatsappBulkOrder: { type: Boolean, default: false },
+    },
   },
   { timestamps: true },
 );
@@ -646,6 +721,7 @@ const register = <T>(name: string, schema: Schema): Model<T> =>
 export const CategoryModel = register<any>("Category", CategorySchema);
 export const OccasionModel = register<any>("Occasion", OccasionSchema);
 export const FlowerModel = register<any>("Flower", FlowerSchema);
+export const FestivalCollectionModel = register<any>("FestivalCollection", FestivalCollectionSchema);
 export const BouquetModel = register<any>("Bouquet", BouquetSchema);
 export const OrderModel = register<any>("Order", OrderSchema);
 export const PaymentAccountModel = register<any>("PaymentAccount", PaymentAccountSchema);

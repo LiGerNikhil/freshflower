@@ -1,55 +1,40 @@
 import { NextRequest } from "next/server";
-import { FlowerModel } from "@/lib/db/models";
-import { makeCrud } from "@/lib/api/crud";
-import { jsonOk, safe, readJson, parseOrThrow } from "@/lib/api/helpers";
-import { productPatchSchema } from "@/lib/validation";
+import { FlowerModel, OrderModel, FestivalCollectionModel } from "@/lib/db/models";
+import { jsonOk, safe, readJson, parseOrThrow, ApiError } from "@/lib/api/helpers";
+import { productPatchSchema, explicitPatch } from "@/lib/validation";
+import { requireAdminRole, CATALOG_READ_ROLES, CATALOG_WRITE_ROLES } from "@/lib/admin/authorization";
+import { validateProductWrite } from "@/lib/admin/catalog-writes";
+import { serialize } from "@/lib/db/repositories";
+import type { Flower } from "@/lib/types";
 
-const crud = makeCrud(FlowerModel);
-
-function idForSlug(slug: string): string {
-  return slug.startsWith("fl-") ? slug : `fl-${slug}`;
+async function findProduct(id: string) {
+  const doc = await FlowerModel.findOne({ $or: [{ _id: id }, { _id: `fl-${id}` }, { slug: id }] }).lean();
+  const flower = serialize<Flower>(doc);
+  if (!flower) throw new ApiError("Product not found.", 404);
+  return flower;
 }
-
-async function resolveFlowerId(input: string): Promise<string | null> {
-  if (await crud.get(input)) return input;
-  const prefixed = idForSlug(input);
-  if (prefixed !== input && (await crud.get(prefixed))) return prefixed;
-  const bySlug = await FlowerModel.findOne({ slug: input }).select({ _id: 1 }).lean<{ _id: string }>();
-  return bySlug?._id ? String(bySlug._id) : null;
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  return safe(async () => { await requireAdminRole(req, CATALOG_READ_ROLES); return jsonOk(await findProduct((await params).id)); });
 }
-
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  return safe(async () => {
-    const { id } = await params;
-    const resolvedId = await resolveFlowerId(id);
-    if (!resolvedId) throw new Error("Not found");
-    return jsonOk(await crud.get(resolvedId));
-  });
-}
-
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   return safe(async () => {
-    const { id } = await params;
-    const parsed = parseOrThrow(productPatchSchema, await readJson(req));
-    const resolvedId = await resolveFlowerId(id);
-    if (!resolvedId) throw new Error("Not found");
-    const existing = await crud.get(resolvedId);
-    if (!existing) throw new Error("Not found");
-    if (parsed.slug && parsed.slug !== existing.slug) {
-      // rekey: keep _id in sync with a slug change
-      await crud.upsert(idForSlug(parsed.slug), parsed as Record<string, unknown>);
-      await crud.remove(resolvedId);
-      return jsonOk({ ok: true, id: idForSlug(parsed.slug) });
-    }
-    return jsonOk(await crud.patch(resolvedId, parsed as Record<string, unknown>));
+    await requireAdminRole(req, CATALOG_WRITE_ROLES);
+    const existing = await findProduct((await params).id);
+    const raw = await readJson(req);
+    const patch = await validateProductWrite(existing, explicitPatch(parseOrThrow(productPatchSchema, raw), raw));
+    // Slug edits keep the natural ID stable so orders/collections retain references.
+    const updated = await FlowerModel.findByIdAndUpdate(existing.id, { $set: patch }, { new: true, runValidators: true }).lean();
+    return jsonOk({ ok: true, id: existing.id, product: serialize<Flower>(updated) });
   });
 }
-
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   return safe(async () => {
-    const { id } = await params;
-    const resolvedId = await resolveFlowerId(id);
-    if (!resolvedId) throw new Error("Not found");
-    return jsonOk(await crud.remove(resolvedId));
+    await requireAdminRole(req, CATALOG_WRITE_ROLES);
+    const existing = await findProduct((await params).id);
+    if (await OrderModel.exists({ "items.productId": existing.id }) || await FestivalCollectionModel.exists({ productIds: existing.id })) {
+      throw new ApiError("This product is referenced by orders or collections. Deactivate it instead.", 409);
+    }
+    await FlowerModel.deleteOne({ _id: existing.id });
+    return jsonOk({ ok: true });
   });
 }

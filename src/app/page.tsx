@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import HomepageClient from "@/components/sections/HomepageClient";
-import { getCategories, getFlowers, getOccasions } from "@/lib/db/repositories";
+import {
+  getCategories,
+  getFlowers,
+  getHomepageConfig,
+  getLiveFestivalCollections,
+  getOccasions,
+} from "@/lib/db/repositories";
 import { canonical } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -20,16 +26,21 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [categories, flowers, occasions] = await Promise.all([
+  const [categories, flowers, occasions, homepage, festivalCollections] =
+    await Promise.all([
     getCategories(),
     getFlowers(),
     getOccasions(),
+    getHomepageConfig(),
+    getLiveFestivalCollections(),
   ]);
   return (
     <HomepageClient
       categories={categories}
       flowers={flowers}
       occasions={occasions}
+      homepage={homepage}
+      festivalCollections={festivalCollections}
     />
   );
 }

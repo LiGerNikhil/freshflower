@@ -5,6 +5,8 @@ import { jsonOk, safe } from "@/lib/api/helpers";
 
 const crud = makeCrud(OrderModel);
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   return safe(async () => jsonOk(await crud.list()));
 }

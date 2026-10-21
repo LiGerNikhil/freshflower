@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   computeDashboardStats,
   dailySeries,
@@ -29,6 +29,8 @@ export interface DashboardData {
   topProducts: TopProduct[];
 }
 
+const REFRESH_INTERVAL_MS = 20_000;
+
 /** Live snapshot of the business: stats, trends and best sellers hydrated from
  * the admin APIs, with the seeded dataset as the offline fallback. */
 export function useDashboardData() {
@@ -47,56 +49,67 @@ export function useDashboardData() {
   const [syncing, setSyncing] = useState(true);
   const [syncedAt, setSyncedAt] = useState<string | null>(null);
 
+  const load = useCallback(async () => {
+    const [liveOrders, liveCustomers, enquiries] = await Promise.all([
+      api("/api/admin/orders"),
+      api("/api/admin/customers"),
+      api("/api/admin/enquiries"),
+    ]);
+    const groups = enquiries as {
+      wholesale: Array<{ status?: string }>;
+      wedding: Array<{ status?: string }>;
+      contact: Array<{ status?: string }>;
+    };
+    const liveNewEnquiries = (
+      ["wholesale", "wedding", "contact"] as const
+    ).reduce(
+      (total, key) =>
+        total + groups[key].filter((item) => item.status === "new").length,
+      0,
+    );
+    const allOrders = liveOrders as Order[];
+    setData({
+      orders: allOrders,
+      stats: computeDashboardStats(
+        allOrders,
+        (liveCustomers as Customer[]).length,
+        liveNewEnquiries,
+      ),
+      series: dailySeries(allOrders, 7),
+      breakdown: statusBreakdown(allOrders),
+      topProducts: topSellingFlowers(allOrders, 6),
+    });
+    setSyncedAt(
+      new Date().toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    );
+  }, []);
+
   useEffect(() => {
     let mounted = true;
-    (async () => {
-      try {
-        const [liveOrders, liveCustomers, enquiries] = await Promise.all([
-          api("/api/admin/orders"),
-          api("/api/admin/customers"),
-          api("/api/admin/enquiries"),
-        ]);
-        if (!mounted) return;
-        const groups = enquiries as {
-          wholesale: Array<{ status?: string }>;
-          wedding: Array<{ status?: string }>;
-          contact: Array<{ status?: string }>;
-        };
-        const liveNewEnquiries = (
-          ["wholesale", "wedding", "contact"] as const
-        ).reduce(
-          (total, key) =>
-            total + groups[key].filter((item) => item.status === "new").length,
-          0,
-        );
-        const allOrders = liveOrders as Order[];
-        setData({
-          orders: allOrders,
-          stats: computeDashboardStats(
-            allOrders,
-            (liveCustomers as Customer[]).length,
-            liveNewEnquiries,
-          ),
-          series: dailySeries(allOrders, 7),
-          breakdown: statusBreakdown(allOrders),
-          topProducts: topSellingFlowers(allOrders, 6),
+    const safeLoad = () => {
+      load()
+        .catch(() => undefined)
+        .finally(() => {
+          if (mounted) setSyncing(false);
         });
-        setSyncedAt(
-          new Date().toLocaleTimeString("en-IN", {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        );
-      } catch {
-        // Keep the seeded snapshot as the offline fallback.
-      } finally {
-        if (mounted) setSyncing(false);
-      }
-    })();
+    };
+    safeLoad();
+    const interval = window.setInterval(safeLoad, REFRESH_INTERVAL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") safeLoad();
+    };
+    window.addEventListener("focus", safeLoad);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       mounted = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", safeLoad);
+      document.removeEventListener("visibilitychange", onVisible);
     };
-  }, []);
+  }, [load]);
 
   return { data, syncing, syncedAt };
 }

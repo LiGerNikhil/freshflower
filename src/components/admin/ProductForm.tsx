@@ -7,7 +7,8 @@ import { ArrowLeft, Palette, Plus, Save, Trash2, WandSparkles } from "lucide-rea
 import { useCatalog, FLOWER_STATUS_LABELS, FLOWER_UNITS } from "@/components/providers/CatalogContext";
 import { CloudinaryUpload } from "@/components/admin/CloudinaryUpload";
 import { slugify } from "@/lib/utils";
-import type { ColorVariant, FlowerStockStatus } from "@/lib/types";
+import type { ColorVariant, FlowerStockStatus, Flower } from "@/lib/types";
+import { FESTIVAL_BADGES } from "@/lib/festivals";
 
 const STATUS_OPTIONS = (Object.keys(FLOWER_STATUS_LABELS) as FlowerStockStatus[]).map(
   (status) => ({ value: status, label: FLOWER_STATUS_LABELS[status] }),
@@ -51,7 +52,7 @@ function Toggle({
 
 export function ProductForm({ productId }: { productId?: string }) {
   const router = useRouter();
-  const { products, categories, addProduct, updateProduct } = useCatalog();
+  const { products, categories, addProduct, updateProduct, busy, error } = useCatalog();
 
   const existing = useMemo(
     () =>
@@ -75,7 +76,7 @@ export function ProductForm({ productId }: { productId?: string }) {
   const [originalPrice, setOriginalPrice] = useState((existing?.compareAtPrice ?? 0).toString());
   const [quantity, setQuantity] = useState(existing?.quantity ?? 1);
   const [unit, setUnit] = useState(existing?.unit ?? "Stems");
-  const [stock, setStock] = useState(existing?.stock ?? 24);
+  const [stock, setStock] = useState(existing?.stock ?? 0);
   const [sku, setSku] = useState(existing?.sku ?? "");
   const [stockStatus, setStockStatus] = useState<FlowerStockStatus>(
     existing?.stockStatus ?? "in-stock",
@@ -93,6 +94,16 @@ export function ProductForm({ productId }: { productId?: string }) {
   const [keywords, setKeywords] = useState((existing?.keywords ?? []).join(", "));
   const [errors, setErrors] = useState<FormErrors>({});
   const [saved, setSaved] = useState(false);
+  const [publicationStatus, setPublicationStatus] = useState<"draft" | "published">(existing?.publicationStatus ?? (existing ? "published" : "draft"));
+  const [active, setActive] = useState(existing?.active ?? Boolean(existing));
+  const [unitLabel, setUnitLabel] = useState(existing?.unitLabel ?? "");
+  const [minQuantity, setMinQuantity] = useState(existing?.minQuantity ?? 1);
+  const [quantityStep, setQuantityStep] = useState(existing?.quantityStep ?? 1);
+  const [festivalTags, setFestivalTags] = useState((existing?.festivalTags ?? []).join(", "));
+  const [badges, setBadges] = useState<NonNullable<Flower["badges"]>>(existing?.badges ?? []);
+  const [poojaEligible, setPoojaEligible] = useState(existing?.poojaEligible ?? false);
+  const [requiresAdvancePayment, setRequiresAdvancePayment] = useState(existing?.requiresAdvancePayment ?? false);
+  const [deliveryPolicy, setDeliveryPolicy] = useState<NonNullable<Flower["deliveryPolicy"]>>(existing?.deliveryPolicy ?? "standard");
 
   if (productId && !existing) {
     return (
@@ -142,7 +153,7 @@ export function ProductForm({ productId }: { productId?: string }) {
     return next;
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     const validation = validate();
     if (Object.keys(validation).length > 0) {
@@ -166,7 +177,11 @@ export function ProductForm({ productId }: { productId?: string }) {
       featured,
       bestSeller,
       newArrival,
-      colors: [],
+      colors: colorVariants.length ? colorVariants.map((variant) => variant.color.trim()) : existing?.colors ?? [],
+      occasionIds: existing?.occasionIds ?? [],
+      publicationStatus, active: publicationStatus === "draft" ? false : active,
+      unitLabel, minQuantity, quantityStep, badges, poojaEligible, requiresAdvancePayment, deliveryPolicy,
+      festivalTags: festivalTags.split(",").map((tag) => tag.trim()).filter(Boolean),
       colorVariants: colorVariants
         .filter((variant) => variant.color.trim() && !Number.isNaN(variant.price))
         .map((variant) => ({
@@ -187,11 +202,8 @@ export function ProductForm({ productId }: { productId?: string }) {
         .map((keyword) => keyword.trim())
         .filter(Boolean),
     };
-    if (productId) {
-      updateProduct(existing?.id ?? productId, draft);
-    } else {
-      addProduct(draft);
-    }
+    const ok = productId ? await updateProduct(existing?.id ?? productId, draft) : await addProduct(draft);
+    if (!ok) return;
     setSaved(true);
     window.setTimeout(() => router.push("/admin/products"), 450);
   };
@@ -201,6 +213,7 @@ export function ProductForm({ productId }: { productId?: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="mx-auto max-w-3xl">
+      <fieldset disabled={busy || saved}>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-gold">
@@ -233,7 +246,7 @@ export function ProductForm({ productId }: { productId?: string }) {
               value={name}
               onChange={(event) => {
                 setName(event.target.value);
-                setSlug(slugify(event.target.value));
+                if (!existing) setSlug(slugify(event.target.value));
               }}
               placeholder="e.g. Pink Rose Bunch (12 stems)"
               className={fieldClass}
@@ -311,6 +324,26 @@ export function ProductForm({ productId }: { productId?: string }) {
 
       {/* Pricing & inventory */}
       <section className="mb-6 rounded-xl border border-ink/10 bg-white/80 p-5 shadow-sm">
+        <h2 className="mb-4 font-display text-lg">Publication &amp; festival details</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="text-sm">Publication status
+            <select className={fieldClass} value={publicationStatus} onChange={(event) => setPublicationStatus(event.target.value as "draft" | "published")}>
+              <option value="draft">Draft</option><option value="published">Published</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={active} disabled={publicationStatus === "draft"} onChange={(event) => setActive(event.target.checked)} /> Active on storefront</label>
+          <label className="text-sm sm:col-span-2">Unit label<input className={fieldClass} value={unitLabel} onChange={(event) => setUnitLabel(event.target.value)} placeholder="20 Mala / per kg / 100 gm packet" maxLength={80} /></label>
+          <label className="text-sm">Minimum purchase quantity<input className={fieldClass} type="number" min={1} max={99} step={1} value={minQuantity} onChange={(event) => setMinQuantity(Number(event.target.value))} /></label>
+          <label className="text-sm">Quantity step<input className={fieldClass} type="number" min={1} max={99} step={1} value={quantityStep} onChange={(event) => setQuantityStep(Number(event.target.value))} /></label>
+          <label className="text-sm sm:col-span-2">Festival tags (comma separated)<input className={fieldClass} value={festivalTags} onChange={(event) => setFestivalTags(event.target.value)} /></label>
+          <div className="flex flex-wrap gap-3 sm:col-span-2">{FESTIVAL_BADGES.map((badge) => <label key={badge} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={badges.includes(badge)} onChange={(event) => setBadges(event.target.checked ? [...badges, badge] : badges.filter((value) => value !== badge))} />{badge.replace(/-/g, " ")}</label>)}</div>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={poojaEligible} onChange={(event) => setPoojaEligible(event.target.checked)} /> Pooja essentials</label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={requiresAdvancePayment} onChange={(event) => setRequiresAdvancePayment(event.target.checked)} /> 100% advance payment</label>
+          <label className="text-sm">Delivery policy<select className={fieldClass} value={deliveryPolicy} onChange={(event) => setDeliveryPolicy(event.target.value as NonNullable<Flower["deliveryPolicy"]>)}><option value="standard">Standard</option><option value="pooja-morning">Pooja: 6–11 AM</option></select></label>
+        </div>
+        <p className="mt-3 text-xs text-ink-soft">A new draft needs a Cloudinary image before publishing. Quantity rules refer to packages purchased, not stems inside a package. Checkout policy enforcement is part of the commerce integration phase.</p>
+      </section>
+      <section className="mb-6 rounded-xl border border-ink/10 bg-white/80 p-5 shadow-sm">
         <h2 className="mb-4 font-display text-lg">Pricing &amp; inventory</h2>
         <div className="grid gap-4 sm:grid-cols-3">
           <label className="block">
@@ -377,6 +410,7 @@ export function ProductForm({ productId }: { productId?: string }) {
               onChange={(event) => setUnit(event.target.value)}
               className={fieldClass}
             >
+              {!FLOWER_UNITS.some((candidate) => candidate === unit) && <option value={unit}>{unit || "Unspecified"}</option>}
               {FLOWER_UNITS.map((candidate) => (
                 <option key={candidate} value={candidate}>
                   {candidate}
@@ -672,9 +706,11 @@ export function ProductForm({ productId }: { productId?: string }) {
           type="submit"
           className="inline-flex items-center gap-2 rounded-md bg-ink px-6 py-3 text-[15px] font-medium text-ivory transition hover:bg-ink-soft"
         >
-          <Save size={16} /> {productId ? "Save changes" : "Create product"}
+          <Save size={16} /> {busy ? "Saving…" : productId ? "Save changes" : "Create product"}
         </button>
       </div>
+      {error && <p role="alert" className="mt-3 text-sm text-red-800">{error}</p>}
+      </fieldset>
     </form>
   );
 }

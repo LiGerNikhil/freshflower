@@ -1,16 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, Flower2 } from "lucide-react";
 import { ProductCard } from "@/components/sections/ProductCard";
 import { QuickViewDialog } from "@/components/sections/QuickViewDialog";
-import { useSiteContent } from "@/components/providers/SiteContentProvider";
 import { CartCta } from "@/components/home/CartCta";
 import { Hero } from "@/components/home/Hero";
+import { StorefrontHero } from "@/components/home/StorefrontHero";
 import { ProductRail } from "@/components/home/ProductRail";
+import { CategoryCarousel } from "@/components/home/CategoryCarousel";
+import { FestivalBanner } from "@/components/home/FestivalBanner";
+import { ProductCarousel } from "@/components/home/ProductCarousel";
 import { TrustStrip } from "@/components/home/TrustStrip";
 import {
   ProductGrid,
@@ -22,12 +25,23 @@ import {
 } from "@/components/home/primitives";
 import { isOnSale } from "@/lib/pricing";
 import { GRADIENT_TOKENS } from "@/lib/utils";
-import type { Category, Flower, Occasion } from "@/lib/types";
+import { hasFestivalHomepageConfig } from "@/lib/festivals";
+import type {
+  Category,
+  FestivalCollection,
+  Flower,
+  HomepageConfig,
+  HomepageSectionId,
+  Occasion,
+} from "@/lib/types";
 
 interface HomepageClientProps {
   categories: Category[];
   flowers: Flower[];
   occasions: Occasion[];
+  homepage: HomepageConfig;
+  festivalCollections: FestivalCollection[];
+  storefrontHero?: boolean;
 }
 
 const occasionNames = [
@@ -64,10 +78,12 @@ export default function HomepageClient({
   categories,
   flowers,
   occasions,
+  homepage,
+  festivalCollections,
+  storefrontHero = true,
 }: HomepageClientProps) {
   const [quickView, setQuickView] = useState<Flower | null>(null);
   const [selectedColour, setSelectedColour] = useState("Red");
-  const { homepage } = useSiteContent();
 
   const featured = useMemo(() => {
     const selected = homepage.featuredFlowerIds
@@ -110,148 +126,145 @@ export default function HomepageClient({
     occasions.find((occasion) => occasion.name === name) ??
     occasions.find((occasion) => occasion.slug === "just-because");
 
-  return (
-    <main className="overflow-hidden bg-ivory">
-      <Hero hero={homepage.hero} />
-
-      {/* 1. Shop by category */}
-      <Section id="shop">
-        <Reveal>
-          <SectionIntro
-            eyebrow="Find your bloom"
-            title="Shop by category"
-            href="/categories"
-            linkLabel="See all categories"
-          />
-        </Reveal>
-        <motion.div
-          variants={stagger}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.1 }}
-          className="flex snap-x gap-4 overflow-x-auto pb-6 md:grid md:grid-cols-3 md:overflow-visible lg:grid-cols-6"
-        >
-          {categories.slice(0, 6).map((category) => (
-            <motion.div
-              variants={reveal}
-              key={category.id}
-              className="min-w-[180px] snap-start sm:min-w-[210px]"
-            >
-              <Link href={`/categories/${category.slug}`} className="group block">
-                <div
-                  className="relative mb-3 flex aspect-square items-center justify-center overflow-hidden rounded-lg"
-                  style={
-                    category.imageUrl
-                      ? undefined
-                      : { background: GRADIENT_TOKENS[category.heroImage] }
-                  }
-                >
-                  {category.imageUrl ? (
-                    <Image
-                      src={category.imageUrl}
-                      alt={category.name}
-                      fill
-                      sizes="(max-width: 768px) 180px, (max-width: 1024px) 33vw, 16vw"
-                      className="object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                  ) : (
-                    <Flower2
-                      size={82}
-                      strokeWidth={0.65}
-                      className="text-ink/25 transition-transform duration-500 group-hover:scale-110"
-                    />
-                  )}
-                  <span className="absolute bottom-4 left-4 right-4 rounded-full bg-ivory/75 px-3 py-2 text-center text-xs font-bold uppercase tracking-[0.16em] text-ink backdrop-blur-sm">
-                    {category.name}
-                  </span>
-                </div>
-              </Link>
-            </motion.div>
-          ))}
-        </motion.div>
-      </Section>
-
-      {/* 2. On sale */}
-      <ProductRail
-        eyebrow="Prices just dropped"
-        title="On sale now"
-        copy="The same stems, a little kinder on the wallet."
-        href="/flowers"
-        linkLabel="All offers"
-        flowers={onSale}
-        onQuickView={setQuickView}
-        className="bg-white/60"
-      />
-
-      {/* 3. Best sellers */}
-      <ProductRail
-        eyebrow="Most loved"
-        title="Best sellers"
-        href="/categories"
-        linkLabel="See all categories"
-        flowers={featured}
-        onQuickView={setQuickView}
-        className="bg-ivory-deep"
-      />
-
-      {/* 4. New arrivals */}
-      <ProductRail
-        eyebrow="Just landed"
-        title="New arrivals"
-        href="/flowers?sort=new"
-        linkLabel="See everything new"
-        flowers={newArrivals}
-        onQuickView={setQuickView}
-      />
-
-      {/* 5. Offers */}
-      {homepage.offers.length > 0 && (
-        <section className="grid gap-4 px-5 py-8 sm:px-6 md:grid-cols-2 md:px-10 md:py-12">
-          {homepage.offers.map((offer) => (
-            <Reveal key={offer.id}>
-              <div className="overflow-hidden rounded-xl bg-gold px-7 py-10 md:px-14 md:py-14">
-                <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
-                  <div>
-                    <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-ink/60">
-                      {offer.badge}
-                    </p>
-                    <h2 className="max-w-2xl text-3xl text-ink md:text-4xl">
-                      {offer.title}
-                    </h2>
-                    {offer.copy && (
-                      <p className="mt-3 max-w-lg text-sm leading-6 text-ink/70">
-                        {offer.copy}
-                      </p>
-                    )}
-                  </div>
-                  <Link
-                    href={offer.ctaHref}
-                    className="inline-flex min-h-12 shrink-0 items-center gap-2 rounded-md bg-ink px-6 py-3.5 text-sm font-semibold text-ivory transition active:scale-[0.98]"
-                  >
-                    {offer.ctaLabel} <ArrowRight size={16} />
-                  </Link>
-                </div>
-              </div>
-            </Reveal>
-          ))}
-        </section>
-      )}
-
-      {/* 6. Fresh today */}
-      {homepage.showsFreshToday && (
-        <ProductRail
-          eyebrow="Picked this morning"
-          title="Today's fresh flowers"
-          copy="Ready to leave our studio and arrive at yours."
-          href="/flowers?availability=today"
-          linkLabel="See all flowers"
-          flowers={freshToday}
-          onQuickView={setQuickView}
-          className="bg-ivory-deep"
+  const categorySection = (
+    <Section id="shop">
+      <Reveal>
+        <SectionIntro
+          eyebrow="Find your bloom"
+          title="Shop by category"
+          href="/categories"
+          linkLabel="See all categories"
         />
-      )}
-
-      {/* 7. By occasion */}
+      </Reveal>
+      <motion.div
+        variants={stagger}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.1 }}
+        className="flex snap-x gap-4 overflow-x-auto pb-6 md:grid md:grid-cols-3 md:overflow-visible lg:grid-cols-6"
+      >
+        {categories.slice(0, 6).map((category) => (
+          <motion.div
+            variants={reveal}
+            key={category.id}
+            className="min-w-[180px] snap-start sm:min-w-[210px]"
+          >
+            <Link href={`/categories/${category.slug}`} className="group block">
+              <div
+                className="relative mb-3 flex aspect-square items-center justify-center overflow-hidden rounded-lg"
+                style={
+                  category.imageUrl
+                    ? undefined
+                    : { background: GRADIENT_TOKENS[category.heroImage] }
+                }
+              >
+                {category.imageUrl ? (
+                  <Image
+                    src={category.imageUrl}
+                    alt={category.name}
+                    fill
+                    sizes="(max-width: 768px) 180px, (max-width: 1024px) 33vw, 16vw"
+                    className="object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                ) : (
+                  <Flower2
+                    size={82}
+                    strokeWidth={0.65}
+                    className="text-ink/25 transition-transform duration-500 group-hover:scale-110"
+                  />
+                )}
+                <span className="absolute bottom-4 left-4 right-4 rounded-full bg-ivory/75 px-3 py-2 text-center text-xs font-bold uppercase tracking-[0.16em] text-ink backdrop-blur-sm">
+                  {category.name}
+                </span>
+              </div>
+            </Link>
+          </motion.div>
+        ))}
+      </motion.div>
+    </Section>
+  );
+  const onSaleSection = (
+    <ProductRail
+      eyebrow="Prices just dropped"
+      title="On sale now"
+      copy="The same stems, a little kinder on the wallet."
+      href="/flowers"
+      linkLabel="All offers"
+      flowers={onSale}
+      onQuickView={setQuickView}
+      className="bg-white/60"
+    />
+  );
+  const bestSellersSection = (
+    <ProductRail
+      eyebrow="Most loved"
+      title="Best sellers"
+      href="/categories"
+      linkLabel="See all categories"
+      flowers={featured}
+      onQuickView={setQuickView}
+      className="bg-ivory-deep"
+    />
+  );
+  const newArrivalsSection = (
+    <ProductRail
+      eyebrow="Just landed"
+      title="New arrivals"
+      href="/flowers?sort=new"
+      linkLabel="See everything new"
+      flowers={newArrivals}
+      onQuickView={setQuickView}
+    />
+  );
+  const renderOffers = (offers: HomepageConfig["offers"]): ReactNode =>
+    offers.length > 0 ? (
+      <section className="grid gap-4 px-5 py-8 sm:px-6 md:grid-cols-2 md:px-10 md:py-12">
+        {offers.map((offer) => (
+          <Reveal key={offer.id}>
+            <div className="overflow-hidden rounded-xl bg-gold px-7 py-10 md:px-14 md:py-14">
+              <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
+                <div>
+                  <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-ink/60">
+                    {offer.badge}
+                  </p>
+                  <h2 className="max-w-2xl text-3xl text-ink md:text-4xl">
+                    {offer.title}
+                  </h2>
+                  {offer.copy && (
+                    <p className="mt-3 max-w-lg text-sm leading-6 text-ink/70">
+                      {offer.copy}
+                    </p>
+                  )}
+                </div>
+                <Link
+                  href={offer.ctaHref}
+                  className="inline-flex min-h-12 shrink-0 items-center gap-2 rounded-md bg-ink px-6 py-3.5 text-sm font-semibold text-ivory transition active:scale-[0.98]"
+                >
+                  {offer.ctaLabel} <ArrowRight size={16} />
+                </Link>
+              </div>
+            </div>
+          </Reveal>
+        ))}
+      </section>
+    ) : null;
+  const offersSection = renderOffers(homepage.offers);
+  const wholesaleSection = renderOffers(
+    homepage.offers.filter((offer) => offer.ctaHref === "/wholesale"),
+  );
+  const freshTodaySection = homepage.showsFreshToday ? (
+    <ProductRail
+      eyebrow="Picked this morning"
+      title="Today's fresh flowers"
+      copy="Ready to leave our studio and arrive at yours."
+      href="/flowers?availability=today"
+      linkLabel="See all flowers"
+      flowers={freshToday}
+      onQuickView={setQuickView}
+      className="bg-ivory-deep"
+    />
+  ) : null;
+  const occasionSection = (
       <Section>
         <Reveal>
           <SectionIntro eyebrow="For every feeling" title="Flowers by occasion" />
@@ -312,9 +325,9 @@ export default function HomepageClient({
           })}
         </motion.div>
       </Section>
-
-      {/* 8. By colour */}
-      <Section className="bg-white/55">
+  );
+  const colourSection = (
+    <Section className="bg-white/55">
         <Reveal>
           <SectionIntro
             eyebrow="Shop by colour"
@@ -360,10 +373,132 @@ export default function HomepageClient({
           )}
         </ProductGrid>
       </Section>
+  );
 
-      <TrustStrip />
-      <CartCta />
+  const legacySections = [
+    categorySection,
+    onSaleSection,
+    bestSellersSection,
+    newArrivalsSection,
+    offersSection,
+    freshTodaySection,
+    occasionSection,
+    colourSection,
+    <TrustStrip key="trust" />,
+    <CartCta key="cart-cta" />,
+  ];
 
+  const selectedCollections = useMemo(() => {
+    const live = homepage.festivalCollectionIds?.length
+      ? homepage.festivalCollectionIds
+          .map((id) => festivalCollections.find((collection) => collection.id === id))
+          .filter((collection): collection is FestivalCollection => Boolean(collection))
+      : festivalCollections;
+    return live;
+  }, [festivalCollections, homepage.festivalCollectionIds]);
+
+  const configuredHomepage =
+    hasFestivalHomepageConfig(homepage) && selectedCollections.length > 0;
+
+  if (!configuredHomepage) {
+    return (
+      <main className="overflow-hidden bg-ivory">
+        <Hero
+          hero={homepage.hero}
+          categories={categories}
+          collections={selectedCollections}
+        />
+        {legacySections.map((section, index) => (
+          <Fragment key={index}>{section}</Fragment>
+        ))}
+        <QuickViewDialog flower={quickView} onClose={() => setQuickView(null)} />
+      </main>
+    );
+  }
+
+  const selectedCategories = homepage.categoryIds?.length
+    ? homepage.categoryIds
+        .map((id) => categories.find((category) => category.id === id))
+        .filter((category): category is Category => Boolean(category))
+    : categories;
+  const productsInOrder = (ids: string[]) =>
+    [...new Set(ids)]
+      .map((id) => flowers.find((flower) => flower.id === id))
+      .filter((flower): flower is Flower => Boolean(flower));
+  const specialIds = selectedCollections.flatMap((collection) => collection.productIds);
+  const curatedFestivalSpecials = productsInOrder(specialIds);
+  const festivalSpecials = curatedFestivalSpecials.length
+    ? curatedFestivalSpecials
+    : flowers.filter(
+        (flower) =>
+          flower.badges?.includes("festival-special") ||
+          (flower.festivalTags?.length ?? 0) > 0,
+      );
+  const poojaIds = selectedCollections
+    .filter((collection) => collection.poojaCollection)
+    .flatMap((collection) => collection.productIds);
+  const curatedPoojaEssentials = productsInOrder(poojaIds);
+  const poojaEssentials = [
+    ...curatedPoojaEssentials,
+    ...flowers.filter(
+      (flower) =>
+        flower.poojaEligible &&
+        !curatedPoojaEssentials.some((selected) => selected.id === flower.id),
+    ),
+  ];
+
+  const sectionContent: Record<HomepageSectionId, ReactNode> = {
+    categories: <CategoryCarousel categories={selectedCategories} />,
+    "festival-specials": (
+      <ProductCarousel
+        eyebrow="Made for the celebration"
+        title="Festival Specials"
+        flowers={festivalSpecials}
+        onQuickView={setQuickView}
+        className="bg-white/60"
+      />
+    ),
+    "pooja-essentials": (
+      <ProductCarousel
+        eyebrow="For your rituals"
+        title="Pooja Essentials"
+        copy="Fresh flowers and malas selected for your morning pooja."
+        flowers={poojaEssentials}
+        onQuickView={setQuickView}
+      />
+    ),
+    "on-sale": onSaleSection,
+    "best-sellers": bestSellersSection,
+    "new-arrivals": newArrivalsSection,
+    offers: offersSection,
+    "fresh-today": freshTodaySection,
+    occasions: occasionSection,
+    colours: colourSection,
+    wholesale: wholesaleSection,
+    reviews: <TrustStrip />,
+    trust: <TrustStrip />,
+    "cart-cta": <CartCta />,
+  };
+
+  const orderedSections = [...(homepage.sections ?? [])]
+    .filter((section) => section.enabled)
+    .sort((left, right) => left.sortOrder - right.sortOrder)
+    .map((section) => (
+      <Fragment key={section.id}>{sectionContent[section.id]}</Fragment>
+    ));
+
+  return (
+    <main className="overflow-hidden bg-ivory">
+      <Hero
+        hero={homepage.hero}
+        categories={categories}
+        collections={selectedCollections}
+      />
+      <FestivalBanner
+        collections={selectedCollections}
+        showCutoff={homepage.salesBoosters?.collectionCutoff === true}
+      />
+      {orderedSections}
       <QuickViewDialog flower={quickView} onClose={() => setQuickView(null)} />
     </main>
   );

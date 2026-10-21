@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params;
     await dbConnect();
     const order = await OrderModel.findById(id)
-      .select({ orderNumber: 1, total: 1, paymentMethod: 1, paymentStatus: 1, paymentState: 1, latestPaymentAttemptId: 1 })
+      .select({ orderNumber: 1, total: 1, paymentMethod: 1, paymentStatus: 1, paymentState: 1, latestPaymentAttemptId: 1, razorpayOrderId: 1, razorpayPaymentId: 1, razorpayPaymentMethod: 1, paidAt: 1 })
       .lean<{
         _id: string;
         orderNumber: string;
@@ -20,6 +20,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         paymentStatus?: string;
         paymentState?: string;
         latestPaymentAttemptId?: string;
+        razorpayOrderId?: string;
+        razorpayPaymentId?: string;
+        razorpayPaymentMethod?: string;
+        paidAt?: Date;
       }>();
     if (!order) return jsonError("Order not found.", 404);
 
@@ -48,6 +52,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         paymentStatus: order.paymentStatus,
         paymentState: order.paymentState,
         latestPaymentAttemptId: order.latestPaymentAttemptId,
+        razorpayOrderId: order.razorpayOrderId,
+        razorpayPaymentId: order.razorpayPaymentId,
+        razorpayPaymentMethod: order.razorpayPaymentMethod,
+        paidAt: order.paidAt ? new Date(order.paidAt).toISOString() : undefined,
       },
       attempts: attemptsWithScreenshots,
       events: events.map((event: any) => ({ ...event, id: String(event._id) })),

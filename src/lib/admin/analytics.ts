@@ -24,6 +24,7 @@ export interface DashboardStats {
   outForDelivery: number;
   completedOrders: number;
   cancelledOrders: number;
+  pendingPayments: number;
   todayRevenue: number;
   monthRevenue: number;
   totalCustomers: number;
@@ -31,6 +32,11 @@ export interface DashboardStats {
   todayKey: string;
   monthLabel: string;
   totalRevenue: number;
+}
+
+/** Revenue is money actually collected, never an unpaid order total. */
+export function isPaidOrder(order: Order): boolean {
+  return order.paymentStatus === "paid";
 }
 
 export function computeDashboardStats(
@@ -62,15 +68,16 @@ export function computeDashboardStats(
     outForDelivery: countBy([OrderStatus.OutForDelivery]),
     completedOrders: countBy([OrderStatus.Delivered]),
     cancelledOrders: countBy([OrderStatus.Cancelled]),
-    todayRevenue: todayOrders.reduce((sum, o) => sum + o.total, 0),
+    pendingPayments: orders.filter((o) => o.paymentMethod === "online" && o.paymentStatus !== "paid" && o.paymentStatus !== "refunded").length,
+    todayRevenue: todayOrders.filter(isPaidOrder).reduce((sum, o) => sum + o.total, 0),
     monthRevenue: orders
-      .filter((o) => dayKey(o.createdAt).slice(0, 7) === monthKey)
+      .filter((o) => dayKey(o.createdAt).slice(0, 7) === monthKey && isPaidOrder(o))
       .reduce((sum, o) => sum + o.total, 0),
     totalCustomers,
     newEnquiries,
     todayKey,
     monthLabel,
-    totalRevenue: orders.reduce((sum, o) => sum + o.total, 0),
+    totalRevenue: orders.filter(isPaidOrder).reduce((sum, o) => sum + o.total, 0),
   };
 }
 
@@ -97,7 +104,7 @@ export function dailySeries(orders: Order[], days = 7): DayPoint[] {
         timeZone: "UTC",
       }),
       orders: dayOrders.length,
-      revenue: dayOrders.reduce((sum, o) => sum + o.total, 0),
+      revenue: dayOrders.filter(isPaidOrder).reduce((sum, o) => sum + o.total, 0),
     });
   }
   return points;

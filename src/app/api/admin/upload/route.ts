@@ -3,6 +3,9 @@ import { verifyAdminRequest } from "@/lib/admin/session";
 import { uploadMediaBuffer, deleteCloudinaryAsset } from "@/lib/cloudinary";
 import { PaymentAttemptModel } from "@/lib/db/models";
 import { dbConnect } from "@/lib/db/connect";
+import { requireAdminRole } from "@/lib/admin/authorization";
+import { AdminRole } from "@/lib/types";
+import { ApiError } from "@/lib/api/helpers";
 
 // ---------------------------------------------------------------------------
 
@@ -29,6 +32,7 @@ export async function POST(request: NextRequest) {
     if (!(await verifyAdminRequest(request))) {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
     }
+    await requireAdminRole(request, [AdminRole.InventoryManager, AdminRole.ContentManager, AdminRole.OrderManager]);
     const form = await request.formData();
     const file = form.get("file");
     if (!file || typeof file === "string") {
@@ -66,6 +70,7 @@ export async function POST(request: NextRequest) {
     const asset = await uploadMediaBuffer(bytes, { folder: "freshflower", resourceType });
     return NextResponse.json(asset);
   } catch (error) {
+    if (error instanceof ApiError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("[api/admin/upload] failed:", error);
     return NextResponse.json(
       { error: "Something went wrong while uploading — please try again." },
@@ -80,6 +85,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
     }
     const publicId = request.nextUrl.searchParams.get("id");
+    await requireAdminRole(request, []);
     const resourceType = request.nextUrl.searchParams.get("resourceType") === "video" ? "video" : "image";
     if (!publicId) {
       return NextResponse.json(
@@ -102,6 +108,7 @@ export async function DELETE(request: NextRequest) {
     await deleteCloudinaryAsset(publicId, resourceType);
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (error instanceof ApiError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("[api/admin/upload] delete failed:", error);
     return NextResponse.json(
       { error: "Something went wrong while deleting the asset — please try again." },

@@ -58,6 +58,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   { label: "Payments", href: "/admin/payments", icon: QrCode, roles: [AdminRole.OrderManager], group: "Operations" },
   { label: "Blog / CMS", href: "/admin/blog", icon: BookOpen, roles: [AdminRole.ContentManager], group: "Content" },
   { label: "Homepage Management", href: "/admin/homepage", icon: Home, roles: [AdminRole.ContentManager], group: "Content" },
+  { label: "Collections", href: "/admin/festival-collections", icon: FolderKanban, roles: [AdminRole.ContentManager], group: "Content" },
   { label: "SEO Manager", href: "/admin/seo", icon: Search, roles: [AdminRole.ContentManager], group: "Content" },
   { label: "Reviews", href: "/admin/reviews", icon: Star, roles: [AdminRole.ContentManager, AdminRole.SupportManager], group: "Content" },
   { label: "Enquiries", href: "/admin/enquiries", icon: Inbox, roles: [AdminRole.SupportManager], group: "Content" },

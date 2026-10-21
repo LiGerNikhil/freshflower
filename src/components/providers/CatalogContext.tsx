@@ -1,492 +1,139 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
-import type {
-  Category,
-  ColorVariant,
-  Flower,
-  FlowerStockStatus,
-} from "@/lib/types";
-import {
-  categories as seedCategories,
-  flowers as seedFlowers,
-} from "@/lib/data";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import type { Category, ColorVariant, Flower, FlowerStockStatus } from "@/lib/types";
 import { api } from "@/lib/api/client";
-import { slugify } from "@/lib/utils";
-
-/**
- * Admin catalogue store (Phase 13; Phase 17 backs every mutation with MongoDB).
- *
- * The provider keeps an optimistic in-memory copy so the admin UI stays snappy,
- * but each mutation now also hits the real API routes (`/api/admin/flowers`,
- * `/api/admin/categories`) so edits persist across refreshes. On mount it
- * hydrates from the database so the admin reflects the live data.
- */
 
 export const LOW_STOCK_THRESHOLD = 15;
-
 export const FLOWER_STATUS_LABELS: Record<FlowerStockStatus, string> = {
-  "in-stock": "In Stock",
-  limited: "Limited Stock",
-  "sold-out": "Sold Out",
-  "pre-order": "Pre-order",
+  "in-stock": "In Stock", limited: "Limited Stock", "sold-out": "Sold Out", "pre-order": "Pre-order",
 };
-
-export const FLOWER_UNITS = [
-  "Stems",
-  "Bunch",
-  "Box",
-  "Bouquet",
-  "Plant",
-  "String",
-  "Dozen",
-  "Meter",
-] as const;
+export const FLOWER_UNITS = ["Stems", "Bunch", "Box", "Bouquet", "Plant", "String", "Dozen", "Meter", "Mala", "Pcs", "sticks", "kg", "gm", "Bundle"] as const;
 
 export interface ProductDraft {
-  name: string;
-  slug: string;
-  categoryId: string;
-  description: string;
-  shortDescription: string;
-  price: number;
-  salePrice: number;
-  quantity: number;
-  unit: string;
-  stock: number;
-  sku: string;
-  stockStatus: FlowerStockStatus;
-  featured: boolean;
-  bestSeller: boolean;
-  newArrival: boolean;
-  colors: string[];
-  colorVariants: ColorVariant[];
-  images: string[];
-  videos: string[];
-  seoTitle: string;
-  metaDescription: string;
-  keywords: string[];
+  name: string; slug: string; categoryId: string; description: string; shortDescription: string;
+  price: number; salePrice: number; quantity: number; unit: string; stock: number; sku: string;
+  stockStatus: FlowerStockStatus; featured: boolean; bestSeller: boolean; newArrival: boolean;
+  colors: string[]; colorVariants: ColorVariant[]; images: string[]; videos: string[];
+  seoTitle: string; metaDescription: string; keywords: string[];
+  active?: boolean; publicationStatus?: "draft" | "published"; unitLabel?: string;
+  minQuantity?: number; quantityStep?: number; festivalTags?: string[]; badges?: Flower["badges"];
+  poojaEligible?: boolean; requiresAdvancePayment?: boolean; deliveryPolicy?: Flower["deliveryPolicy"];
+  occasionIds?: string[];
 }
 
-function hash(value: string): number {
-  let h = 0;
-  for (let i = 0; i < value.length; i++) {
-    h = (h * 31 + value.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h);
-}
-
-function unitForCategory(categoryId: string): string {
-  if (categoryId === "cat-mogra") return "String";
-  if (categoryId === "cat-orchid") return "Plant";
-  return "Stems";
-}
-
-/** Deterministic pseudo-stock so the seed shows a realistic low/high mix. */
-function seedFlower(base: Flower): Flower {
-  const stock = base.inStock ? 6 + (hash(base.slug) % 45) : 0;
-  let stockStatus: FlowerStockStatus;
-  if (!base.inStock) stockStatus = "sold-out";
-  else if (!base.availableToday) stockStatus = "pre-order";
-  else if (stock < LOW_STOCK_THRESHOLD) stockStatus = "limited";
-  else stockStatus = "in-stock";
-  return {
-    ...base,
-    sku: `SKU-${base.slug.slice(0, 10).toUpperCase().replace(/-/g, "")}`,
-    quantity: base.stemCount ?? 1,
-    unit: unitForCategory(base.categoryId),
-    stock,
-    stockStatus,
-    active: true,
-    bestSeller: base.featured,
-    newArrival: false,
-    seoTitle: base.name,
-    metaDescription: base.shortDescription,
-    keywords: [base.categoryId.replace("cat-", "")],
-  };
-}
-
-/** Keep the public availability flags in step with the admin stock status. */
-function availabilityFromStatus(
-  stockStatus: FlowerStockStatus,
-): Pick<Flower, "inStock" | "availableToday"> {
-  return {
-    inStock: stockStatus !== "sold-out",
-    availableToday:
-      stockStatus === "in-stock" || stockStatus === "limited",
-  };
-}
-
+export type CategoryDraft = Pick<Category, "name" | "description"> & Partial<Omit<Category, "id">>;
 interface CatalogValue {
-  products: Flower[];
-  categories: Category[];
-  addProduct: (draft: ProductDraft) => void;
-  updateProduct: (id: string, draft: ProductDraft) => void;
-  deleteProduct: (id: string) => void;
-  setProductActive: (id: string, active: boolean) => void;
-  setStockStatus: (id: string, status: FlowerStockStatus) => void;
-  /** Direct stock-number edit; re-derives the status automatically. */
-  adjustStock: (id: string, value: number) => void;
-  /** Bulk status toggle applied to every selected product. */
-  bulkSetStatus: (ids: string[], status: FlowerStockStatus) => void;
-  addCategory: (input: {
-    name: string;
-    description: string;
-  }) => Category | { error: string };
-  updateCategory: (
-    id: string,
-    patch: { name: string; description: string },
-  ) => void;
-  /** Returns an error string when the category still has products, else null. */
-  deleteCategory: (id: string) => string | null;
-  moveCategory: (id: string, direction: "up" | "down") => void;
-  productCountForCategory: (categoryId: string) => number;
+  products: Flower[]; categories: Category[]; loading: boolean; busy: boolean; error: string;
+  refresh: () => Promise<void>;
+  addProduct: (draft: ProductDraft) => Promise<boolean>;
+  updateProduct: (id: string, draft: ProductDraft) => Promise<boolean>;
+  patchProduct: (id: string, patch: Partial<Flower>) => Promise<boolean>;
+  deleteProduct: (id: string) => Promise<boolean>;
+  setProductActive: (id: string, active: boolean) => Promise<boolean>;
+  setStockStatus: (id: string, status: FlowerStockStatus) => Promise<boolean>;
+  adjustStock: (id: string, value: number) => Promise<boolean>;
+  bulkSetStatus: (ids: string[], status: FlowerStockStatus) => Promise<void>;
+  bulkSetActive: (ids: string[], active: boolean) => Promise<void>;
+  addCategory: (draft: CategoryDraft) => Promise<Category | { error: string }>;
+  updateCategory: (id: string, patch: Partial<Category>) => Promise<boolean>;
+  deleteCategory: (id: string) => Promise<boolean>;
+  moveCategory: (id: string, direction: "up" | "down") => Promise<void>;
+  productCountForCategory: (id: string) => number;
 }
-
 const CatalogContext = createContext<CatalogValue | null>(null);
 
-function idForSlug(slug: string): string {
-  return slug.startsWith("fl-") ? slug : `fl-${slug}`;
-}
-
 export function CatalogProvider({ children }: { children: ReactNode }) {
-  const [products, setProducts] = useState<Flower[]>(() =>
-    seedFlowers.map(seedFlower),
-  );
-  const [categories, setCategories] = useState<Category[]>(() =>
-    seedCategories.map((category) => ({ ...category })),
-  );
-
-  // Phase 17: hydrate from MongoDB so admin edits survive a refresh. Falls
-  // back to the static seeds when the API isn't reachable (offline preview).
+  const [products, setProducts] = useState<Flower[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [pending, setPending] = useState(0);
+  const [error, setError] = useState("");
+  const refresh = useCallback(async () => {
+    const [flowers, groups] = await Promise.all([api("/api/admin/flowers"), api("/api/admin/categories")]);
+    setProducts(flowers);
+    setCategories(groups);
+  }, []);
   useEffect(() => {
-    let mounted = true;
-    (async () => {
+    let alive = true;
+    Promise.all([api("/api/admin/flowers"), api("/api/admin/categories")]).then(([flowers, groups]) => {
+      if (alive) { setProducts(flowers); setCategories(groups); }
+    }).catch((err) => { if (alive) setError(err instanceof Error ? err.message : "Could not load catalogue."); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, []);
+
+  const mutate = useCallback(async (url: string, method: string, body?: unknown): Promise<boolean> => {
+    setPending((count) => count + 1);
+    setError("");
+    try {
+      await api(url, { method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+      await refresh();
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed. Reload before retrying.");
+      return false;
+    } finally { setPending((count) => count - 1); }
+  }, [refresh]);
+
+  const patchProduct = useCallback((id: string, patch: Partial<Flower>) =>
+    mutate(`/api/admin/flowers/${encodeURIComponent(id)}`, "PATCH", patch), [mutate]);
+  const setStockStatus = useCallback((id: string, status: FlowerStockStatus) =>
+    patchProduct(id, { stockStatus: status, ...(status === "sold-out" ? { stock: 0 } : {}) }), [patchProduct]);
+  const updateCategory = useCallback((id: string, patch: Partial<Category>) =>
+    mutate(`/api/admin/categories/${encodeURIComponent(id)}`, "PATCH", patch), [mutate]);
+
+  const value = useMemo<CatalogValue>(() => ({
+    products, categories, loading, busy: pending > 0, error, refresh,
+    addProduct: (draft) => mutate("/api/admin/flowers", "POST", draft),
+    updateProduct: (id, draft) => mutate(`/api/admin/flowers/${encodeURIComponent(id)}`, "PATCH", draft),
+    patchProduct,
+    deleteProduct: (id) => mutate(`/api/admin/flowers/${encodeURIComponent(id)}`, "DELETE"),
+    setProductActive: (id, active) => patchProduct(id, { active }),
+    setStockStatus,
+    adjustStock: (id, stock) => patchProduct(id, { stock }),
+    bulkSetStatus: async (ids, status) => {
+      for (const id of ids) if (!(await setStockStatus(id, status))) break;
+    },
+    bulkSetActive: async (ids, active) => {
+      for (const id of ids) if (!(await patchProduct(id, { active }))) break;
+    },
+    addCategory: async (draft) => {
+      setPending((count) => count + 1);
+      setError("");
       try {
-        const [remoteProducts, remoteCategories] = await Promise.all([
-          api("/api/admin/flowers"),
-          api("/api/admin/categories"),
-        ]);
-        if (!mounted) return;
-        if (Array.isArray(remoteProducts) && remoteProducts.length) {
-          setProducts(remoteProducts.map((flower: Flower) => ({ ...flower })));
-        }
-        if (Array.isArray(remoteCategories) && remoteCategories.length) {
-          setCategories(remoteCategories.map((category: Category) => ({ ...category })));
-        }
-      } catch {
-        // Keep the seeded preview as the fallback.
+        const result = await api("/api/admin/categories", { method: "POST", body: JSON.stringify(draft) });
+        await refresh();
+        return result.category as Category;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Could not save category.";
+        setError(message);
+        return { error: message };
+      } finally { setPending((count) => count - 1); }
+    },
+    updateCategory,
+    deleteCategory: (id) => mutate(`/api/admin/categories/${encodeURIComponent(id)}`, "DELETE"),
+    moveCategory: async (id, direction) => {
+      const ordered = [...categories];
+      const index = ordered.findIndex((category) => category.id === id);
+      const target = index + (direction === "up" ? -1 : 1);
+      if (index < 0 || target < 0 || target >= ordered.length) return;
+      [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
+      // Normalize every order value: legacy categories can all have sortOrder=0.
+      for (const [sortOrder, category] of ordered.entries()) {
+        if (!(await updateCategory(category.id, { sortOrder }))) break;
       }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const applyStatus = useCallback((flower: Flower, status: FlowerStockStatus): Flower => {
-    const stock =
-      status === "sold-out"
-        ? 0
-        : status === "limited"
-          ? Math.min(flower.stock || 15, LOW_STOCK_THRESHOLD - 1) || 8
-          : status === "pre-order"
-            ? Math.max(flower.stock || 8, 8)
-            : Math.max(flower.stock || 0, 1) || 25;
-    return { ...flower, stock, stockStatus: status, ...availabilityFromStatus(status) };
-  }, []);
-
-  const draftToFlower = useCallback(
-    (draft: ProductDraft, id = idForSlug(draft.slug)): Flower => ({
-      id,
-      name: draft.name,
-      slug: draft.slug,
-      categoryId: draft.categoryId,
-      occasionIds: [],
-      description: draft.description,
-      shortDescription: draft.shortDescription,
-      price: draft.price,
-      compareAtPrice: draft.salePrice > 0 ? draft.salePrice : undefined,
-      colors: draft.colors.length ? draft.colors : ["mixed"],
-      colorVariants: draft.colorVariants ?? [],
-      images: draft.images.length ? draft.images : ["gradient-ivory"],
-      videos: draft.videos,
-      featured: draft.featured,
-      rating: 0,
-      reviewCount: 0,
-      careInstructions: "",
-      sku: draft.sku,
-      quantity: draft.quantity,
-      stemCount: draft.unit.toLowerCase().includes("stem") ? draft.quantity : undefined,
-      unit: draft.unit,
-      stock: draft.stock,
-      ...availabilityFromStatus(draft.stockStatus),
-      stockStatus: draft.stockStatus,
-      active: true,
-      bestSeller: draft.bestSeller,
-      newArrival: draft.newArrival,
-      seoTitle: draft.seoTitle,
-      metaDescription: draft.metaDescription,
-      keywords: draft.keywords,
-    }),
-    [],
-  );
-
-  const addProduct = useCallback(
-    (draft: ProductDraft) => {
-      api("/api/admin/flowers", { method: "POST", body: JSON.stringify(draft) }).catch(
-        () => undefined,
-      );
-      setProducts((prev) => [draftToFlower(draft), ...prev]);
     },
-    [draftToFlower],
-  );
+    productCountForCategory: (id) => products.filter((flower) => flower.categoryId === id).length,
+  }), [products, categories, loading, pending, error, refresh, mutate, patchProduct, setStockStatus, updateCategory]);
 
-  const updateProduct = useCallback(
-    (id: string, draft: ProductDraft) => {
-      api(`/api/admin/flowers/${encodeURIComponent(id)}`, {
-        method: "PATCH",
-          body: JSON.stringify(draft),
-      }).catch(() => undefined);
-      setProducts((prev) =>
-        prev.map((flower) =>
-          flower.id === id ? draftToFlower(draft, draft.slug === flower.slug ? id : idForSlug(draft.slug)) : flower,
-        ),
-      );
-    },
-    [draftToFlower],
-  );
-
-  const deleteProduct = useCallback((id: string) => {
-    api(`/api/admin/flowers/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(
-      () => undefined,
-    );
-    setProducts((prev) => prev.filter((flower) => flower.id !== id));
-  }, []);
-
-  const setProductActive = useCallback((id: string, active: boolean) => {
-    api(`/api/admin/flowers/${encodeURIComponent(id)}`, {
-      method: "PATCH",
-      body: JSON.stringify({ active }),
-    }).catch(() => undefined);
-    setProducts((prev) =>
-      prev.map((flower) => (flower.id === id ? { ...flower, active } : flower)),
-    );
-  }, []);
-
-  const setStockStatus = useCallback(
-    (id: string, status: FlowerStockStatus) => {
-      api(`/api/admin/flowers/${encodeURIComponent(id)}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          stockStatus: status,
-          stock:
-            status === "sold-out"
-              ? 0
-              : status === "limited"
-                ? LOW_STOCK_THRESHOLD - 1
-                : 25,
-          inStock: status !== "sold-out",
-          availableToday: status === "in-stock" || status === "limited",
-        }),
-      }).catch(() => undefined);
-      setProducts((prev) =>
-        prev.map((flower) => (flower.id === id ? applyStatus(flower, status) : flower)),
-      );
-    },
-    [applyStatus],
-  );
-
-  const adjustStock = useCallback(
-    (id: string, value: number) => {
-      setProducts((prev) => {
-        const flower = prev.find((candidate) => candidate.id === id);
-        if (!flower) return prev;
-        const quantity = Math.max(0, Math.round(value));
-        const status: FlowerStockStatus =
-          quantity === 0
-            ? "sold-out"
-            : flower.stockStatus === "pre-order"
-              ? "pre-order"
-              : quantity < LOW_STOCK_THRESHOLD
-                ? "limited"
-                : "in-stock";
-        api(`/api/admin/flowers/${encodeURIComponent(id)}`, {
-          method: "PATCH",
-          body: JSON.stringify({
-            stock: quantity,
-            stockStatus: status,
-            inStock: quantity > 0,
-            availableToday: quantity > 0 && status !== "pre-order",
-          }),
-        }).catch(() => undefined);
-        return prev.map(
-          (candidate) =>
-            candidate.id === id ? applyStatus(candidate, status) : candidate,
-        );
-      });
-    },
-    [applyStatus],
-  );
-
-  const bulkSetStatus = useCallback(
-    (ids: string[], status: FlowerStockStatus) => {
-      for (const id of ids) {
-        api(`/api/admin/flowers/${encodeURIComponent(id)}`, {
-          method: "PATCH",
-          body: JSON.stringify({
-            stockStatus: status,
-            stock:
-              status === "sold-out"
-                ? 0
-                : status === "limited"
-                  ? LOW_STOCK_THRESHOLD - 1
-                  : 25,
-            inStock: status !== "sold-out",
-            availableToday: status === "in-stock" || status === "limited",
-          }),
-        }).catch(() => undefined);
-      }
-      setProducts((prev) =>
-        prev.map((flower) => (ids.includes(flower.id) ? applyStatus(flower, status) : flower)),
-      );
-    },
-    [applyStatus],
-  );
-
-  const addCategory = useCallback(
-    (input: { name: string; description: string }): Category | { error: string } => {
-      const name = input.name.trim();
-      const slug = slugify(name);
-      if (!name) return { error: "Category name is required." };
-      if (categories.some((category) => category.slug === slug)) {
-        return { error: `A category called "${name}" already exists.` };
-      }
-      api("/api/admin/categories", {
-        method: "POST",
-        body: JSON.stringify(input),
-      }).catch(() => undefined);
-      const category: Category = {
-        id: `cat-${slug}`,
-        name,
-        slug,
-        description: input.description.trim(),
-        heroImage: "gradient-ivory",
-      };
-      setCategories((prev) => [...prev, category]);
-      return category;
-    },
-    [categories],
-  );
-
-  const updateCategory = useCallback(
-    (id: string, patch: { name: string; description: string }) => {
-      api(`/api/admin/categories/${encodeURIComponent(id)}`, {
-        method: "PATCH",
-        body: JSON.stringify(patch),
-      }).catch(() => undefined);
-      setCategories((prev) =>
-        prev.map((category) =>
-          category.id === id
-            ? { ...category, name: patch.name.trim(), description: patch.description.trim() }
-            : category,
-        ),
-      );
-    },
-    [],
-  );
-
-  const deleteCategory = useCallback(
-    (id: string): string | null => {
-      if (products.some((flower) => flower.categoryId === id)) {
-        return "Category still has products — move or delete them first.";
-      }
-      api(`/api/admin/categories/${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      }).catch(() => undefined);
-      setCategories((prev) => prev.filter((category) => category.id !== id));
-      return null;
-    },
-    [products],
-  );
-
-  const moveCategory = useCallback((id: string, direction: "up" | "down") => {
-    setCategories((prev) => {
-      const index = prev.findIndex((category) => category.id === id);
-      const swapWith = direction === "up" ? index - 1 : index + 1;
-      if (index < 0 || swapWith < 0 || swapWith >= prev.length) return prev;
-      const next = [...prev];
-      [next[index], next[swapWith]] = [next[swapWith], next[index]];
-      // Persist the new sort order so a refresh keeps the same ordering.
-      const patches = [
-        { id: next[index].id, sortOrder: index },
-        { id: next[swapWith].id, sortOrder: swapWith },
-      ];
-      for (const { id: targetId, sortOrder } of patches) {
-        api(`/api/admin/categories/${encodeURIComponent(targetId)}`, {
-          method: "PATCH",
-          body: JSON.stringify({ sortOrder }),
-        }).catch(() => undefined);
-      }
-      return next;
-    });
-  }, []);
-
-  const productCountForCategory = useCallback(
-    (categoryId: string) =>
-      products.filter((flower) => flower.categoryId === categoryId).length,
-    [products],
-  );
-
-  const value = useMemo<CatalogValue>(
-    () => ({
-      products,
-      categories,
-      addProduct,
-      updateProduct,
-      deleteProduct,
-      setProductActive,
-      setStockStatus,
-      adjustStock,
-      bulkSetStatus,
-      addCategory,
-      updateCategory,
-      deleteCategory,
-      moveCategory,
-      productCountForCategory,
-    }),
-    [
-      products,
-      categories,
-      addProduct,
-      updateProduct,
-      deleteProduct,
-      setProductActive,
-      setStockStatus,
-      adjustStock,
-      bulkSetStatus,
-      addCategory,
-      updateCategory,
-      deleteCategory,
-      moveCategory,
-      productCountForCategory,
-    ],
-  );
-
-  return <CatalogContext.Provider value={value}>{children}</CatalogContext.Provider>;
+  return <CatalogContext.Provider value={value}>
+    {error && <p role="alert" className="mb-4 rounded-md bg-blush p-3 text-sm text-red-800">{error} Bulk operations stop at the first error; earlier successful rows remain saved.</p>}
+    {loading ? <p role="status" className="p-6 text-sm text-ink-soft">Loading catalogue…</p> : children}
+  </CatalogContext.Provider>;
 }
-
 export function useCatalog(): CatalogValue {
-  const context = useContext(CatalogContext);
-  if (!context) {
-    throw new Error("useCatalog must be used within a CatalogProvider.");
-  }
-  return context;
+  const value = useContext(CatalogContext);
+  if (!value) throw new Error("useCatalog must be used within a CatalogProvider.");
+  return value;
 }

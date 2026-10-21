@@ -34,7 +34,19 @@ import {
 import { formatAppDate, formatAppDateTime } from "@/lib/utils";
 
 type AdminPaymentData = {
-  order: { id: string; orderNumber: string; total: number; paymentState?: string; latestPaymentAttemptId?: string };
+  order: {
+    id: string;
+    orderNumber: string;
+    total: number;
+    paymentMethod?: string;
+    paymentStatus?: string;
+    paymentState?: string;
+    latestPaymentAttemptId?: string;
+    razorpayOrderId?: string;
+    razorpayPaymentId?: string;
+    razorpayPaymentMethod?: string;
+    paidAt?: string;
+  };
   attempts: Array<{
     id: string;
     attemptNumber: number;
@@ -272,6 +284,92 @@ function Timeline({ title, empty, items }: { title: string; empty: string; items
   );
 }
 
+function RazorpayPaymentPanel({ order }: { order: Order }) {
+  const [data, setData] = useState<AdminPaymentData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [syncing, setSyncing] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/admin/orders/${encodeURIComponent(order.id)}/payment`);
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error ?? "Could not load Razorpay details.");
+      setData(body as AdminPaymentData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load Razorpay details.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order.id]);
+
+  async function sync() {
+    setSyncing(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch(`/api/admin/orders/${encodeURIComponent(order.id)}/razorpay-sync`, { method: "POST" });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error ?? "Could not sync payment.");
+      setMessage(body?.synced ? "Payment synced from Razorpay." : body?.message ?? "Nothing to sync.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not sync payment.");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  if (order.paymentMethod !== "online") return null;
+
+  const payment = data?.order;
+  const paid = payment?.paymentStatus === "paid";
+
+  return (
+    <div className="rounded-xl border border-ink/10 bg-white/80 p-6 shadow-sm">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gold"><CreditCard size={13} /> Razorpay payment</p>
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={() => void load()} className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-soft hover:text-ink"><RefreshCw size={13} /> Refresh</button>
+          <button type="button" disabled={syncing} onClick={() => void sync()} className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-ivory disabled:opacity-60">
+            <RefreshCw size={12} className={syncing ? "animate-spin" : ""} /> {syncing ? "Syncing…" : "Sync from Razorpay"}
+          </button>
+        </div>
+      </div>
+      {loading && <p className="text-sm text-ink-soft">Loading Razorpay details...</p>}
+      {error && <p className="mb-3 rounded-md bg-blush px-3 py-2 text-sm font-semibold text-red-800">{error}</p>}
+      {message && <p className="mb-3 rounded-md bg-sage px-3 py-2 text-sm font-semibold text-sage-ink">{message}</p>}
+      {payment && (
+        <div className="space-y-5">
+          <div className="grid gap-3 text-sm sm:grid-cols-2">
+            <Info label="Amount" value={formatINR(payment.total)} />
+            <Info label="Status" value={`${payment.paymentStatus ?? "pending"}${payment.paymentState ? ` · ${payment.paymentState.replace(/_/g, " ")}` : ""}`} />
+            <Info label="Gateway order" value={payment.razorpayOrderId ?? "Not created"} />
+            <Info label="Payment ID" value={payment.razorpayPaymentId ?? (paid ? "Not recorded" : "Not captured")} />
+            <Info label="Method" value={payment.razorpayPaymentMethod ? payment.razorpayPaymentMethod.toUpperCase() : paid ? "Not recorded" : "—"} />
+            <Info label="Paid at" value={payment.paidAt ? formatAppDateTime(payment.paidAt, { dateStyle: "medium", timeStyle: "short" }) : paid ? "Not recorded" : "Not paid"} />
+          </div>
+          {paid && (!payment.razorpayPaymentId || !payment.paidAt) && (
+            <p className="rounded-md bg-gold/10 px-3 py-2 text-xs leading-5 text-ink-soft">
+              Gateway details are missing for this older payment. Use Sync from Razorpay to backfill them.
+            </p>
+          )}
+          <Timeline title="Payment events" empty="No Razorpay events yet." items={data?.events.map((event) => ({ id: event.id, title: event.type, body: `${formatAppDateTime(event.createdAt, { dateStyle: "medium", timeStyle: "short" })}${event.actor ? ` · ${event.actor}` : ""}` })) ?? []} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function OrderDetail({ orderId }: { orderId: string }) {
   const { orders, customersById, slotById, areaById, setOrderStatus, setOrderPayment } =
     useOperations();
@@ -442,6 +540,7 @@ export function OrderDetail({ orderId }: { orderId: string }) {
             </div>
           )}
           <PaymentVerificationPanel order={order} />
+          <RazorpayPaymentPanel order={order} />
         </div>
 
         <div className="space-y-6">
@@ -459,11 +558,24 @@ export function OrderDetail({ orderId }: { orderId: string }) {
               className={inputClass}
             >
               {(Object.values(OrderStatus) as OrderStatus[]).map((status) => (
-                <option key={status} value={status}>
+                <option
+                  key={status}
+                  value={status}
+                  disabled={
+                    (order.paymentMethod === "online" || order.paymentMethod === "upi") &&
+                    order.paymentStatus !== "paid" &&
+                    !["received", "cancelled"].includes(status)
+                  }
+                >
                   {STATUS_LABELS[status]}
                 </option>
               ))}
             </select>
+            {(order.paymentMethod === "online" || order.paymentMethod === "upi") && order.paymentStatus !== "paid" && (
+              <p className="mt-2 text-xs leading-5 text-ink-soft">
+                Verify the {order.paymentMethod === "online" ? "Razorpay" : "UPI"} payment before moving this order into fulfillment.
+              </p>
+            )}
 
             <div className="mt-4">
               <div className="mb-1.5 flex items-center justify-between">
@@ -473,13 +585,14 @@ export function OrderDetail({ orderId }: { orderId: string }) {
               <select
                 data-payment-select
                 value={order.paymentStatus ?? "pending"}
+                disabled={order.paymentMethod === "online" || order.paymentMethod === "upi"}
                 onChange={(event) =>
                   setOrderPayment(
                     order.id,
                     event.target.value as PaymentStatus,
                   )
                 }
-                className={inputClass}
+                className={`${inputClass} disabled:opacity-60`}
               >
                 {PAYMENT_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -487,6 +600,13 @@ export function OrderDetail({ orderId }: { orderId: string }) {
                   </option>
                 ))}
               </select>
+              {(order.paymentMethod === "online" || order.paymentMethod === "upi") && (
+                <p className="mt-2 text-xs leading-5 text-ink-soft">
+                  {order.paymentMethod === "online"
+                    ? "Payment status is set by Razorpay. Use Sync from Razorpay above."
+                    : "Payment status is set by the verification panel above."}
+                </p>
+              )}
             </div>
 
             <p className="mt-4 text-xs leading-5 text-ink-soft">
@@ -508,7 +628,7 @@ export function OrderDetail({ orderId }: { orderId: string }) {
               </p>
               <p className="flex justify-between">
                 <span>Payment state</span>
-                <span><PaymentStateBadge state={order.paymentState} /></span>
+                <span>{order.paymentState ? <PaymentStateBadge state={order.paymentState} /> : <span className="text-ink-soft">—</span>}</span>
               </p>
               <p className="flex justify-between">
                 <span>Status</span>

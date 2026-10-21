@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FESTIVAL_BADGES, HOMEPAGE_SECTION_IDS } from "@/lib/festivals";
 
 /** Shared zod schemas for every write surface (admin + public). */
 
@@ -15,6 +16,10 @@ export const productUpsertSchema = z.object({
   shortDescription: z.string().max(500).default(""),
   price: z.number().finite().min(0),
   salePrice: z.number().finite().min(0).max(9_999_999).default(0),
+  compareAtPrice: z.number().finite().min(0).max(9_999_999).nullable().optional(),
+  inStock: z.boolean().optional(),
+  availableToday: z.boolean().optional(),
+  occasionIds: z.array(z.string()).max(24).optional(),
   quantity: z.number().int().min(1).max(100_000).default(1),
   unit: z.string().max(24).default("Stems"),
   stock: z.number().int().min(0).max(1_000_000).default(0),
@@ -43,6 +48,15 @@ export const productUpsertSchema = z.object({
   metaDescription: z.string().max(320).default(""),
   keywords: z.array(z.string().max(60)).max(30).default([]),
   active: z.boolean().default(true),
+  publicationStatus: z.enum(["draft", "published"]).optional(),
+  unitLabel: z.string().trim().max(80).optional(),
+  minQuantity: z.number().int().min(1).max(99).optional(),
+  quantityStep: z.number().int().min(1).max(99).optional(),
+  festivalTags: z.array(z.string().trim().min(1).max(60)).max(24).optional(),
+  badges: z.array(z.enum(FESTIVAL_BADGES)).max(3).optional(),
+  poojaEligible: z.boolean().optional(),
+  requiresAdvancePayment: z.boolean().optional(),
+  deliveryPolicy: z.enum(["standard", "pooja-morning"]).optional(),
   occassionIds: z.array(z.string()).max(24).optional(),
 });
 
@@ -51,11 +65,84 @@ export type ProductUpsertInput = z.infer<typeof productUpsertSchema>;
 /** Looser patch form used by quick admin edits (stock/status/active toggles). */
 export const productPatchSchema = productUpsertSchema.partial();
 
+/** Zod defaults must not turn a small PATCH into a replacement document. */
+export function explicitPatch<T extends Record<string, unknown>>(parsed: T, raw: Record<string, unknown>): Partial<T> {
+  return Object.fromEntries(Object.entries(parsed).filter(([key]) => Object.prototype.hasOwnProperty.call(raw, key))) as Partial<T>;
+}
+
 export const categoryPatchSchema = z.object({
   name: z.string().trim().min(1, "Category name is required.").max(80),
   description: z.string().max(1000).default(""),
   heroImage: z.string().max(1000).optional(),
   sortOrder: z.number().int().optional(),
+  slug: z.string().trim().min(1).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).optional(),
+  imageUrl: z.string().url().max(1000).or(z.literal("")).optional(),
+  active: z.boolean().optional(),
+  seoTitle: z.string().max(160).optional(),
+  metaDescription: z.string().max(320).optional(),
+  keywords: z.array(z.string().max(60)).max(30).optional(),
+});
+
+const orderedIdsSchema = z.array(z.string().trim().min(1).max(120)).max(200)
+  .refine((ids) => new Set(ids).size === ids.length, "Duplicate references are not allowed.");
+
+const festivalCollectionFields = z.object({
+  title: z.string().trim().min(1).max(120),
+  slug: z.string().trim().min(1).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  subtitle: z.string().max(500).optional(),
+  bannerImage: z.string().url().max(1000).or(z.literal("")).optional(),
+  status: z.enum(["draft", "published"]).default("draft"),
+  active: z.boolean().default(false),
+  startsAt: z.string().datetime({ offset: true }).nullish().transform((value) => value ?? undefined),
+  endsAt: z.string().datetime({ offset: true }).nullish().transform((value) => value ?? undefined),
+  productIds: orderedIdsSchema.default([]),
+  categoryIds: orderedIdsSchema.default([]),
+  sortOrder: z.number().int().min(0).default(0),
+  badgeText: z.string().max(60).optional(),
+  lastOrderByText: z.string().max(160).optional(),
+  poojaCollection: z.boolean().default(false),
+  whatsappBulkOrderEnabled: z.boolean().default(false),
+  seoTitle: z.string().max(160).optional(),
+  metaDescription: z.string().max(320).optional(),
+  keywords: z.array(z.string().max(60)).max(30).default([]),
+});
+
+export const festivalCollectionUpsertSchema = festivalCollectionFields.superRefine((value, ctx) => {
+  if (value.active && value.status === "draft") {
+    ctx.addIssue({ code: "custom", path: ["active"], message: "Publish this draft before activating it." });
+  }
+  if (value.startsAt && value.endsAt && Date.parse(value.endsAt) <= Date.parse(value.startsAt)) {
+    ctx.addIssue({ code: "custom", path: ["endsAt"], message: "End must be after start." });
+  }
+  if (value.status === "published") {
+    if (!value.startsAt || !value.endsAt) {
+      ctx.addIssue({ code: "custom", path: ["startsAt"], message: "Published collections require both schedule dates." });
+    }
+    if (!value.bannerImage || !/^https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\//.test(value.bannerImage)) {
+      ctx.addIssue({ code: "custom", path: ["bannerImage"], message: "Upload a Cloudinary banner before publishing." });
+    }
+    if (!value.productIds.length && !value.categoryIds.length) {
+      ctx.addIssue({ code: "custom", path: ["productIds"], message: "Select products or categories before publishing." });
+    }
+  }
+});
+
+// PATCH handlers must validate the merged document with the full schema as well.
+export const festivalCollectionPatchSchema = festivalCollectionFields.extend({
+  status: festivalCollectionFields.shape.status.removeDefault(),
+  active: festivalCollectionFields.shape.active.removeDefault(),
+  productIds: festivalCollectionFields.shape.productIds.removeDefault(),
+  categoryIds: festivalCollectionFields.shape.categoryIds.removeDefault(),
+  sortOrder: festivalCollectionFields.shape.sortOrder.removeDefault(),
+  poojaCollection: festivalCollectionFields.shape.poojaCollection.removeDefault(),
+  whatsappBulkOrderEnabled: festivalCollectionFields.shape.whatsappBulkOrderEnabled.removeDefault(),
+  keywords: festivalCollectionFields.shape.keywords.removeDefault(),
+}).partial();
+
+export const homepageSectionSchema = z.object({
+  id: z.enum(HOMEPAGE_SECTION_IDS),
+  enabled: z.boolean().default(true),
+  sortOrder: z.number().int().min(0),
 });
 
 export const couponSchema = z.object({
@@ -84,7 +171,7 @@ export const enquiryStatusSchema = z.object({
 });
 
 export const orderStatusPatchSchema = z.object({
-  status: z.enum(["pending", "confirmed", "packing", "out-for-delivery", "delivered", "cancelled"]).optional(),
+  status: z.enum(["received", "confirmed", "preparing", "ready", "out_for_delivery", "delivered", "cancelled"]).optional(),
   paymentStatus: z.enum(["pending", "paid", "failed", "refunded"]).optional(),
   notes: z.string().max(2000).optional(),
 });
@@ -182,10 +269,23 @@ export const homepageUpsertSchema = z.object({
     ctaSecondaryLabel: z.string().max(40).default(""),
     ctaSecondaryHref: z.string().max(500).default(""),
   }),
+  announcementText: z.string().max(180).default(""),
   featuredFlowerIds: z.array(z.string().max(120)).max(24).default([]),
   showsFreshToday: z.boolean().default(true),
   offers: z.array(offerBannerUpsertSchema).max(6).default([]),
   testimonialReviewIds: z.array(z.string().max(120)).max(12).default([]),
+  festivalHeroEnabled: z.boolean().optional(),
+  sections: z.array(homepageSectionSchema).max(HOMEPAGE_SECTION_IDS.length)
+    .refine((sections) => new Set(sections.map((section) => section.id)).size === sections.length,
+      "Homepage sections must be unique.").optional(),
+  categoryIds: orderedIdsSchema.optional(),
+  festivalCollectionIds: orderedIdsSchema.optional(),
+  salesBoosters: z.object({
+    festivalBadges: z.boolean().optional(),
+    lowStockLabels: z.boolean().optional(),
+    collectionCutoff: z.boolean().optional(),
+    whatsappBulkOrder: z.boolean().optional(),
+  }).optional(),
 });
 
 export const settingsUpsertSchema = z.object({
@@ -203,7 +303,7 @@ export const settingsUpsertSchema = z.object({
       facebook: z.string().url().max(500).or(z.literal("")).default(""),
       twitter: z.string().url().max(500).or(z.literal("")).default(""),
     })
-    .default({}),
+    .default({ instagram: "", facebook: "", twitter: "" }),
 });
 
 export const seoOverrideSchema = z.object({

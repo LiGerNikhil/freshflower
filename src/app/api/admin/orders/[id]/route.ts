@@ -20,19 +20,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const order = await OrderModel.findById(id)
       .select({ paymentMethod: 1, paymentStatus: 1 })
       .lean<{ paymentMethod?: string; paymentStatus?: string }>();
-    if (parsed.paymentStatus === "paid") {
+
+    // Online (Razorpay) and manual UPI payments are only settled by their own
+    // verification paths, never by the generic dropdown.
+    if (parsed.paymentStatus === "paid" || parsed.paymentStatus === "refunded") {
+      if (order?.paymentMethod === "online") {
+        return jsonOk({ error: "Online payments are confirmed by Razorpay. Use Sync from Razorpay on the payment page." }, 409);
+      }
       if (order?.paymentMethod === "upi") {
         return jsonOk({ error: "Review UPI payments from the payment verification panel." }, 409);
       }
     }
+
+    const paidMethod = order?.paymentMethod === "upi" || order?.paymentMethod === "online";
     if (
       parsed.status &&
-      order?.paymentMethod === "upi" &&
-      order.paymentStatus !== "paid" &&
+      paidMethod &&
+      order?.paymentStatus !== "paid" &&
       !["received", "cancelled"].includes(parsed.status)
     ) {
-      return jsonOk({ error: "Verify UPI payment before moving this order into fulfillment." }, 409);
+      return jsonOk({ error: `Verify the ${order?.paymentMethod === "upi" ? "UPI" : "online"} payment before moving this order into fulfillment.` }, 409);
     }
+
     return jsonOk(await crud.patch(id, parsed as Record<string, unknown>));
   });
 }

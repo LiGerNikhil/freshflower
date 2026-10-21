@@ -338,11 +338,11 @@ export default function OrderConfirmationClient({ orderId }: { orderId: string }
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-sage">
               <Check size={30} className="text-sage-ink" />
             </div>
-            <p className="mt-6 text-xs font-bold uppercase tracking-[0.22em] text-sage-ink">Booking received</p>
-            <h1 className="mt-3 font-display text-4xl md:text-5xl">{isPaid ? "Order confirmed." : "Order created successfully."}</h1>
+            <p className="mt-6 text-xs font-bold uppercase tracking-[0.22em] text-sage-ink">{isOnlineOrder && !isPaid ? "Awaiting payment" : "Booking received"}</p>
+            <h1 className="mt-3 font-display text-4xl md:text-5xl">{isPaid ? "Order confirmed." : isOnlineOrder ? "Complete your payment." : "Order created successfully."}</h1>
             <p className="mt-4 text-sm leading-7 text-ink-soft">
               Order <strong className="text-ink">{payment?.order.orderNumber ?? order?.orderNumber ?? orderId}</strong> is saved.
-              {isOnlineOrder ? (isPaid ? " Payment received. We will prepare your flowers." : " Complete your Razorpay payment to confirm this order.") : isUpiOrder
+              {isOnlineOrder ? (isPaid ? " Payment received. We will prepare your flowers." : " It is not confirmed yet — complete your Razorpay payment to confirm this order.") : isUpiOrder
                 ? <> Your order will be confirmed once you pay the <strong className="text-ink">₹{total.toLocaleString("en-IN")}</strong> shown above and our team verifies it.</>
                 : " We'll use the details below to prepare the next step."}
             </p>

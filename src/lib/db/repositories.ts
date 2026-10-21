@@ -11,6 +11,7 @@ import {
   DeliveryAreaModel,
   DeliverySlotModel,
   FlowerModel,
+  FestivalCollectionModel,
   HomepageConfigModel,
   OccasionModel,
   OrderModel,
@@ -20,8 +21,8 @@ import {
   WholesaleEnquiryModel,
 } from "@/lib/db/models";
 import {
-  DEFAULT_HOMEPAGE,
   DEFAULT_SETTINGS,
+  mergeHomepageConfig,
 } from "@/lib/data";
 import type {
   AdminUser,
@@ -35,6 +36,7 @@ import type {
   DeliveryArea,
   DeliverySlot,
   Flower,
+  FestivalCollection,
   HomepageConfig,
   Occasion,
   Order,
@@ -43,6 +45,7 @@ import type {
   WeddingEnquiry,
   WholesaleEnquiry,
 } from "@/lib/types";
+import { isFestivalCollectionLive } from "@/lib/festivals";
 
 // ---------------------------------------------------------------------------
 // Serialization
@@ -82,21 +85,57 @@ export function serializeList<T>(docs: unknown[]): T[] {
 
 export async function getFlowers(): Promise<Flower[]> {
   await dbConnect();
-  const docs = await FlowerModel.find().sort({ _id: 1 }).lean();
+  const docs = await FlowerModel.find({ active: { $ne: false }, publicationStatus: { $ne: "draft" } }).sort({ _id: 1 }).lean();
   return serializeList<Flower>(docs).map(normalizeFlower);
 }
 
 export async function getActiveFlowers(): Promise<Flower[]> {
   await dbConnect();
-  const docs = await FlowerModel.find({ active: { $ne: false } })
+  const docs = await FlowerModel.find({ active: { $ne: false }, publicationStatus: { $ne: "draft" } })
     .sort({ _id: 1 })
     .lean();
   return serializeList<Flower>(docs).map(normalizeFlower);
 }
 
+/** Public festival reads exclude drafts while retaining legacy products. */
+export async function getPublishedFlowers(): Promise<Flower[]> {
+  await dbConnect();
+  const docs = await FlowerModel.find({ active: { $ne: false }, publicationStatus: { $ne: "draft" } })
+    .sort({ _id: 1 }).lean();
+  return serializeList<Flower>(docs).map(normalizeFlower);
+}
+
+export async function getActiveCategories(): Promise<Category[]> {
+  await dbConnect();
+  const docs = await CategoryModel.find({ active: { $ne: false } }).sort({ sortOrder: 1, _id: 1 }).lean();
+  return serializeList<Category>(docs);
+}
+
+/** Admin read: includes drafts and expired collections. */
+export async function getFestivalCollections(): Promise<FestivalCollection[]> {
+  await dbConnect();
+  const docs = await FestivalCollectionModel.find().sort({ sortOrder: 1, _id: 1 }).lean();
+  return serializeList<FestivalCollection>(docs);
+}
+
+export async function getLiveFestivalCollections(now = new Date()): Promise<FestivalCollection[]> {
+  await dbConnect();
+  const docs = await FestivalCollectionModel.find({
+    status: "published", active: true, startsAt: { $lte: now }, endsAt: { $gt: now },
+  }).sort({ sortOrder: 1, _id: 1 }).lean();
+  return serializeList<FestivalCollection>(docs).filter((collection) => isFestivalCollectionLive(collection, now));
+}
+
+export async function getLiveFestivalCollectionBySlug(slug: string, now = new Date()): Promise<FestivalCollection | null> {
+  await dbConnect();
+  const doc = await FestivalCollectionModel.findOne({ slug, status: "published", active: true }).lean();
+  const collection = serialize<FestivalCollection>(doc as WithMeta | null);
+  return collection && isFestivalCollectionLive(collection, now) ? collection : null;
+}
+
 export async function getFlowerBySlug(slug: string): Promise<Flower | null> {
   await dbConnect();
-  const doc = await FlowerModel.findOne({ slug }).lean();
+  const doc = await FlowerModel.findOne({ slug, active: { $ne: false }, publicationStatus: { $ne: "draft" } }).lean();
   const flower = serialize<Flower>(doc as WithMeta | null);
   return flower ? normalizeFlower(flower) : null;
 }
@@ -133,15 +172,15 @@ function normalizeFlower(flower: Flower): Flower {
   };
 }
 
-export async function getCategories(): Promise<Category[]> {
+export async function getCategories(includeInactive = false): Promise<Category[]> {
   await dbConnect();
-  const docs = await CategoryModel.find().sort({ sortOrder: 1, _id: 1 }).lean();
+  const docs = await CategoryModel.find(includeInactive ? {} : { active: { $ne: false } }).sort({ sortOrder: 1, _id: 1 }).lean();
   return serializeList<Category>(docs);
 }
 
 export async function getCategoryBySlug(slug: string): Promise<Category | null> {
   await dbConnect();
-  const doc = await CategoryModel.findOne({ slug }).lean();
+  const doc = await CategoryModel.findOne({ slug, active: { $ne: false } }).lean();
   return serialize<Category>(doc as WithMeta | null);
 }
 
@@ -434,7 +473,7 @@ export async function getHomepageConfig(): Promise<HomepageConfig> {
   await dbConnect();
   const doc = await HomepageConfigModel.findById("homepage").lean();
   const homepage = serialize<HomepageConfig>(doc as WithMeta | null);
-  return homepage ?? DEFAULT_HOMEPAGE;
+  return mergeHomepageConfig(homepage);
 }
 
 export async function getBusinessSettings(): Promise<BusinessSettings> {

@@ -1,15 +1,28 @@
 import type { MetadataRoute } from "next";
-import { blogs, bouquets, categories, flowers, occasions } from "@/lib/data";
+import { blogs, bouquets, occasions } from "@/lib/data";
 import { citySeoPages, occasionSeoPages } from "@/lib/data/seoPages";
+import {
+  getCategories,
+  getLiveFestivalCollections,
+  getPublishedFlowers,
+} from "@/lib/db/repositories";
 import { SITE_URL } from "@/lib/seo";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export const revalidate = 3600;
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
+  const [collections, flowers, categories] = await Promise.all([
+    getLiveFestivalCollections(now),
+    getPublishedFlowers(),
+    getCategories(),
+  ]);
 
   const staticRoutes: MetadataRoute.Sitemap = [
     "",
     "/flowers",
     "/bouquets",
+    "/collections",
     "/categories",
     "/occasions",
     "/blog",
@@ -68,6 +81,17 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.6,
   }));
 
+  const collectionRoutes: MetadataRoute.Sitemap = collections.map(
+    (collection) => ({
+      url: SITE_URL + `/collections/${collection.slug}`,
+      lastModified: collection.updatedAt
+        ? new Date(collection.updatedAt)
+        : now,
+      changeFrequency: "daily",
+      priority: 0.8,
+    }),
+  );
+
   return [
     ...staticRoutes,
     ...productRoutes,
@@ -75,5 +99,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...categoryRoutes,
     ...occasionRoutes,
     ...blogRoutes,
+    ...collectionRoutes,
   ];
 }

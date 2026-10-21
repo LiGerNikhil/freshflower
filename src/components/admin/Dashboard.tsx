@@ -6,6 +6,7 @@ import {
   CalendarRange,
   CheckCircle2,
   Clock,
+  CreditCard,
   Inbox,
   IndianRupee,
   LayoutDashboard,
@@ -109,6 +110,14 @@ export function Dashboard() {
           icon={CalendarRange}
           accent="bg-gold/15 text-gold"
           href="/admin/orders"
+        />
+        <StatCard
+          label="Pending Payments"
+          value={String(stats.pendingPayments)}
+          hint="online orders awaiting payment"
+          icon={CreditCard}
+          accent="bg-blush text-ink-soft"
+          href="/admin/payments"
         />
         <StatCard
           label="Total Customers"

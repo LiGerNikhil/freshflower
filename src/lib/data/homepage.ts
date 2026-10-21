@@ -16,9 +16,10 @@ export const DEFAULT_HOMEPAGE: HomepageConfig = {
       "Thoughtfully gathered blooms, delivered across Delhi NCR while the city is still waking up.",
     ctaPrimaryLabel: "Shop Flowers",
     ctaPrimaryHref: "#shop",
-    ctaSecondaryLabel: "Book a Delivery",
-    ctaSecondaryHref: "/checkout",
+    ctaSecondaryLabel: "Collections",
+    ctaSecondaryHref: "/collections",
   },
+  announcementText: "",
   featuredFlowerIds: [
     "fl-red-rose-bunch",
     "fl-mogra-string",
@@ -38,3 +39,19 @@ export const DEFAULT_HOMEPAGE: HomepageConfig = {
   ],
   testimonialReviewIds: ["rev-1", "rev-6", "rev-8"],
 };
+
+export function mergeHomepageConfig(
+  config?: Partial<HomepageConfig> | null,
+): HomepageConfig {
+  return {
+    ...DEFAULT_HOMEPAGE,
+    ...config,
+    hero: { ...DEFAULT_HOMEPAGE.hero, ...config?.hero },
+    featuredFlowerIds:
+      config?.featuredFlowerIds ?? DEFAULT_HOMEPAGE.featuredFlowerIds,
+    showsFreshToday: config?.showsFreshToday ?? DEFAULT_HOMEPAGE.showsFreshToday,
+    offers: config?.offers ?? DEFAULT_HOMEPAGE.offers,
+    testimonialReviewIds:
+      config?.testimonialReviewIds ?? DEFAULT_HOMEPAGE.testimonialReviewIds,
+  };
+}

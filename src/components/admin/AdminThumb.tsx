@@ -1,5 +1,6 @@
+import Image from "next/image";
 import { Flower2 } from "lucide-react";
-import { GRADIENT_TOKENS } from "@/lib/utils";
+import { GRADIENT_TOKENS, isRemoteImage } from "@/lib/utils";
 
 export function AdminThumb({
   token,
@@ -22,7 +23,17 @@ export function AdminThumb({
             : GRADIENT_TOKENS["gradient-ivory"],
       }}
     >
-      <Flower2 size={18} strokeWidth={0.7} aria-hidden="true" className="text-ink/20" />
+      {isRemoteImage(token) ? (
+        <Image
+          src={token as string}
+          alt=""
+          fill
+          sizes="96px"
+          className="object-cover"
+        />
+      ) : (
+        <Flower2 size={18} strokeWidth={0.7} aria-hidden="true" className="text-ink/20" />
+      )}
     </div>
   );
 }

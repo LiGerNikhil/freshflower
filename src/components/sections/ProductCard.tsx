@@ -32,6 +32,7 @@ interface ProductCardProps {
   onQuickView: (flower: Flower) => void;
   onAdd?: () => void;
   onBuyNow?: () => void;
+  imageSizes?: string;
 }
 
 export function ProductCard({
@@ -39,6 +40,7 @@ export function ProductCard({
   onQuickView,
   onAdd,
   onBuyNow,
+  imageSizes = "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw",
 }: ProductCardProps) {
   const { addItem } = useCart();
   const { has: isWishlisted, toggle: toggleWishlist } = useWishlist();
@@ -79,7 +81,7 @@ export function ProductCard({
               src={flower.images[0]}
               alt=""
               fill
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              sizes={imageSizes}
               className="object-cover transition-transform duration-500 group-hover:scale-105"
             />
           ) : (

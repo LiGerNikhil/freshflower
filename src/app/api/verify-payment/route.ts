@@ -17,9 +17,15 @@ export async function POST(req: NextRequest) {
     await dbConnect();
     const order = await OrderModel.findOne({ razorpayOrderId: body.razorpay_order_id, customerId: session.customerId, paymentMethod: "online" }).lean<RazorpayOrderRecord>();
     if (!order) return jsonError("Order not found.", 404);
-    if (!order.razorpayOrderId || !validPaymentSignature(order.razorpayOrderId, body.razorpay_payment_id, body.razorpay_signature, razorpayConfig().keySecret)) return jsonError("Invalid payment signature.", 400);
+    if (!order.razorpayOrderId || !validPaymentSignature(order.razorpayOrderId, body.razorpay_payment_id, body.razorpay_signature, razorpayConfig().keySecret)) {
+      console.error("Razorpay signature verification failed:", { orderId: order._id, paymentId: body.razorpay_payment_id });
+      return jsonError("Invalid payment signature.", 400);
+    }
     const failure = await confirmRazorpayPayment(order, body.razorpay_payment_id);
-    if (failure) return jsonError(failure.error, failure.status);
+    if (failure) {
+      console.error("Razorpay payment confirmation failed:", { orderId: order._id, paymentId: body.razorpay_payment_id, reason: failure.error });
+      return jsonError(failure.error, failure.status);
+    }
     return jsonOk({ ok: true, orderId: order._id });
   });
 }

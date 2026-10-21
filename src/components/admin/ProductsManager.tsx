@@ -17,7 +17,8 @@ import { useCatalog, LOW_STOCK_THRESHOLD } from "@/components/providers/CatalogC
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { AdminThumb } from "@/components/admin/AdminThumb";
 import { formatINR } from "@/lib/admin/analytics";
-import type { FlowerStockStatus } from "@/lib/types";
+import type { Flower, FlowerStockStatus } from "@/lib/types";
+import { Modal } from "@/components/ui/Modal";
 
 const STATUS_FILTERS: { value: FlowerStockStatus | "all"; label: string }[] = [
   { value: "all", label: "All statuses" },
@@ -54,11 +55,17 @@ export function ProductsManager() {
     categories,
     deleteProduct,
     setProductActive,
+    patchProduct, bulkSetActive, busy,
   } = useCatalog();
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<FlowerStockStatus | "all">("all");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [quickEdit, setQuickEdit] = useState<Flower | null>(null);
+  const [quickPrice, setQuickPrice] = useState(0);
+  const [quickStock, setQuickStock] = useState(0);
+  const [working, setWorking] = useState(false);
 
   const categoryName = useMemo(
     () =>
@@ -149,6 +156,11 @@ export function ProductsManager() {
       </div>
 
       {/* Table */}
+      <fieldset disabled={busy || working}>
+      <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
+        <label className="flex items-center gap-2"><input type="checkbox" checked={filtered.length > 0 && filtered.every((flower) => selected.includes(flower.id))} onChange={(event) => setSelected(event.target.checked ? filtered.map((flower) => flower.id) : [])} /> Select visible products</label>
+        {[true, false].map((active) => <button key={String(active)} type="button" disabled={!selected.length} className="rounded-md border border-ink/10 px-3 py-2 disabled:opacity-50" onClick={async () => { setWorking(true); try { await bulkSetActive(selected, active); } finally { setWorking(false); } }}>{active ? "Activate" : "Deactivate"} selected</button>)}
+      </div>
       <div className="overflow-hidden rounded-xl border border-ink/10 bg-white/80 shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[880px] text-left text-sm">
@@ -175,6 +187,7 @@ export function ProductsManager() {
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
+                      <input type="checkbox" aria-label={`Select ${flower.name}`} checked={selected.includes(flower.id)} onChange={(event) => setSelected(event.target.checked ? [...selected, flower.id] : selected.filter((id) => id !== flower.id))} />
                       <AdminThumb token={flower.images?.[0]} name={flower.name} />
                       <div className="min-w-0">
                         <p className="truncate font-semibold">{flower.name}</p>
@@ -196,8 +209,7 @@ export function ProductsManager() {
                     )}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-ink-soft">
-                    {flower.quantity}
-                    {flower.unit ? ` ${flower.unit}` : ""}
+                    {flower.unitLabel || `${flower.quantity ?? ""} ${flower.unit ?? ""}`}
                   </td>
                   <td className="px-4 py-3">
                     {flower.stockStatus === "sold-out" ? (
@@ -230,7 +242,7 @@ export function ProductsManager() {
                       </FlagChip>
                       {flower.active === false && (
                         <span className="rounded-sm bg-ink/10 px-1.5 py-0.5 text-[10px] font-bold text-ink-soft">
-                          Hidden
+                          {flower.publicationStatus === "draft" ? "Draft" : "Hidden"}
                         </span>
                       )}
                     </div>
@@ -259,6 +271,7 @@ export function ProductsManager() {
                         </>
                       ) : (
                         <>
+                          <button type="button" onClick={() => { setQuickEdit(flower); setQuickPrice(flower.price); setQuickStock(flower.stock ?? 0); }} className="rounded-md px-2 py-1.5 text-xs font-semibold text-ink-soft">Quick edit</button>
                           <Link
                             href={`/admin/products/${flower.id}/edit`}
                             aria-label={`Edit ${flower.name}`}
@@ -302,6 +315,18 @@ export function ProductsManager() {
           </div>
         )}
       </div>
+      </fieldset>
+      <Modal open={Boolean(quickEdit)} onClose={() => { if (!busy) setQuickEdit(null); }}>
+        <form onSubmit={async (event) => { event.preventDefault(); if (quickEdit && await patchProduct(quickEdit.id, { price: quickPrice, stock: quickStock })) setQuickEdit(null); }}>
+          <fieldset disabled={busy} className="grid gap-4">
+            <h2 className="font-display text-xl">Quick edit: {quickEdit?.name}</h2>
+            <p className="text-xs text-ink-soft">Edits the base price and stock only. Colour variant prices stay unchanged; use the full editor to change them.</p>
+            <label className="text-sm">Base price (₹)<input className="mt-1 w-full rounded-md border border-ink/10 p-3" type="number" min={0} step="0.01" required value={quickPrice} onChange={(event) => setQuickPrice(Number(event.target.value))} /></label>
+            <label className="text-sm">Stock (sellable packages)<input className="mt-1 w-full rounded-md border border-ink/10 p-3" type="number" min={0} step={1} required value={quickStock} onChange={(event) => setQuickStock(Number(event.target.value))} /></label>
+            <button type="submit" className="rounded-md bg-ink px-4 py-2 text-sm text-ivory">{busy ? "Saving…" : "Save price and stock"}</button>
+          </fieldset>
+        </form>
+      </Modal>
     </div>
   );
 }

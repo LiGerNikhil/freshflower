@@ -77,6 +77,9 @@ export function SiteFooter() {
               <Link href="/bouquets" className="transition hover:text-ivory">
                 Bouquets
               </Link>
+              <Link href="/collections" className="transition hover:text-ivory">
+                Collections
+              </Link>
               <Link href="/categories" className="transition hover:text-ivory">
                 Categories
               </Link>
