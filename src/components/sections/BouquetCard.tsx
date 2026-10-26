@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion, type Variants } from "framer-motion";
-import { Flower2, Plus } from "lucide-react";
+import { Flower2, Heart, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { HeroVideo } from "@/components/sections/HeroVideo";
 import { useCart } from "@/components/providers/CartContext";
-import { GRADIENT_TOKENS } from "@/lib/utils";
+import { useWishlist } from "@/components/providers/WishlistContext";
+import { GRADIENT_TOKENS, isRemoteImage } from "@/lib/utils";
 import type { Bouquet } from "@/lib/types";
 
 const reveal: Variants = {
@@ -22,23 +24,47 @@ export function BouquetCard({
   onAdd?: () => void;
 }) {
   const { addItem } = useCart();
+  const { has, toggle } = useWishlist();
+  const image = bouquet.images[0] ?? "gradient-blush";
   return (
-    <motion.article variants={reveal} className="group">
+    <motion.article variants={reveal} className="group relative">
       <Link href={`/bouquets/${bouquet.slug}`}>
         <div
           className="relative flex aspect-[0.9] items-center justify-center overflow-hidden rounded-lg"
-          style={{ background: GRADIENT_TOKENS[bouquet.images[0]] }}
+          style={{
+            background: isRemoteImage(image)
+              ? undefined
+              : GRADIENT_TOKENS[image] ?? GRADIENT_TOKENS["gradient-blush"],
+          }}
         >
-          <Flower2
-            size={130}
-            strokeWidth={0.5}
-            className="text-ink/20 transition-transform duration-500 group-hover:scale-110"
-          />
+          {isRemoteImage(image) ? (
+            <Image
+              src={image}
+              alt={bouquet.name}
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <Flower2
+              size={130}
+              strokeWidth={0.5}
+              className="text-ink/20 transition-transform duration-500 group-hover:scale-110"
+            />
+          )}
           <div className="absolute left-4 top-4">
             {bouquet.featured && <Badge tone="gold">Signature</Badge>}
           </div>
         </div>
       </Link>
+      <button
+        type="button"
+        aria-label={has(bouquet.id) ? `Remove ${bouquet.name} from wishlist` : `Add ${bouquet.name} to wishlist`}
+        onClick={() => toggle(bouquet.id)}
+        className="absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-ivory/85 text-ink backdrop-blur-sm transition hover:bg-ivory"
+      >
+        <Heart size={17} fill={has(bouquet.id) ? "currentColor" : "none"} className={has(bouquet.id) ? "text-gold" : ""} />
+      </button>
       <div className="flex items-start justify-between gap-3 pt-4">
         <div>
           <Link
@@ -64,7 +90,7 @@ export function BouquetCard({
             name: bouquet.name,
             price: bouquet.price,
             quantity: 1,
-            image: bouquet.images[0],
+            image,
           });
           onAdd?.();
         }}

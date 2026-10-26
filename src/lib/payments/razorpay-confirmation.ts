@@ -1,8 +1,8 @@
 import { after } from "next/server";
 import { CustomerModel, OrderModel } from "@/lib/db/models";
-import { sendOrderConfirmationEmail } from "@/lib/auth/customer-email";
 import { razorpayClient } from "@/lib/payments/razorpay";
-import { eventId, recordPaymentEvent } from "@/lib/payments/events";
+import { eventId, queueOrderConfirmationEmail, recordPaymentEvent } from "@/lib/payments/events";
+import { processPaymentEmailOutbox } from "@/lib/payments/email-outbox";
 
 export type RazorpayOrderRecord = {
   _id: string;
@@ -91,16 +91,19 @@ export async function confirmRazorpayPayment(order: RazorpayOrderRecord, payment
         method: payment.method ?? "",
       },
     });
-    after(async () => {
-      try {
-        const customer = await CustomerModel.findById(order.customerId).lean<{ email?: string; name?: string }>();
-        if (!customer?.email) return;
-        await sendOrderConfirmationEmail({ email: customer.email, name: customer.name ?? "Customer", orderNumber: order.orderNumber, total: order.total, items: order.items, deliveryAddress: order.deliveryAddress ?? {} });
-        await OrderModel.updateOne({ _id: order._id }, { $set: { orderConfirmationEmailSentAt: new Date() } });
-      } catch (error) {
-        console.error("Razorpay order confirmation email failed.", error);
-      }
-    });
+  }
+  if (updated.modifiedCount || order.paymentStatus === "paid") {
+    const customer = await CustomerModel.findById(order.customerId).select({ email: 1 }).lean<{ email?: string }>();
+    if (customer?.email) {
+      await queueOrderConfirmationEmail({
+        orderId: order._id,
+        recipient: customer.email,
+        paymentAttemptId: `razorpay:${payment.id}`,
+      });
+      after(async () => {
+        await processPaymentEmailOutbox();
+      });
+    }
   }
   return null;
 }

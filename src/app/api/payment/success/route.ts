@@ -1,9 +1,11 @@
 import { NextRequest } from "next/server";
+import { after } from "next/server";
 import { z } from "zod";
 import { CustomerModel, OrderModel } from "@/lib/db/models";
 import { dbConnect } from "@/lib/db/connect";
 import { getCustomerSession } from "@/lib/auth/customer-session";
-import { sendOrderConfirmationEmail } from "@/lib/auth/customer-email";
+import { queueOrderConfirmationEmail } from "@/lib/payments/events";
+import { processPaymentEmailOutbox } from "@/lib/payments/email-outbox";
 import { jsonError, jsonOk, readJson, safe } from "@/lib/api/helpers";
 
 const paymentSuccessSchema = z.object({
@@ -44,18 +46,14 @@ export async function POST(req: NextRequest) {
         .lean<{ name?: string; email?: string }>();
       if (!customer?.email) return jsonError("Customer email not found.", 400);
 
-      await sendOrderConfirmationEmail({
-        email: customer.email,
-        name: customer.name ?? "Customer",
-        orderNumber: order.orderNumber,
-        total: order.total,
-        items: order.items,
-        deliveryAddress: order.deliveryAddress ?? {},
+      await queueOrderConfirmationEmail({
+        orderId: order._id,
+        recipient: customer.email,
+        paymentAttemptId: `order:${order._id}`,
       });
-      await OrderModel.updateOne(
-        { _id: order._id },
-        { $set: { orderConfirmationEmailSentAt: new Date(), updatedAt: new Date() } },
-      ).lean();
+      after(async () => {
+        await processPaymentEmailOutbox();
+      });
     }
 
     return jsonOk({ ok: true, orderId: order._id, orderNumber: order.orderNumber });

@@ -116,3 +116,33 @@ export async function queuePaymentCustomerEmail({
   ).lean();
   return id;
 }
+
+export async function queueOrderConfirmationEmail({
+  orderId,
+  recipient,
+  paymentAttemptId,
+}: {
+  orderId: string;
+  recipient: string;
+  paymentAttemptId: string;
+}) {
+  const id = `emailout-order-confirmation-${orderId}`;
+  await EmailOutboxModel.updateOne(
+    { _id: id },
+    {
+      $setOnInsert: {
+        _id: id,
+        kind: "order-confirmation",
+        status: "pending",
+        orderId,
+        paymentAttemptId,
+        recipient,
+        attemptCount: 0,
+        maxAttempts: 5,
+        nextAttemptAt: new Date(),
+      },
+    },
+    { upsert: true },
+  ).lean();
+  return id;
+}

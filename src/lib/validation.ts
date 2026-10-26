@@ -70,6 +70,23 @@ export function explicitPatch<T extends Record<string, unknown>>(parsed: T, raw:
   return Object.fromEntries(Object.entries(parsed).filter(([key]) => Object.prototype.hasOwnProperty.call(raw, key))) as Partial<T>;
 }
 
+export const bouquetUpsertSchema = z.object({
+  name: z.string().trim().min(1, "Bouquet name is required.").max(120),
+  slug: z.string().trim().min(1).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Invalid slug."),
+  description: z.string().max(20_000).default(""),
+  items: z.array(z.object({
+    flowerId: z.string().trim().min(1),
+    quantity: z.number().int().min(1).max(100_000),
+  })).max(100).default([])
+    .refine((items) => new Set(items.map((item) => item.flowerId)).size === items.length, "A flower can only be added once."),
+  price: z.number().finite().min(0).max(9_999_999),
+  images: z.array(z.string().url().max(1000)).min(1, "Upload at least one bouquet image.").max(12),
+  occasionIds: z.array(z.string().trim().min(1)).max(24).default([]),
+  featured: z.boolean().default(false),
+});
+
+export const bouquetPatchSchema = bouquetUpsertSchema.partial();
+
 export const categoryPatchSchema = z.object({
   name: z.string().trim().min(1, "Category name is required.").max(80),
   description: z.string().max(1000).default(""),

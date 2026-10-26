@@ -49,6 +49,10 @@ export async function POST(req: NextRequest) {
       console.error("resend-otp: failed to send verification OTP", email, err);
     }
 
+    if (!emailSent) {
+      return jsonError("We could not send the code right now. Please try again shortly.", 502);
+    }
+
     await CustomerModel.updateOne(
       { _id: customer._id },
       {
@@ -56,14 +60,10 @@ export async function POST(req: NextRequest) {
           emailOtpHash: otpHash,
           emailOtpExpiresAt: otpExpiresAt,
           emailOtpAttempts: 0,
-          emailOtpResendAt: new Date(emailSent ? Date.now() + EMAIL_OTP_RESEND_COOLDOWN_MS : 0),
+          emailOtpResendAt: new Date(Date.now() + EMAIL_OTP_RESEND_COOLDOWN_MS),
         },
       },
     ).lean();
-
-    if (!emailSent) {
-      return jsonError("We could not send the code right now. Please try again shortly.", 502);
-    }
     return jsonOk({ ok: true });
   });
 }

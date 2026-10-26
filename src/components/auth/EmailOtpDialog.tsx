@@ -26,7 +26,7 @@ export default function EmailOtpDialog({
   const [status, setStatus] = useState<"idle" | "verifying" | "error" | "success">("idle");
   const [message, setMessage] = useState<string | null>(initialNote ?? null);
   const [resending, setResending] = useState(false);
-  const [cooldown, setCooldown] = useState(60);
+  const [cooldown, setCooldown] = useState(initialNote ? 0 : 60);
 
   useEffect(() => {
     if (!open) return;

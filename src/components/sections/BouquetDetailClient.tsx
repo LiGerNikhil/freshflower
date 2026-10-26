@@ -12,11 +12,12 @@ import {
   Sparkles,
   Truck,
 } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ProductCard } from "@/components/sections/ProductCard";
 import { useCart } from "@/components/providers/CartContext";
-import { GRADIENT_TOKENS } from "@/lib/utils";
+import { GRADIENT_TOKENS, isRemoteImage } from "@/lib/utils";
 import type { Bouquet, Flower } from "@/lib/types";
 
 export default function BouquetDetailClient({
@@ -32,6 +33,9 @@ export default function BouquetDetailClient({
   const { addItem } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [date, setDate] = useState("");
+  const bouquetImages = bouquet.images?.length ? bouquet.images : ["gradient-blush"];
+  const [selectedImage, setSelectedImage] = useState(bouquetImages[0]);
+  const image = selectedImage;
   const bouquetFlowers = bouquet.items
     .map((item) => flowers.find((flower) => flower.id === item.flowerId))
     .filter(Boolean) as Flower[];
@@ -42,7 +46,7 @@ export default function BouquetDetailClient({
       name: bouquet.name,
       price: bouquet.price,
       quantity,
-      image: bouquet.images[0],
+      image: bouquetImages[0],
     });
   const buy = () => {
     add();
@@ -53,10 +57,18 @@ export default function BouquetDetailClient({
       <div className="mx-auto max-w-7xl px-5 py-10 md:px-10">
         <div className="grid gap-12 lg:grid-cols-2">
           <div
-            className="flex aspect-square items-center justify-center rounded-xl"
-            style={{ background: GRADIENT_TOKENS[bouquet.images[0]] }}
+            className="relative flex aspect-square items-center justify-center overflow-hidden rounded-xl"
+            style={{
+              background: isRemoteImage(image)
+                ? undefined
+                : GRADIENT_TOKENS[image] ?? GRADIENT_TOKENS["gradient-blush"],
+            }}
           >
-            <Flower2 size={240} strokeWidth={0.45} className="text-ink/20" />
+            {isRemoteImage(image) ? (
+              <Image src={image} alt={bouquet.name} fill priority sizes="(max-width: 1024px) 100vw, 50vw" className="object-cover" />
+            ) : (
+              <Flower2 size={240} strokeWidth={0.45} className="text-ink/20" />
+            )}
           </div>
           <div>
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.22em] text-sage-ink">
@@ -69,6 +81,27 @@ export default function BouquetDetailClient({
               </span>
               <Badge tone="sage">Made to order</Badge>
             </div>
+            {bouquetImages.length > 1 && (
+              <div className="mt-3 flex flex-wrap gap-2" aria-label="Bouquet image gallery">
+                {bouquetImages.map((src, index) => (
+                  <button
+                    key={`${src}-${index}`}
+                    type="button"
+                    aria-label={`Show ${bouquet.name} image ${index + 1}`}
+                    aria-pressed={selectedImage === src}
+                    onClick={() => setSelectedImage(src)}
+                    className={`relative h-16 w-16 overflow-hidden rounded-md border-2 ${selectedImage === src ? "border-gold" : "border-transparent"}`}
+                    style={{
+                      background: isRemoteImage(src)
+                        ? undefined
+                        : GRADIENT_TOKENS[src] ?? GRADIENT_TOKENS["gradient-blush"],
+                    }}
+                  >
+                    {isRemoteImage(src) && <Image src={src} alt="" fill sizes="64px" className="object-cover" />}
+                  </button>
+                ))}
+              </div>
+            )}
             <p className="mt-6 text-base leading-8 text-ink-soft">
               {bouquet.description}
             </p>
@@ -157,14 +190,22 @@ export default function BouquetDetailClient({
                   className="group"
                 >
                   <div
-                    className="flex aspect-[1.1] items-center justify-center rounded-lg"
-                    style={{ background: GRADIENT_TOKENS[item.images[0]] }}
+                    className="relative flex aspect-[1.1] items-center justify-center overflow-hidden rounded-lg"
+                    style={{
+                      background: isRemoteImage(item.images?.[0])
+                        ? undefined
+                        : GRADIENT_TOKENS[item.images?.[0] ?? "gradient-blush"] ?? GRADIENT_TOKENS["gradient-blush"],
+                    }}
                   >
-                    <Flower2
-                      size={100}
-                      strokeWidth={0.5}
-                      className="text-ink/20 transition-transform group-hover:scale-110"
-                    />
+                    {isRemoteImage(item.images?.[0]) ? (
+                      <Image src={item.images[0]} alt={item.name} fill sizes="(max-width: 768px) 80vw, 30vw" className="object-cover transition-transform group-hover:scale-105" />
+                    ) : (
+                      <Flower2
+                        size={100}
+                        strokeWidth={0.5}
+                        className="text-ink/20 transition-transform group-hover:scale-110"
+                      />
+                    )}
                   </div>
                   <h3 className="mt-4 font-display text-2xl">{item.name}</h3>
                   <p className="mt-1 text-sm text-ink-soft">

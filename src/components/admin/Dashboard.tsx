@@ -7,16 +7,19 @@ import {
   CheckCircle2,
   Clock,
   CreditCard,
+  Flower,
   Inbox,
   IndianRupee,
   LayoutDashboard,
   PackageCheck,
+  Plus,
   ShoppingBag,
   Truck,
   Users,
   XCircle,
 } from "lucide-react";
 import { useDashboardData } from "@/components/admin/useDashboardData";
+import { useAdminAuth } from "@/components/providers/AdminAuthContext";
 import {
   DailyOrdersChart,
   LiveBadge,
@@ -24,10 +27,14 @@ import {
   StatCard,
 } from "@/components/admin/AnalyticsCharts";
 import { formatINR } from "@/lib/admin/analytics";
+import { AdminRole } from "@/lib/types";
 
 export function Dashboard() {
   const { data, syncing, syncedAt } = useDashboardData();
+  const { role } = useAdminAuth();
   const { stats, series } = data;
+  const canManageBouquets =
+    role === AdminRole.SuperAdmin || role === AdminRole.InventoryManager;
 
   return (
     <div>
@@ -44,6 +51,59 @@ export function Dashboard() {
         </p>
         <LiveBadge syncing={syncing} syncedAt={syncedAt} />
       </div>
+
+      {canManageBouquets && (
+        <section className="mb-6" aria-labelledby="catalogue-shortcuts">
+          <h2
+            id="catalogue-shortcuts"
+            className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-ink-soft"
+          >
+            Catalogue shortcuts
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Link
+              href="/admin/bouquets"
+              className="group flex items-center gap-4 rounded-xl border border-ink/10 bg-white/80 p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-gold/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            >
+              <span className="rounded-xl bg-sage px-3 py-3 text-sage-ink">
+                <Flower size={20} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-display text-xl text-ink">
+                  Manage bouquets
+                </span>
+                <span className="mt-1 block text-sm text-ink-soft">
+                  Edit bouquet details, prices, and images
+                </span>
+              </span>
+              <ArrowRight
+                size={18}
+                className="shrink-0 text-gold transition-transform group-hover:translate-x-1"
+              />
+            </Link>
+            <Link
+              href="/admin/bouquets/new"
+              className="group flex items-center gap-4 rounded-xl border border-ink/10 bg-white/80 p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-gold/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            >
+              <span className="rounded-xl bg-gold/15 px-3 py-3 text-gold">
+                <Plus size={20} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-display text-xl text-ink">
+                  Add a bouquet
+                </span>
+                <span className="mt-1 block text-sm text-ink-soft">
+                  Create a bouquet and upload its images
+                </span>
+              </span>
+              <ArrowRight
+                size={18}
+                className="shrink-0 text-gold transition-transform group-hover:translate-x-1"
+              />
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">

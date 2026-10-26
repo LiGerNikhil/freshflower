@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DeliveryPage } from "@/components/sections/ContentPages";
+import { getDeliveryAreas } from "@/lib/db/repositories";
 import { canonical } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -16,6 +17,9 @@ export const metadata: Metadata = {
   },
 };
 
-export default function DeliveryRoute() {
-  return <DeliveryPage />;
+export const dynamic = "force-dynamic";
+
+export default async function DeliveryRoute() {
+  const deliveryAreas = await getDeliveryAreas();
+  return <DeliveryPage deliveryAreas={deliveryAreas} />;
 }

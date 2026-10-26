@@ -178,6 +178,10 @@ async function main() {
   );
 
   // Ensure indexes (unique on slug / orderNumber / code / email …).
+  // Some older document sets can carry null checkoutRequestId values, which
+  // should not be treated as duplicate checkout locks. Drop and rebuild this
+  // specific index so the seed is idempotent and safe on existing data.
+  await OrderModel.collection.dropIndex("customerId_1_checkoutRequestId_1").catch(() => undefined);
   await Promise.all([
     FlowerModel.createIndexes(),
     CategoryModel.createIndexes(),

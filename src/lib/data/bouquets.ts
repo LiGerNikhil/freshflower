@@ -1,51 +1,109 @@
 import type { Bouquet } from "@/lib/types";
 
-// PHASE 2 INTEGRATION — not active in preview.
 export const bouquets: Bouquet[] = [
   {
-    id: "bq-blush-romance",
-    name: "Blush Romance",
-    slug: "blush-romance",
+    id: "bq-rose-bouquet-60",
+    name: "60 Rose Bouquet",
+    slug: "60-rose-bouquet",
     description:
-      "Red roses, pink lilies, and baby's breath, hand-arranged in a blush wrap — our signature anniversary bouquet.",
+      "A classic rose arrangement for intimate gifting, birthdays, and thoughtful milestones.",
     items: [
-      { flowerId: "fl-red-rose-bunch", quantity: 1 },
-      { flowerId: "fl-lily-pink", quantity: 1 },
-      { flowerId: "fl-babys-breath-bunch", quantity: 1 },
+      { flowerId: "fl-bangalore-rose", quantity: 1 },
+      { flowerId: "fl-babys-breath", quantity: 1 },
     ],
-    price: 2999,
+    price: 2000,
     images: ["gradient-blush"],
-    occasionIds: ["occ-anniversary"],
+    occasionIds: ["occ-anniversary", "occ-birthday"],
     featured: true,
   },
   {
-    id: "bq-sunny-cheer",
-    name: "Sunny Cheer",
-    slug: "sunny-cheer",
+    id: "bq-rose-bouquet-80",
+    name: "80 Rose Bouquet",
+    slug: "80-rose-bouquet",
     description:
-      "Sunflowers and mixed gerbera daisies for a burst of colour that's impossible not to smile at.",
+      "A fuller rose bouquet for sweet gestures, festive surprises, and premium everyday gifting.",
     items: [
-      { flowerId: "fl-sunflower-bunch", quantity: 1 },
-      { flowerId: "fl-gerbera-mixed", quantity: 1 },
+      { flowerId: "fl-bangalore-rose", quantity: 1 },
+      { flowerId: "fl-babys-breath", quantity: 1 },
     ],
-    price: 1699,
-    images: ["gradient-gold"],
-    occasionIds: ["occ-birthday", "occ-get-well"],
+    price: 2500,
+    images: ["gradient-blush"],
+    occasionIds: ["occ-anniversary", "occ-birthday"],
     featured: true,
   },
   {
-    id: "bq-serene-white",
-    name: "Serene White",
-    slug: "serene-white",
+    id: "bq-rose-bouquet-100",
+    name: "100 Rose Bouquet",
+    slug: "100-rose-bouquet",
     description:
-      "White roses and Casablanca lilies, arranged simply for condolence or quiet, dignified gifting.",
+      "An elevated statement bouquet designed for grander celebrations and memorable gifting.",
     items: [
-      { flowerId: "fl-white-rose-bunch", quantity: 1 },
-      { flowerId: "fl-lily-white", quantity: 1 },
+      { flowerId: "fl-bangalore-rose", quantity: 1 },
+      { flowerId: "fl-babys-breath", quantity: 1 },
     ],
-    price: 2199,
-    images: ["gradient-ivory"],
-    occasionIds: ["occ-condolence"],
+    price: 3000,
+    images: ["gradient-blush"],
+    occasionIds: ["occ-anniversary", "occ-just-because"],
+    featured: true,
+  },
+  {
+    id: "bq-rose-bouquet-200",
+    name: "200 Rose Bouquet",
+    slug: "200-rose-bouquet",
+    description:
+      "A rich, high-impact bouquet crafted for décor, gifting at scale, and larger events.",
+    items: [
+      { flowerId: "fl-bangalore-rose", quantity: 1 },
+      { flowerId: "fl-babys-breath", quantity: 1 },
+    ],
+    price: 5800,
+    images: ["gradient-blush"],
+    occasionIds: ["occ-wedding", "occ-congratulations"],
+    featured: false,
+  },
+  {
+    id: "bq-rose-bouquet-300",
+    name: "300 Rose Bouquet",
+    slug: "300-rose-bouquet",
+    description:
+      "A premium rose arrangement built for luxe gifting and milestone moments that deserve extra impact.",
+    items: [
+      { flowerId: "fl-bangalore-rose", quantity: 1 },
+      { flowerId: "fl-babys-breath", quantity: 1 },
+    ],
+    price: 8500,
+    images: ["gradient-blush"],
+    occasionIds: ["occ-wedding", "occ-anniversary"],
+    featured: false,
+  },
+  {
+    id: "bq-rose-bouquet-500",
+    name: "500 Rose Bouquet",
+    slug: "500-rose-bouquet",
+    description:
+      "A dramatic floral statement with layered rose volume for event styling and large-scale gifting.",
+    items: [
+      { flowerId: "fl-bangalore-rose", quantity: 1 },
+      { flowerId: "fl-babys-breath", quantity: 1 },
+    ],
+    price: 13500,
+    images: ["gradient-blush"],
+    occasionIds: ["occ-wedding", "occ-just-because"],
+    featured: false,
+  },
+  {
+    id: "bq-rose-bouquet-1000",
+    name: "1000 Rose Bouquet",
+    slug: "1000-rose-bouquet",
+    description:
+      "An indulgent, large-format rose arrangement for grand celebrations, venue styling, and luxury gifting.",
+    items: [
+      { flowerId: "fl-bangalore-rose", quantity: 1 },
+      { flowerId: "fl-babys-breath", quantity: 1 },
+    ],
+    price: 21000,
+    images: ["gradient-blush"],
+    occasionIds: ["occ-wedding", "occ-just-because"],
     featured: false,
   },
 ];

@@ -209,7 +209,7 @@ export async function sendEmail({ to, template, attachments }: SendEmailInput) {
     auth: { user, pass },
   });
   const rendered = renderTemplate(template);
-  return transporter.sendMail({
+  const info = await transporter.sendMail({
     from: `FreshFlower.zone <${user}>`,
     to,
     subject: rendered.subject,
@@ -217,4 +217,15 @@ export async function sendEmail({ to, template, attachments }: SendEmailInput) {
     html: rendered.html,
     attachments,
   });
+  const acceptedRecipient = info.accepted.some(
+    (recipient) => {
+      const address = typeof recipient === "string" ? recipient : recipient.address;
+      return address?.toLowerCase() === to.trim().toLowerCase();
+    },
+  );
+  if (!acceptedRecipient) {
+    const rejection = info.rejected.length ? ` Rejected: ${info.rejected.join(", ")}.` : "";
+    throw new Error(`SMTP server did not accept the recipient.${rejection}`);
+  }
+  return info;
 }

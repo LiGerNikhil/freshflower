@@ -234,7 +234,13 @@ const OrderSchema = new Schema(
 );
 
 OrderSchema.index({ customerId: 1 });
-OrderSchema.index({ customerId: 1, checkoutRequestId: 1 }, { unique: true, sparse: true });
+OrderSchema.index(
+  { customerId: 1, checkoutRequestId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { checkoutRequestId: { $type: "string" } },
+  },
+);
 OrderSchema.index({ status: 1 });
 OrderSchema.index({ deliveryDate: 1 });
 OrderSchema.index({ deliverySlotId: 1 });
@@ -386,7 +392,7 @@ const EmailOutboxSchema = new Schema(
     _id: { type: String },
     kind: {
       type: String,
-      enum: ["payment-verification-required", "payment-verified-customer", "payment-correction-customer"],
+      enum: ["payment-verification-required", "payment-verified-customer", "payment-correction-customer", "order-confirmation"],
       required: true,
     },
     status: {

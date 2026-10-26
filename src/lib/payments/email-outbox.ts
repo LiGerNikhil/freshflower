@@ -21,7 +21,7 @@ export async function processPaymentEmailOutbox({ limit = 10 } = {}) {
     const now = new Date();
     const job = await EmailOutboxModel.findOneAndUpdate(
       {
-        kind: { $in: ["payment-verification-required", "payment-verified-customer", "payment-correction-customer"] },
+        kind: { $in: ["payment-verification-required", "payment-verified-customer", "payment-correction-customer", "order-confirmation"] },
         status: { $in: ["pending", "failed"] },
         nextAttemptAt: { $lte: now },
         $or: [{ lockedUntil: { $exists: false } }, { lockedUntil: { $lte: now } }],
@@ -41,7 +41,7 @@ export async function processPaymentEmailOutbox({ limit = 10 } = {}) {
       orderId: string;
       paymentAttemptId: string;
       recipient: string;
-      kind: "payment-verification-required" | "payment-verified-customer" | "payment-correction-customer";
+      kind: "payment-verification-required" | "payment-verified-customer" | "payment-correction-customer" | "order-confirmation";
       attemptCount?: number;
       maxAttempts?: number;
       submissionRequestId?: string;
@@ -55,8 +55,12 @@ export async function processPaymentEmailOutbox({ limit = 10 } = {}) {
           orderNumber: string;
           customerId: string;
           total: number;
+          items: { name: string; quantity: number; price: number; color?: string }[];
+          deliveryAddress?: { line1?: string; city?: string; pincode?: string };
         }>(),
-        PaymentAttemptModel.findById(job.paymentAttemptId).lean<{
+        job.kind === "order-confirmation"
+          ? Promise.resolve(null)
+          : PaymentAttemptModel.findById(job.paymentAttemptId).lean<{
           _id: string;
           orderNumber: string;
           customerId: string;
@@ -67,10 +71,45 @@ export async function processPaymentEmailOutbox({ limit = 10 } = {}) {
           screenshotAsset?: { publicId?: string };
         }>(),
       ]);
-      if (!order || !attempt) throw new Error("Order or payment attempt not found for outbox job.");
+      if (!order || (job.kind !== "order-confirmation" && !attempt)) {
+        throw new Error("Order or payment attempt not found for outbox job.");
+      }
       const customer = await CustomerModel.findById(order.customerId)
         .select({ name: 1, email: 1, phone: 1 })
         .lean<{ name?: string; email?: string; phone?: string }>();
+      if (job.kind === "order-confirmation") {
+        if (!customer?.email) throw new Error("Customer email not found for order confirmation.");
+        const info = await sendEmail({
+          to: job.recipient,
+          template: {
+            type: "order-confirmation",
+            name: customer.name ?? "Customer",
+            orderNumber: order.orderNumber,
+            total: order.total,
+            items: order.items,
+            deliveryAddress: order.deliveryAddress ?? {},
+          },
+        });
+        await EmailOutboxModel.updateOne(
+          { _id: job._id, lockToken },
+          {
+            $set: {
+              status: "sent",
+              sentAt: new Date(),
+              notificationId: info.messageId,
+              failureReason: undefined,
+            },
+            $unset: { lockToken: "", lockedAt: "", lockedUntil: "" },
+          },
+        ).lean();
+        await OrderModel.updateOne(
+          { _id: order._id },
+          { $set: { orderConfirmationEmailSentAt: new Date() } },
+        ).lean();
+        processed += 1;
+        continue;
+      }
+      if (!attempt) throw new Error("Payment attempt not found for outbox job.");
       let screenshotUrl: string | undefined;
       if (attempt.screenshotAsset?.publicId) {
         screenshotUrl = buildAuthenticatedImageUrl(attempt.screenshotAsset.publicId, {

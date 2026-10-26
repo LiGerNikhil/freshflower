@@ -54,21 +54,9 @@ export function CloudinaryUpload({
     }
   }
 
-  async function remove(url: string) {
+  function remove(url: string) {
     const next = value.filter((v) => v !== url);
     onChange(next);
-    const match = /^https:\/\/res\.cloudinary\.com\/.+\/(image|video)\/upload\/(?:v\d+\/)?(.+)$/.exec(
-      url,
-    );
-    if (match) {
-      try {
-        await fetch(`/api/admin/upload?id=${encodeURIComponent(match[2])}&resourceType=${match[1]}`, {
-          method: "DELETE",
-        });
-      } catch {
-        // Deleting the remote asset is best-effort; the local list is already updated.
-      }
-    }
   }
 
   return (

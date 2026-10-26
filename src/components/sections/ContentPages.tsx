@@ -3,15 +3,14 @@ import {
   ArrowRight,
   Clock3,
   MapPin,
-  MessageCircle,
-  Phone,
   ShieldCheck,
   Truck,
 } from "lucide-react";
 import { FAQAccordion } from "@/components/sections/FAQAccordion";
 import { HeroVideo } from "@/components/sections/HeroVideo";
-import { deliveryAreas } from "@/lib/data";
+import { ContactInfoCards } from "@/components/sections/ContactInfoCards";
 import type { FAQ } from "@/lib/data/faqs";
+import type { DeliveryArea } from "@/lib/types";
 
 export function EditorialHeader({
   eyebrow,
@@ -112,7 +111,11 @@ export function AboutPage() {
     </main>
   );
 }
-export function DeliveryPage() {
+export function DeliveryPage({
+  deliveryAreas,
+}: {
+  deliveryAreas: DeliveryArea[];
+}) {
   return (
     <main className="bg-ivory">
       <EditorialHeader
@@ -212,10 +215,8 @@ export function DeliveryPage() {
           <div>
             <h2 className="text-4xl">Where we deliver</h2>
             <p className="mt-4 text-sm leading-8 text-ink-soft">
-              We deliver across a focused set of Delhi NCR areas — South
-              Extension, Connaught Place, Vasant Kunj, Dwarka, Gurgaon, Noida,
-              Greater Noida, Ghaziabad, and Faridabad — with delivery fees
-              starting at ₹99.
+              We currently deliver across these Delhi NCR service areas. Fees
+              and estimated delivery times are shown for each area below.
             </p>
             <div className="mt-8 grid grid-cols-2 gap-4">
               {deliveryAreas.map((area) => (
@@ -338,43 +339,17 @@ export function DeliveryPage() {
           For questions about your area, timing, or a time-sensitive handoff,
           reach us directly.
         </p>
-        <div className="mt-6 grid gap-4 sm:grid-cols-3">
-          <div className="rounded-lg bg-sage p-6">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-sage-ink">
-              Phone
-            </p>
-            <p className="mt-2 text-xl font-semibold">+91 99999 99999</p>
-            <p className="mt-1 text-xs text-ink-soft">Mon–Sat, 6 AM – 8 PM</p>
-          </div>
-          <div className="rounded-lg bg-blush p-6">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-sage-ink">
-              WhatsApp
-            </p>
-            <p className="mt-2 text-xl font-semibold">Same number</p>
-            <p className="mt-1 text-xs text-ink-soft">
-              Best for quick order queries
-            </p>
-          </div>
-          <div className="rounded-lg bg-lavender p-6">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-sage-ink">
-              Email
-            </p>
-            <p className="mt-2 text-xl font-semibold">hello@freshflower.zone</p>
-            <p className="mt-1 text-xs text-ink-soft">
-              For detailed or written queries
-            </p>
-          </div>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <ContactInfoCards />
         </div>
-        <p className="mt-8 text-sm leading-7 text-ink-soft">
-          <Phone size={14} className="mr-2 inline text-gold" /> +91 99999 99999
-        </p>
-        <p className="mt-2 text-sm leading-7 text-ink-soft">
-          <MessageCircle size={14} className="mr-2 inline text-gold" /> WhatsApp
-          support
-        </p>
-        <p className="mt-2 text-sm leading-7 text-ink-soft">
-          <Clock3 size={14} className="mr-2 inline text-gold" /> Daily, 6 AM – 8
-          PM (Sun 7 AM – 2 PM)
+      </section>
+
+      <section className="bg-ivory-deep px-5 py-8 md:px-10">
+        <p className="mx-auto max-w-7xl text-xs leading-6 text-ink-soft">
+          Product images are AI-generated or illustrative and may differ from
+          the actual flowers, colours, and arrangement delivered. Images may be
+          subject to copyright. Please contact us to confirm product details
+          and availability before ordering.
         </p>
       </section>
     </main>
