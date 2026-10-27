@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { FestivalCollectionClient } from "@/components/sections/FestivalCollectionClient";
 import { JsonLd } from "@/components/ui/JsonLd";
@@ -76,6 +76,8 @@ export default async function CollectionPage({ params }: CollectionPageProps) {
   const { slug } = await params;
   const collection = await getLiveFestivalCollectionBySlug(slug);
   if (!collection) notFound();
+  // Advance-booking campaigns have a dedicated request flow, not a cart checkout.
+  if (collection.advanceBooking) redirect("/diwali");
 
   const [flowers, categories] = await Promise.all([
     getPublishedFlowers(),

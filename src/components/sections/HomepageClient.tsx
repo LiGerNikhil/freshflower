@@ -15,6 +15,7 @@ import { CategoryCarousel } from "@/components/home/CategoryCarousel";
 import { FestivalBanner } from "@/components/home/FestivalBanner";
 import { ProductCarousel } from "@/components/home/ProductCarousel";
 import { TrustStrip } from "@/components/home/TrustStrip";
+import { DiwaliCampaignBanner } from "@/components/home/DiwaliCampaignBanner";
 import {
   ProductGrid,
   Reveal,
@@ -84,6 +85,9 @@ export default function HomepageClient({
 }: HomepageClientProps) {
   const [quickView, setQuickView] = useState<Flower | null>(null);
   const [selectedColour, setSelectedColour] = useState("Red");
+  const diwaliCampaign = festivalCollections.find(
+    (collection) => collection.slug === "diwali" && collection.advanceBooking,
+  ) ?? null;
 
   const featured = useMemo(() => {
     const selected = homepage.featuredFlowerIds
@@ -127,61 +131,64 @@ export default function HomepageClient({
     occasions.find((occasion) => occasion.slug === "just-because");
 
   const categorySection = (
-    <Section id="shop">
-      <Reveal>
-        <SectionIntro
-          eyebrow="Find your bloom"
-          title="Shop by category"
-          href="/categories"
-          linkLabel="See all categories"
-        />
-      </Reveal>
-      <motion.div
-        variants={stagger}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.1 }}
-        className="flex snap-x gap-4 overflow-x-auto pb-6 md:grid md:grid-cols-3 md:overflow-visible lg:grid-cols-6"
-      >
-        {categories.slice(0, 6).map((category) => (
-          <motion.div
-            variants={reveal}
-            key={category.id}
-            className="min-w-[180px] snap-start sm:min-w-[210px]"
-          >
-            <Link href={`/categories/${category.slug}`} className="group block">
-              <div
-                className="relative mb-3 flex aspect-square items-center justify-center overflow-hidden rounded-lg"
-                style={
-                  category.imageUrl
-                    ? undefined
-                    : { background: GRADIENT_TOKENS[category.heroImage] }
-                }
-              >
-                {category.imageUrl ? (
-                  <Image
-                    src={category.imageUrl}
-                    alt={category.name}
-                    fill
-                    sizes="(max-width: 768px) 180px, (max-width: 1024px) 33vw, 16vw"
-                    className="object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                ) : (
-                  <Flower2
-                    size={82}
-                    strokeWidth={0.65}
-                    className="text-ink/25 transition-transform duration-500 group-hover:scale-110"
-                  />
-                )}
-                <span className="absolute bottom-4 left-4 right-4 rounded-full bg-ivory/75 px-3 py-2 text-center text-xs font-bold uppercase tracking-[0.16em] text-ink backdrop-blur-sm">
-                  {category.name}
-                </span>
-              </div>
-            </Link>
-          </motion.div>
-        ))}
-      </motion.div>
-    </Section>
+    <>
+      {diwaliCampaign && <DiwaliCampaignBanner campaign={diwaliCampaign} />}
+      <Section id="shop">
+        <Reveal>
+          <SectionIntro
+            eyebrow="Find your bloom"
+            title="Shop by category"
+            href="/categories"
+            linkLabel="See all categories"
+          />
+        </Reveal>
+        <motion.div
+          variants={stagger}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.1 }}
+          className="flex snap-x gap-4 overflow-x-auto pb-6 md:grid md:grid-cols-3 md:overflow-visible lg:grid-cols-6"
+        >
+          {categories.slice(0, 6).map((category) => (
+            <motion.div
+              variants={reveal}
+              key={category.id}
+              className="min-w-[180px] snap-start sm:min-w-[210px]"
+            >
+              <Link href={`/categories/${category.slug}`} className="group block">
+                <div
+                  className="relative mb-3 flex aspect-square items-center justify-center overflow-hidden rounded-lg"
+                  style={
+                    category.imageUrl
+                      ? undefined
+                      : { background: GRADIENT_TOKENS[category.heroImage] }
+                  }
+                >
+                  {category.imageUrl ? (
+                    <Image
+                      src={category.imageUrl}
+                      alt={category.name}
+                      fill
+                      sizes="(max-width: 768px) 180px, (max-width: 1024px) 33vw, 16vw"
+                      className="object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                  ) : (
+                    <Flower2
+                      size={82}
+                      strokeWidth={0.65}
+                      className="text-ink/25 transition-transform duration-500 group-hover:scale-110"
+                    />
+                  )}
+                  <span className="absolute bottom-4 left-4 right-4 rounded-full bg-ivory/75 px-3 py-2 text-center text-xs font-bold uppercase tracking-[0.16em] text-ink backdrop-blur-sm">
+                    {category.name}
+                  </span>
+                </div>
+              </Link>
+            </motion.div>
+          ))}
+        </motion.div>
+      </Section>
+    </>
   );
   const onSaleSection = (
     <ProductRail
@@ -440,6 +447,7 @@ export default function HomepageClient({
             categories={selectedCategories}
             collections={selectedCollections}
             products={heroProducts}
+            diwaliCampaign={diwaliCampaign}
             onQuickView={setQuickView}
           />
         ) : (
@@ -492,7 +500,12 @@ export default function HomepageClient({
   ];
 
   const sectionContent: Record<HomepageSectionId, ReactNode> = {
-    categories: <CategoryCarousel categories={selectedCategories} />,
+    categories: (
+      <>
+        {diwaliCampaign && <DiwaliCampaignBanner campaign={diwaliCampaign} />}
+        <CategoryCarousel categories={selectedCategories} />
+      </>
+    ),
     "festival-specials": (
       <ProductCarousel
         eyebrow="Made for the celebration"
@@ -544,6 +557,7 @@ export default function HomepageClient({
           categories={selectedCategories}
           collections={selectedCollections}
           products={heroProducts}
+          diwaliCampaign={diwaliCampaign}
           onQuickView={setQuickView}
         />
       ) : (

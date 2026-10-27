@@ -128,6 +128,7 @@ const FestivalCollectionSchema = new Schema(
     title: { type: String, required: true },
     slug: { type: String, required: true, unique: true },
     subtitle: String,
+    description: String,
     bannerImage: String,
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     active: { type: Boolean, default: false },
@@ -143,6 +144,39 @@ const FestivalCollectionSchema = new Schema(
     seoTitle: String,
     metaDescription: String,
     keywords: { type: [String], default: [] },
+    advanceBooking: {
+      description: String,
+      announcement: String,
+      primaryCtaLabel: String,
+      secondaryCtaLabel: String,
+      bookingCutoffAt: String,
+      deliveryDates: { type: [String], default: [] },
+      deliveryTimePreferences: { type: [String], default: [] },
+      deliveryAreaIds: { type: [String], default: [] },
+      dailyBookingLimit: { type: Number, default: 0 },
+      earlyMorningDelivery: { type: Boolean, default: false },
+      customRequirementsEnabled: { type: Boolean, default: true },
+      productSettings: {
+        type: [
+          new Schema(
+            {
+              _id: false,
+              productId: { type: String, required: true },
+              visible: { type: Boolean, default: true },
+              featured: { type: Boolean, default: false },
+              displayLabel: String,
+              promotionalDescription: String,
+              minQuantity: { type: Number, default: 1 },
+              maxQuantity: { type: Number, default: 99 },
+              bulkOrderEligible: { type: Boolean, default: false },
+              eligibleVariants: { type: [String], default: [] },
+            },
+            { _id: false },
+          ),
+        ],
+        default: [],
+      },
+    },
   },
   { timestamps: true },
 );
@@ -170,6 +204,7 @@ const BouquetSchema = new Schema(
     items: { type: [BouquetItemSchema], default: [] },
     price: { type: Number, required: true },
     images: { type: [String], default: [] },
+    colors: { type: [String], default: [] },
     occasionIds: { type: [String], default: [] },
     featured: { type: Boolean, default: false },
   },
@@ -229,9 +264,75 @@ const OrderSchema = new Schema(
     razorpayCreatingAt: Date,
     paidAt: Date,
     orderConfirmationEmailSentAt: Date,
+    source: { type: String, enum: ["standard", "diwali"], default: "standard" },
+    diwaliBookingId: String,
+    bookingReference: String,
+    deliveryTimePreference: String,
   },
   { timestamps: true },
 );
+
+const DiwaliBookingItemSchema = new Schema(
+  {
+    _id: false,
+    productId: { type: String, required: true },
+    name: { type: String, required: true },
+    variant: String,
+    quantity: { type: Number, required: true, min: 1 },
+    unitLabel: { type: String, required: true },
+    price: Number,
+    image: String,
+  },
+  { _id: false },
+);
+
+const DiwaliBookingSchema = new Schema(
+  {
+    _id: { type: String },
+    reference: { type: String, required: true, unique: true },
+    campaignId: { type: String, required: true },
+    customerId: String,
+    customer: {
+      name: { type: String, required: true },
+      phone: { type: String, required: true },
+      whatsapp: String,
+      email: String,
+    },
+    items: { type: [DiwaliBookingItemSchema], default: [] },
+    deliveryDate: { type: String, required: true },
+    deliveryTimePreference: { type: String, required: true },
+    deliveryAreaId: { type: String, required: true },
+    address: { type: String, required: true },
+    locality: { type: String, required: true },
+    pincode: { type: String, required: true },
+    specialInstructions: String,
+    customRequirements: String,
+    estimatedAmount: Number,
+    itemsSubtotal: Number,
+    deliveryFee: { type: Number, default: 0 },
+    needsQuote: { type: Boolean, default: false },
+    status: {
+      type: String,
+      enum: ["new_request", "under_review", "availability_confirmed", "awaiting_payment", "confirmed", "fulfilled", "cancelled", "rejected"],
+      default: "new_request",
+    },
+    paymentStatus: { type: String, enum: ["pending", "paid", "refunded", "failed"], default: "pending" },
+    paymentAmount: Number,
+    orderId: String,
+    razorpayOrderId: String,
+    razorpayPaymentId: String,
+    razorpayPaymentMethod: String,
+    paidAt: Date,
+    internalNotes: String,
+  },
+  { timestamps: true },
+);
+
+DiwaliBookingSchema.index({ campaignId: 1, createdAt: -1 });
+DiwaliBookingSchema.index({ status: 1, deliveryDate: 1 });
+DiwaliBookingSchema.index({ "customer.phone": 1 });
+DiwaliBookingSchema.index({ customerId: 1, createdAt: -1 });
+DiwaliBookingSchema.index({ paymentStatus: 1, createdAt: -1 });
 
 OrderSchema.index({ customerId: 1 });
 OrderSchema.index(
@@ -247,6 +348,7 @@ OrderSchema.index({ deliverySlotId: 1 });
 OrderSchema.index({ "deliveryAddress.pincode": 1 });
 OrderSchema.index({ paymentState: 1 });
 OrderSchema.index({ latestPaymentAttemptId: 1 });
+OrderSchema.index({ diwaliBookingId: 1 }, { partialFilterExpression: { diwaliBookingId: { $type: "string" } } });
 
 // ---- Manual UPI payments -----------------------------------------------------
 
@@ -730,6 +832,7 @@ export const FlowerModel = register<any>("Flower", FlowerSchema);
 export const FestivalCollectionModel = register<any>("FestivalCollection", FestivalCollectionSchema);
 export const BouquetModel = register<any>("Bouquet", BouquetSchema);
 export const OrderModel = register<any>("Order", OrderSchema);
+export const DiwaliBookingModel = register<any>("DiwaliBooking", DiwaliBookingSchema);
 export const PaymentAccountModel = register<any>("PaymentAccount", PaymentAccountSchema);
 export const PaymentAttemptModel = register<any>("PaymentAttempt", PaymentAttemptSchema);
 export const DurablePaymentEventModel = register<any>("DurablePaymentEvent", DurablePaymentEventSchema);

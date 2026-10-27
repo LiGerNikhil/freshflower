@@ -81,6 +81,8 @@ export const bouquetUpsertSchema = z.object({
     .refine((items) => new Set(items.map((item) => item.flowerId)).size === items.length, "A flower can only be added once."),
   price: z.number().finite().min(0).max(9_999_999),
   images: z.array(z.string().url().max(1000)).min(1, "Upload at least one bouquet image.").max(12),
+  colors: z.array(z.string().trim().min(1).max(60)).max(24).default([])
+    .refine((colors) => new Set(colors.map((color) => color.toLowerCase())).size === colors.length, "Bouquet colors must be unique."),
   occasionIds: z.array(z.string().trim().min(1)).max(24).default([]),
   featured: z.boolean().default(false),
 });
@@ -103,10 +105,49 @@ export const categoryPatchSchema = z.object({
 const orderedIdsSchema = z.array(z.string().trim().min(1).max(120)).max(200)
   .refine((ids) => new Set(ids).size === ids.length, "Duplicate references are not allowed.");
 
+const advanceBookingProductSchema = z.object({
+  productId: z.string().trim().min(1).max(120),
+  visible: z.boolean().default(true),
+  featured: z.boolean().default(false),
+  displayLabel: z.string().trim().max(120).optional(),
+  promotionalDescription: z.string().max(500).optional(),
+  minQuantity: z.number().int().min(1).max(99).default(1),
+  maxQuantity: z.number().int().min(1).max(999).default(99),
+  bulkOrderEligible: z.boolean().default(false),
+  eligibleVariants: z.array(z.string().trim().min(1).max(60)).max(24).default([]),
+}).refine((value) => value.maxQuantity >= value.minQuantity, {
+  path: ["maxQuantity"],
+  message: "Maximum quantity must be at least the minimum quantity.",
+});
+
+const campaignDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
+  const timestamp = Date.parse(`${value}T00:00:00Z`);
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === value;
+}, "Enter a valid calendar date.");
+
+const advanceBookingSchema = z.object({
+  description: z.string().max(2000).default(""),
+  announcement: z.string().max(240).default(""),
+  primaryCtaLabel: z.string().trim().min(1).max(60).default("Book Your Diwali Flowers"),
+  secondaryCtaLabel: z.string().trim().min(1).max(60).default("Explore Diwali Collection"),
+  bookingCutoffAt: z.string().datetime({ offset: true }).optional(),
+  deliveryDates: z.array(campaignDateSchema).max(31).default([])
+    .refine((dates) => new Set(dates).size === dates.length, "Delivery dates must be unique."),
+  deliveryTimePreferences: z.array(z.string().trim().min(1).max(80)).max(24).default([])
+    .refine((times) => new Set(times).size === times.length, "Delivery windows must be unique."),
+  deliveryAreaIds: orderedIdsSchema.default([]),
+  dailyBookingLimit: z.number().int().min(0).max(10_000).default(0),
+  earlyMorningDelivery: z.boolean().default(false),
+  customRequirementsEnabled: z.boolean().default(true),
+  productSettings: z.array(advanceBookingProductSchema).max(200).default([])
+    .refine((settings) => new Set(settings.map((item) => item.productId)).size === settings.length, "Campaign product settings must be unique."),
+});
+
 const festivalCollectionFields = z.object({
   title: z.string().trim().min(1).max(120),
   slug: z.string().trim().min(1).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   subtitle: z.string().max(500).optional(),
+  description: z.string().max(2000).optional(),
   bannerImage: z.string().url().max(1000).or(z.literal("")).optional(),
   status: z.enum(["draft", "published"]).default("draft"),
   active: z.boolean().default(false),
@@ -122,6 +163,7 @@ const festivalCollectionFields = z.object({
   seoTitle: z.string().max(160).optional(),
   metaDescription: z.string().max(320).optional(),
   keywords: z.array(z.string().max(60)).max(30).default([]),
+  advanceBooking: advanceBookingSchema.optional(),
 });
 
 export const festivalCollectionUpsertSchema = festivalCollectionFields.superRefine((value, ctx) => {
@@ -155,6 +197,36 @@ export const festivalCollectionPatchSchema = festivalCollectionFields.extend({
   whatsappBulkOrderEnabled: festivalCollectionFields.shape.whatsappBulkOrderEnabled.removeDefault(),
   keywords: festivalCollectionFields.shape.keywords.removeDefault(),
 }).partial();
+
+export const diwaliBookingUpsertSchema = z.object({
+  customer: z.object({
+    name: z.string().trim().min(2).max(120),
+    phone: z.string().trim().regex(/^\d{10}$/, "Enter a valid 10-digit mobile number."),
+    whatsapp: z.string().trim().regex(/^\d{10}$/, "Enter a valid 10-digit WhatsApp number.").optional().or(z.literal("")),
+    email: z.string().trim().email().max(254).optional().or(z.literal("")),
+  }),
+  items: z.array(z.object({
+    productId: z.string().trim().min(1).max(120),
+    variant: z.string().trim().min(1).max(60).optional(),
+    quantity: z.number().int().min(1).max(999),
+  })).min(1).max(50),
+  deliveryDate: campaignDateSchema,
+  deliveryTimePreference: z.string().trim().min(1).max(80),
+  deliveryAreaId: z.string().trim().min(1).max(120),
+  address: z.string().trim().min(5).max(300),
+  locality: z.string().trim().min(2).max(120),
+  pincode: z.string().trim().regex(/^\d{6}$/, "Enter a valid 6-digit PIN code."),
+  specialInstructions: z.string().trim().max(1000).optional(),
+  customRequirements: z.string().trim().max(2000).optional(),
+}).refine((value) => new Set(value.items.map((item) => `${item.productId}:${item.variant ?? ""}`)).size === value.items.length, {
+  path: ["items"],
+  message: "Remove duplicate product and variant selections.",
+});
+
+export const diwaliBookingPatchSchema = z.object({
+  status: z.enum(["new_request", "under_review", "availability_confirmed", "awaiting_payment", "confirmed", "fulfilled", "cancelled", "rejected"]).optional(),
+  internalNotes: z.string().max(4000).optional(),
+}).refine((value) => Object.keys(value).length > 0, "Provide a booking status or internal note.");
 
 export const homepageSectionSchema = z.object({
   id: z.enum(HOMEPAGE_SECTION_IDS),

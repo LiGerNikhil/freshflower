@@ -14,6 +14,7 @@ type BouquetDraft = {
   description: string;
   price: number;
   images: string[];
+  colors: string[];
   featured: boolean;
   items: { flowerId: string; quantity: number }[];
   occasionIds: string[];
@@ -31,6 +32,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
+function addColor() {
+  const color = colorInput.trim();
+  if (!color || draft.colors.some((existing) => existing.toLowerCase() === color.toLowerCase())) {
+    return;
+  }
+  if (draft.colors.length >= 24) {
+    setError("A bouquet can have at most 24 color options.");
+    return;
+  }
+  patch({ colors: [...draft.colors, color] });
+  setColorInput("");
+}
+
 export function BouquetForm({ bouquetId }: { bouquetId?: string }) {
   const router = useRouter();
   const editing = Boolean(bouquetId);
@@ -40,6 +54,7 @@ export function BouquetForm({ bouquetId }: { bouquetId?: string }) {
     description: "",
     price: 0,
     images: [],
+    colors: [],
     featured: false,
     items: [],
     occasionIds: [],
@@ -49,6 +64,7 @@ export function BouquetForm({ bouquetId }: { bouquetId?: string }) {
   const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [colorInput, setColorInput] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -69,6 +85,7 @@ export function BouquetForm({ bouquetId }: { bouquetId?: string }) {
             description: bouquet.description ?? "",
             price: bouquet.price,
             images: (bouquet.images ?? []).filter((image) => /^https?:\/\//.test(image)),
+            colors: bouquet.colors ?? [],
             featured: bouquet.featured,
             items: bouquet.items ?? [],
             occasionIds: bouquet.occasionIds ?? [],
@@ -209,6 +226,55 @@ export function BouquetForm({ bouquetId }: { bouquetId?: string }) {
             onChange={(event) => patch({ description: event.target.value })}
           />
         </label>
+
+        <section>
+          <h2 className="text-sm font-semibold">Color options</h2>
+          <p className="mt-1 text-xs text-ink-soft">
+            Add colors customers can choose when ordering. The bouquet price stays the same for every color.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <input
+              value={colorInput}
+              maxLength={60}
+              onChange={(event) => setColorInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  addColor();
+                }
+              }}
+              placeholder="e.g. Red, White, Pink"
+              aria-label="Bouquet color"
+              className={fieldClass}
+            />
+            <button
+              type="button"
+              onClick={addColor}
+              disabled={!colorInput.trim()}
+              className="mt-1 shrink-0 rounded-md border border-ink/10 px-4 text-sm font-semibold disabled:opacity-50"
+            >
+              Add color
+            </button>
+          </div>
+          {draft.colors.length > 0 ? (
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {draft.colors.map((color) => (
+                <li key={color}>
+                  <button
+                    type="button"
+                    onClick={() => patch({ colors: draft.colors.filter((item) => item !== color) })}
+                    aria-label={`Remove ${color} color`}
+                    className="inline-flex items-center gap-2 rounded-full bg-sage/40 px-3 py-1.5 text-sm font-medium text-ink hover:bg-blush"
+                  >
+                    {color}<span aria-hidden="true">×</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-xs text-ink-soft">No color selection will be shown to customers.</p>
+          )}
+        </section>
 
         <section>
           <h2 className="mb-2 text-sm font-semibold">Bouquet images</h2>

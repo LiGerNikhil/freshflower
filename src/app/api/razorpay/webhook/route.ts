@@ -5,6 +5,7 @@ import { OrderModel } from "@/lib/db/models";
 import { jsonError, jsonOk, safe } from "@/lib/api/helpers";
 import {
   confirmRazorpayPayment,
+  markRazorpayPaymentFailed,
   recordRazorpayEvent,
   type RazorpayOrderRecord,
 } from "@/lib/payments/razorpay-confirmation";
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
     if (!order) return jsonOk({ ignored: true });
 
     if (event === "payment.failed") {
-      await recordRazorpayEvent(order._id, payment.id, "payment.failed", {
+      await markRazorpayPaymentFailed(order, payment.id, {
         reason: typeof payment.error_description === "string" ? payment.error_description : "",
         amount: Number(payment.amount) || 0,
       });

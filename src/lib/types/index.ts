@@ -102,6 +102,7 @@ export interface Bouquet {
   items: BouquetItem[];
   price: number; // INR
   images: string[];
+  colors?: string[];
   occasionIds: string[];
   featured: boolean;
 }
@@ -155,7 +156,10 @@ export type DurablePaymentEventType =
   | "payment.email_sent"
   | "payment.email_failed"
   | "payment.verified"
-  | "payment.correction_requested";
+  | "payment.correction_requested"
+  | "payment.authorized"
+  | "payment.captured"
+  | "payment.failed";
 
 export interface PaymentEvent {
   type: DurablePaymentEventType;
@@ -253,6 +257,11 @@ export interface Order {
   paidAt?: string;
   latestPaymentAttemptId?: string;
   orderConfirmationEmailSentAt?: string;
+  /** "diwali" marks an advance-booking order created from a DiwaliBooking. */
+  source?: "standard" | "diwali";
+  diwaliBookingId?: string;
+  bookingReference?: string;
+  deliveryTimePreference?: string;
   createdAt: string; // ISO datetime
   updatedAt: string; // ISO datetime
 }
@@ -501,6 +510,7 @@ export interface FestivalCollection {
   title: string;
   slug: string;
   subtitle?: string;
+  description?: string;
   bannerImage?: string;
   status: "draft" | "published";
   active: boolean;
@@ -516,8 +526,92 @@ export interface FestivalCollection {
   seoTitle?: string;
   metaDescription?: string;
   keywords?: string[];
+  advanceBooking?: {
+    description: string;
+    announcement: string;
+    primaryCtaLabel: string;
+    secondaryCtaLabel: string;
+    bookingCutoffAt?: string;
+    deliveryDates: string[];
+    deliveryTimePreferences: string[];
+    deliveryAreaIds: string[];
+    dailyBookingLimit?: number;
+    earlyMorningDelivery: boolean;
+    customRequirementsEnabled: boolean;
+    productSettings: {
+      productId: string;
+      visible: boolean;
+      featured: boolean;
+      displayLabel?: string;
+      promotionalDescription?: string;
+      minQuantity: number;
+      maxQuantity: number;
+      bulkOrderEligible: boolean;
+      eligibleVariants: string[];
+    }[];
+  };
   createdAt?: string;
   updatedAt?: string;
+}
+
+export type DiwaliBookingStatus =
+  | "new_request"
+  | "under_review"
+  | "availability_confirmed"
+  | "awaiting_payment"
+  | "confirmed"
+  | "fulfilled"
+  | "cancelled"
+  | "rejected";
+
+export interface DiwaliBooking {
+  id: string;
+  reference: string;
+  campaignId: string;
+  /** Set for bookings created after sign-in, so they appear in that account. */
+  customerId?: string;
+  customer: {
+    name: string;
+    phone: string;
+    whatsapp?: string;
+    email?: string;
+  };
+  items: {
+    productId: string;
+    name: string;
+    variant?: string;
+    quantity: number;
+    unitLabel: string;
+    price?: number;
+    image?: string;
+  }[];
+  deliveryDate: string;
+  deliveryTimePreference: string;
+  deliveryAreaId: string;
+  address: string;
+  locality: string;
+  pincode: string;
+  specialInstructions?: string;
+  customRequirements?: string;
+  estimatedAmount?: number;
+  /** Flower-only subtotal before the flat Porter delivery charge. */
+  itemsSubtotal?: number;
+  /** Flat Porter delivery charge included in estimatedAmount/paymentAmount. */
+  deliveryFee?: number;
+  /** True when bulk quantities or custom notes mean the team must confirm pricing. */
+  needsQuote?: boolean;
+  status: DiwaliBookingStatus;
+  paymentStatus?: "pending" | "paid" | "refunded" | "failed";
+  paymentAmount?: number;
+  /** Linked standard Order that carries the Razorpay payment. */
+  orderId?: string;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  razorpayPaymentMethod?: string;
+  paidAt?: string;
+  internalNotes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /** Business-level contact + delivery settings (single source of truth). */

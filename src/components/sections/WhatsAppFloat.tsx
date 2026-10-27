@@ -14,6 +14,10 @@ import { waMeHref } from "@/lib/utils";
  * Hidden on product detail pages (/flowers/[slug]): there it sits on top of the
  * sticky Add/Buy bar and reads as an "order on WhatsApp" button, which we no
  * longer want (orders go through cart → checkout only).
+ *
+ * Hidden on the Diwali booking page too: the page has its own sticky submit
+ * bar, and the floating button intercepted taps meant for card and submit
+ * actions at the bottom-right of the screen.
  */
 export function WhatsAppFloat() {
   const { settings } = useSiteContent();
@@ -28,7 +32,7 @@ export function WhatsAppFloat() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  if (/^\/flowers\/.+/.test(pathname)) return null;
+  if (/^\/flowers\/.+/.test(pathname) || pathname === "/diwali") return null;
 
   const href = waMeHref(settings.whatsappNumber);
 

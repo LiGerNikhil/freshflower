@@ -219,6 +219,11 @@ function Orders({ orders, flowers }: { orders: Order[]; flowers: Flower[] }) {
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-sage-ink">
                 {order.orderNumber}
               </p>
+              {order.source === "diwali" && (
+                <p className="mt-1 inline-flex rounded-full bg-gold/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-ink">
+                  Diwali advance booking
+                </p>
+              )}
               <h2 className="mt-2 font-display text-2xl">
                 {order.items[0]?.name}
                 {order.items.length > 1 && ` + ${order.items.length - 1} more`}
@@ -243,16 +248,22 @@ function Orders({ orders, flowers }: { orders: Order[]; flowers: Flower[] }) {
             <OrderStatusStepper status={order.status} />
           </div>
           <div className="mt-5 flex flex-wrap gap-2 border-t border-ink/10 pt-4">
-            <button
-              type="button"
-              onClick={(event) => {
-                event.preventDefault();
-                reorder(order);
-              }}
-              className="inline-flex items-center gap-2 rounded-full bg-gold/80 px-4 py-2 text-xs font-bold text-ink transition hover:bg-gold"
-            >
-              <ShoppingBag size={14} /> Reorder
-            </button>
+            {order.source === "diwali" ? (
+              <span className="inline-flex items-center gap-2 rounded-full bg-sage/40 px-4 py-2 text-xs font-bold text-sage-ink">
+                <LockKeyhole size={14} /> Advance payment: {order.paymentStatus ?? "pending"}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  reorder(order);
+                }}
+                className="inline-flex items-center gap-2 rounded-full bg-gold/80 px-4 py-2 text-xs font-bold text-ink transition hover:bg-gold"
+              >
+                <ShoppingBag size={14} /> Reorder
+              </button>
+            )}
             <span className="inline-flex items-center rounded-full bg-ivory-deep px-4 py-2 text-xs font-semibold text-ink-soft">
               Status: {order.status.replaceAll("_", " ")}
             </span>

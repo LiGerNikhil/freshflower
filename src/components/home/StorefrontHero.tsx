@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { CategoryQuickNav } from "@/components/home/CategoryQuickNav";
 import { CollectionBento } from "@/components/home/CollectionBento";
 import { HeroProductRail } from "@/components/home/HeroProductRail";
+import { DiwaliCampaignBanner } from "@/components/home/DiwaliCampaignBanner";
 import type { Category, FestivalCollection, Flower } from "@/lib/types";
 
 interface StorefrontHeroProps {
@@ -10,6 +11,7 @@ interface StorefrontHeroProps {
   categories: Category[];
   collections: FestivalCollection[];
   products: Flower[];
+  diwaliCampaign?: FestivalCollection | null;
   onQuickView: (flower: Flower) => void;
 }
 
@@ -18,6 +20,7 @@ export function StorefrontHero({
   categories,
   collections,
   products,
+  diwaliCampaign,
   onQuickView,
 }: StorefrontHeroProps) {
   const announcementText = announcement?.trim();
@@ -44,6 +47,7 @@ export function StorefrontHero({
         />
 
         <div className="relative mx-auto max-w-7xl px-5 pb-9 pt-6 sm:px-6 sm:pt-8 md:px-10 lg:pb-12">
+          {diwaliCampaign && <DiwaliCampaignBanner campaign={diwaliCampaign} />}
           <div className="flex items-end justify-between gap-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-sage-ink">

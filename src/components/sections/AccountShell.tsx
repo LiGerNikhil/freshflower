@@ -45,16 +45,16 @@ export function AccountShell({
     <main className="min-h-screen bg-ivory">
       <div className="mx-auto max-w-7xl px-5 py-10 md:px-10">
         <div className="mb-8 flex items-start justify-between gap-4 md:mb-10">
-          <div>
+          <div className="min-w-0">
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.22em] text-sage-ink">
               {eyebrow ?? "Customer dashboard"}
             </p>
-            <h1 className="text-5xl md:text-6xl">{title}</h1>
+            <h1 className="break-words text-4xl sm:text-5xl md:text-6xl">{title}</h1>
           </div>
           <button
             type="button"
             onClick={() => setMenuOpen(true)}
-            className="glass-deep inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold lg:hidden"
+            className="glass-deep inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold lg:hidden"
           >
             <Menu size={16} /> {active.label}
           </button>

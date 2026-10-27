@@ -25,6 +25,8 @@ export function BouquetCard({
 }) {
   const { addItem } = useCart();
   const { has, toggle } = useWishlist();
+  const [selectedColor, setSelectedColor] = useState("");
+  const colors = bouquet.colors ?? [];
   const image = bouquet.images[0] ?? "gradient-blush";
   return (
     <motion.article variants={reveal} className="group relative">
@@ -81,8 +83,24 @@ export function BouquetCard({
           ₹{bouquet.price.toLocaleString("en-IN")}
         </span>
       </div>
+      {colors.length > 0 && (
+        <label className="mt-4 block text-xs font-semibold text-ink-soft">
+          Choose a color
+          <select
+            value={selectedColor}
+            onChange={(event) => setSelectedColor(event.target.value)}
+            className="mt-1 w-full rounded-md border border-ink/10 bg-white/70 px-3 py-2 text-sm font-normal text-ink"
+          >
+            <option value="">Select a color</option>
+            {colors.map((color) => (
+              <option key={color} value={color}>{color}</option>
+            ))}
+          </select>
+        </label>
+      )}
       <button
         type="button"
+        disabled={colors.length > 0 && !selectedColor}
         onClick={() => {
           addItem({
             productId: bouquet.id,
@@ -91,12 +109,12 @@ export function BouquetCard({
             price: bouquet.price,
             quantity: 1,
             image,
+            color: selectedColor || undefined,
           });
           onAdd?.();
         }}
-        className="mt-4 inline-flex items-center gap-2 text-sm font-semibold"
+        className="mt-4 inline-flex items-center gap-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {" "}
         <Plus size={15} /> Add to cart
       </button>
     </motion.article>

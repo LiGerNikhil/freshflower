@@ -7,100 +7,87 @@ interface SeedProduct {
   unit?: string | null;
   quantityLabel?: string;
   categoryId: string;
+  catalogExpansion?: boolean;
   variants?: { color: string; price: number; image?: string; compareAtPrice?: number }[];
 }
 
 const products: SeedProduct[] = [
   {
     name: "Gerbera",
-    price: 149,
+    price: 249,
     quantity: 10,
     unit: "pcs",
     categoryId: "cat-gerbera",
-    variants: [
-      { color: "Yellow", price: 149, image: "gradient-gold", compareAtPrice: 199 },
-      { color: "Pink", price: 159, image: "gradient-blush" },
-      { color: "White", price: 169, image: "gradient-ivory" },
-      { color: "Red", price: 179, image: "gradient-blush", compareAtPrice: 229 },
-    ],
+    catalogExpansion: true,
   },
   { name: "Mogra", price: 149, quantity: 200, unit: "gm", categoryId: "cat-mogra" },
   {
     name: "Bangalore Rose",
-    price: 349,
+    price: 449,
     quantity: 20,
     unit: "pcs",
     categoryId: "cat-roses",
-    variants: [
-      { color: "Red", price: 349, image: "gradient-blush", compareAtPrice: 449 },
-      { color: "Pink", price: 369, image: "gradient-blush" },
-      { color: "Yellow", price: 359, image: "gradient-gold" },
-      { color: "White", price: 379, image: "gradient-ivory" },
-      { color: "Orange", price: 389, image: "gradient-gold", compareAtPrice: 499 },
-    ],
+    catalogExpansion: true,
   },
-  { name: "Rajnigandha", price: 449, quantity: 24, unit: "sticks", categoryId: "cat-rajnigandha" },
-  { name: "Sunflower", price: 249, quantity: 5, unit: "pcs", categoryId: "cat-sunflower" },
+  { name: "Rajnigandha", price: 649, quantity: 24, unit: "pcs", categoryId: "cat-rajnigandha", catalogExpansion: true },
+  { name: "Sunflower", price: 349, quantity: 5, unit: "pcs", categoryId: "cat-sunflower", catalogExpansion: true },
   {
-    name: "Daisy",
-    price: 449,
+    name: "Daisy Bundle",
+    price: 499,
     quantity: null,
     unit: "Bundle",
     categoryId: "cat-gerbera",
-    variants: [
-      { color: "White", price: 449, image: "gradient-ivory", compareAtPrice: 549 },
-      { color: "Pink", price: 469, image: "gradient-blush" },
-      { color: "Purple", price: 479, image: "gradient-lavender" },
-    ],
+    catalogExpansion: true,
   },
-  { name: "Baby's Breath", price: 399, quantity: null, unit: "Bundle", categoryId: "cat-babys-breath" },
+  { name: "Baby's Breath", price: 349, quantity: null, unit: "Bundle", categoryId: "cat-babys-breath", catalogExpansion: true },
   {
     name: "Carnations",
-    price: 299,
+    price: 399,
     quantity: 20,
     unit: "pcs",
     categoryId: "cat-carnations",
-    variants: [
-      { color: "Pink", price: 299, image: "gradient-blush", compareAtPrice: 399 },
-      { color: "Red", price: 309, image: "gradient-blush" },
-      { color: "White", price: 319, image: "gradient-ivory" },
-      { color: "Yellow", price: 329, image: "gradient-gold" },
-    ],
+    catalogExpansion: true,
   },
   {
-    name: "Orchid",
-    price: 349,
+    name: "Orchids",
+    price: 449,
     quantity: 10,
     unit: "sticks",
     categoryId: "cat-orchid",
-    variants: [
-      { color: "Purple", price: 349, image: "gradient-lavender", compareAtPrice: 449 },
-      { color: "White", price: 369, image: "gradient-ivory" },
-      { color: "Pink", price: 389, image: "gradient-blush" },
-    ],
+    catalogExpansion: true,
   },
   {
     name: "Asiatic Lily",
-    price: 1399,
-    quantityLabel: "10/30+",
+    price: 1299,
+    quantity: 10,
+    unit: "sticks / 30+ buds",
     categoryId: "cat-lily",
-    variants: [
-      { color: "Pink", price: 1399, image: "gradient-blush", compareAtPrice: 1599 },
-      { color: "White", price: 1449, image: "gradient-ivory" },
-      { color: "Yellow", price: 1499, image: "gradient-gold" },
-    ],
+    catalogExpansion: true,
   },
   {
     name: "Oriental Lily",
-    price: 799,
-    quantityLabel: "10/30+",
+    price: 1999,
+    quantity: 10,
+    unit: "sticks / 30+ buds",
     categoryId: "cat-lily",
-    variants: [
-      { color: "Pink", price: 799, image: "gradient-blush", compareAtPrice: 999 },
-      { color: "White", price: 849, image: "gradient-ivory" },
-      { color: "Red", price: 899, image: "gradient-blush", compareAtPrice: 1099 },
-    ],
+    catalogExpansion: true,
   },
+  { name: "Orange Marigold Strings", price: 899, quantity: 20, unit: "Mala", categoryId: "cat-strings", catalogExpansion: true },
+  { name: "Yellow Marigold Strings", price: 999, quantity: 20, unit: "Mala", categoryId: "cat-strings", catalogExpansion: true },
+  { name: "Ashok Green Strings", price: 399, quantity: 24, unit: "Pcs", categoryId: "cat-strings", catalogExpansion: true },
+  { name: "Rajnigandha Strings (5.5 Feet)", price: 1199, quantity: 50, unit: "Pcs", categoryId: "cat-strings", catalogExpansion: true },
+  { name: "Mogra Mala", price: 1799, quantity: 5, unit: "Mala", categoryId: "cat-strings", catalogExpansion: true },
+  { name: "Kanner Mala", price: 1299, quantity: 5, unit: "Mala", categoryId: "cat-strings", catalogExpansion: true },
+  { name: "Orange Marigold Loose", price: 249, quantity: 1, unit: "kg", categoryId: "cat-fresh-loose-flowers", catalogExpansion: true },
+  { name: "Yellow Marigold Loose", price: 299, quantity: 1, unit: "kg", categoryId: "cat-fresh-loose-flowers", catalogExpansion: true },
+  { name: "Fresh Rose Loose", price: 449, quantity: 1, unit: "kg", categoryId: "cat-fresh-loose-flowers", catalogExpansion: true },
+  { name: "White Chrysanthemum", price: 499, quantity: 1, unit: "kg", categoryId: "cat-fresh-loose-flowers", catalogExpansion: true },
+  { name: "Fresh Mogra Loose", price: 299, quantity: 100, unit: "gm", categoryId: "cat-fresh-loose-flowers", catalogExpansion: true },
+  { name: "Pink Lotus", price: 59, quantity: 1, unit: "pc", categoryId: "cat-exotic-premium-flowers", catalogExpansion: true },
+  { name: "Blue Lotus", price: 99, quantity: 1, unit: "pc", categoryId: "cat-exotic-premium-flowers", catalogExpansion: true },
+  { name: "Lisianthus", price: 899, quantity: 10, unit: "sticks", categoryId: "cat-exotic-premium-flowers", catalogExpansion: true },
+  { name: "Hydrangea", price: 799, quantity: 1, unit: "pc", categoryId: "cat-exotic-premium-flowers", catalogExpansion: true },
+  { name: "Gladiolus", price: 499, quantity: null, unit: "Bundle", categoryId: "cat-exotic-premium-flowers", catalogExpansion: true },
   { name: "Leatherleaf Farm", price: 299, quantity: 1, unit: "Bundle", categoryId: "cat-leaves-farm-grasses" },
   { name: "Asparagus Fern", price: 299, quantity: 1, unit: "Bundle", categoryId: "cat-leaves-farm-grasses" },
   { name: "Areca Palm", price: 299, quantity: 1, unit: "Bundle", categoryId: "cat-leaves-farm-grasses" },
@@ -177,3 +164,7 @@ export const flowers: Flower[] = products.map((product, index) => {
     keywords: [product.name.toLowerCase()],
   };
 });
+
+export const catalogExpansionFlowers = flowers.filter(
+  (_, index) => products[index].catalogExpansion,
+);

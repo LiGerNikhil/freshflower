@@ -81,7 +81,7 @@ export function OrdersManager() {
 
   const itemSummary = (order: Order) => {
     const names = order.items.map((item) =>
-      `${item.quantity > 1 ? `${item.quantity}× ` : ""}${item.name}${item.color ? ` (${item.color})` : ""} · ${formatINR(item.price)}`,
+      `${item.quantity > 1 ? `${item.quantity}× ` : ""}${item.name}${item.color ? ` (Color: ${item.color})` : ""} · ${formatINR(item.price)}`,
     );
     return names.length > 2
       ? `${names.slice(0, 2).join(", ")} +${names.length - 2} more`

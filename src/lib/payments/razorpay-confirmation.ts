@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { CustomerModel, OrderModel } from "@/lib/db/models";
+import { CustomerModel, DiwaliBookingModel, OrderModel } from "@/lib/db/models";
 import { razorpayClient } from "@/lib/payments/razorpay";
 import { eventId, queueOrderConfirmationEmail, recordPaymentEvent } from "@/lib/payments/events";
 import { processPaymentEmailOutbox } from "@/lib/payments/email-outbox";
@@ -18,6 +18,9 @@ export type RazorpayOrderRecord = {
   paidAt?: Date;
   items: { name: string; quantity: number; price: number; color?: string }[];
   deliveryAddress?: { line1?: string; city?: string; pincode?: string };
+  source?: string;
+  diwaliBookingId?: string;
+  bookingReference?: string;
 };
 
 type RazorpayPaymentLike = {
@@ -28,6 +31,7 @@ type RazorpayPaymentLike = {
   status: string;
   method?: string;
   captured?: boolean;
+  created_at?: number;
 };
 
 /**
@@ -92,6 +96,31 @@ export async function confirmRazorpayPayment(order: RazorpayOrderRecord, payment
       },
     });
   }
+
+  // Diwali advance bookings carry their payment on a linked order. Sync the
+  // booking on every confirmation path (callback, webhook, admin sync) so the
+  // customer's order and the admin booking list always agree.
+  if (order.diwaliBookingId) {
+    await OrderModel.updateOne(
+      { _id: order._id, status: { $in: ["received", "confirmed"] } },
+      { $set: { status: "confirmed" } },
+    );
+    await DiwaliBookingModel.updateOne(
+      { _id: order.diwaliBookingId },
+      {
+        $set: {
+          paymentStatus: "paid",
+          status: "confirmed",
+          paymentAmount: order.total,
+          orderId: order._id,
+          razorpayOrderId: payment.order_id,
+          razorpayPaymentId: payment.id,
+          razorpayPaymentMethod: payment.method,
+          paidAt: payment.created_at ? new Date(payment.created_at * 1000) : new Date(),
+        },
+      },
+    );
+  }
   if (updated.modifiedCount || order.paymentStatus === "paid") {
     const customer = await CustomerModel.findById(order.customerId).select({ email: 1 }).lean<{ email?: string }>();
     if (customer?.email) {
@@ -123,4 +152,28 @@ export async function recordRazorpayEvent(
     actor: "razorpay",
     metadata: { provider: "razorpay", razorpayPaymentId: paymentId, ...metadata },
   });
+}
+
+/**
+ * Marks a failed gateway attempt on a Diwali booking while leaving the booking
+ * payable, so the customer can retry without losing their selection.
+ */
+export async function markRazorpayPaymentFailed(
+  order: RazorpayOrderRecord,
+  paymentId: string,
+  metadata: Record<string, string | number | boolean> = {},
+) {
+  if (order.diwaliBookingId) {
+    await DiwaliBookingModel.updateOne(
+      { _id: order.diwaliBookingId, paymentStatus: { $ne: "paid" } },
+      {
+        $set: {
+          paymentStatus: "failed",
+          razorpayOrderId: order.razorpayOrderId,
+          razorpayPaymentId: paymentId,
+        },
+      },
+    );
+  }
+  await recordRazorpayEvent(order._id, paymentId, "payment.failed", metadata);
 }

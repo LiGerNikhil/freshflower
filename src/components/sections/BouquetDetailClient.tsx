@@ -35,6 +35,8 @@ export default function BouquetDetailClient({
   const [date, setDate] = useState("");
   const bouquetImages = bouquet.images?.length ? bouquet.images : ["gradient-blush"];
   const [selectedImage, setSelectedImage] = useState(bouquetImages[0]);
+  const colors = bouquet.colors ?? [];
+  const [selectedColor, setSelectedColor] = useState("");
   const image = selectedImage;
   const bouquetFlowers = bouquet.items
     .map((item) => flowers.find((flower) => flower.id === item.flowerId))
@@ -47,6 +49,7 @@ export default function BouquetDetailClient({
       price: bouquet.price,
       quantity,
       image: bouquetImages[0],
+      color: selectedColor || undefined,
     });
   const buy = () => {
     add();
@@ -105,6 +108,21 @@ export default function BouquetDetailClient({
             <p className="mt-6 text-base leading-8 text-ink-soft">
               {bouquet.description}
             </p>
+            {colors.length > 0 && (
+              <label className="mt-6 block text-sm font-semibold">
+                Choose a color
+                <select
+                  value={selectedColor}
+                  onChange={(event) => setSelectedColor(event.target.value)}
+                  className="mt-2 w-full rounded-md border border-ink/10 bg-white/60 px-4 py-3 text-sm font-normal"
+                >
+                  <option value="">Select a color</option>
+                  {colors.map((color) => (
+                    <option key={color} value={color}>{color}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <div className="mt-8 border-y border-ink/10 py-6">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold">Quantity</span>
@@ -139,10 +157,10 @@ export default function BouquetDetailClient({
               />
             </div>
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
-              <Button size="lg" onClick={add}>
+              <Button size="lg" onClick={add} disabled={colors.length > 0 && !selectedColor}>
                 Add to Cart <Plus size={17} />
               </Button>
-              <Button size="lg" variant="gold" onClick={buy}>
+              <Button size="lg" variant="gold" onClick={buy} disabled={colors.length > 0 && !selectedColor}>
                 Buy Now <ArrowRight size={17} />
               </Button>
             </div>

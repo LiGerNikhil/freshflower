@@ -10,7 +10,7 @@ import {
 } from "@/lib/db/models";
 import { dbConnect } from "@/lib/db/connect";
 import { getCouponByCode, getDeliveryAreaById } from "@/lib/db/repositories";
-import { jsonError, jsonOk, parseOrThrow, readJson, safe } from "@/lib/api/helpers";
+import { ApiError, jsonError, jsonOk, parseOrThrow, readJson, safe } from "@/lib/api/helpers";
 import { checkoutSchema, type CheckoutInput } from "@/lib/validation";
 import { deliveryAreas } from "@/lib/data";
 import { DELIVERY_CHARGE } from "@/lib/cart";
@@ -92,7 +92,20 @@ export async function POST(req: NextRequest) {
 
       let price = typeof catalog.price === "number" ? catalog.price : item.price;
       let image = Array.isArray(catalog.images) ? catalog.images[0] : undefined;
+      let selectedColor: string | undefined;
       if (item.color) {
+        if (item.productType === "bouquet") {
+          const colors = Array.isArray(catalog.colors)
+            ? (catalog.colors as string[])
+            : [];
+          const matchingColor = colors.find(
+            (color) => color.toLowerCase() === item.color?.toLowerCase(),
+          );
+          if (!matchingColor) {
+            throw new ApiError(`"${item.name}" does not offer the selected color.`);
+          }
+          selectedColor = matchingColor;
+        }
         const variants = Array.isArray(catalog.colorVariants)
           ? (catalog.colorVariants as Array<{ color: string; price?: number; image?: string }>)
           : [];
@@ -103,6 +116,8 @@ export async function POST(req: NextRequest) {
           if (typeof variant.price === "number" && variant.price >= 0) price = variant.price;
           if (variant.image) image = variant.image;
         }
+      } else if (item.productType === "bouquet" && Array.isArray(catalog.colors) && catalog.colors.length > 0) {
+        throw new ApiError(`Please select a color for "${item.name}".`);
       }
 
       subtotal += price * item.quantity;
@@ -113,7 +128,7 @@ export async function POST(req: NextRequest) {
         price,
         quantity: item.quantity,
         image,
-        color: item.color,
+        color: selectedColor ?? (item.productType === "flower" ? item.color : undefined),
       });
     }
 

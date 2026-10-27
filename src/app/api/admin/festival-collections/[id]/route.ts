@@ -19,6 +19,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   return safe(async () => {
     await requireAdminRole(req, CONTENT_WRITE_ROLES);
     const { id } = await params;
+    if (id === "festival-diwali") {
+      throw new ApiError("Manage the Diwali campaign from /admin/diwali so booking settings stay consistent.", 409);
+    }
     const existing = serialize<FestivalCollection>(await FestivalCollectionModel.findById(id).lean());
     if (!existing) throw new ApiError("Collection not found.", 404);
     const raw = await readJson(req);
@@ -36,6 +39,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   return safe(async () => {
     await requireAdminRole(req, CONTENT_WRITE_ROLES);
     const { id } = await params;
+    if (id === "festival-diwali") {
+      throw new ApiError("Manage the Diwali campaign from /admin/diwali. It cannot be deleted here.", 409);
+    }
     if (await HomepageConfigModel.exists({ festivalCollectionIds: id })) {
       throw new ApiError("Remove this collection from homepage selections before deleting it, or deactivate it.", 409);
     }

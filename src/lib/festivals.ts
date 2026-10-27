@@ -2,6 +2,9 @@ import type { FestivalCollection, Flower, HomepageConfig, HomepageSectionId } fr
 
 export const FESTIVAL_TIME_ZONE = "Asia/Kolkata";
 export const FESTIVAL_BADGES = ["festival-special", "limited-stock", "best-seller"] as const;
+
+/** Flat Porter delivery charge added to every Diwali advance booking. */
+export const DIWALI_PORTER_DELIVERY_FEE = 299;
 export const HOMEPAGE_SECTION_IDS = [
   "categories", "festival-specials", "pooja-essentials", "on-sale",
   "best-sellers", "new-arrivals", "offers", "fresh-today", "occasions",

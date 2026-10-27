@@ -495,7 +495,7 @@ export function OrderDetail({ orderId }: { orderId: string }) {
                       {item.quantity}× {item.name}
                       {item.color && (
                         <span className="ml-1.5 inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 text-[11px] font-semibold text-ink">
-                          {item.color}
+                          Color: {item.color}
                         </span>
                       )}
                       <span className="mt-0.5 block text-[11px] text-ink-soft">

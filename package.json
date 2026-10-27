@@ -11,7 +11,8 @@
     "test:manual-upi-flow": "tsx scripts/test-manual-upi-flow.ts",
     "payments:process-email-outbox": "tsx scripts/process-payment-email-outbox.ts",
     "report:customer-duplicates": "tsx scripts/report-customer-duplicates.ts",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "seed:catalog-expansion": "tsx scripts/seed-catalog-expansion.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
