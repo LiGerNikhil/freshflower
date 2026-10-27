@@ -115,7 +115,10 @@ function Totals({ order }: { order: Order }) {
       {order.discount > 0 && (
         <div className="flex justify-between text-gold">
           <span>
-            Discount{order.couponCode ? ` (${order.couponCode})` : ""}
+            Discount
+            {order.couponCode
+              ? ` (${order.couponCode === "AUTO-TIER" ? "automatic reward" : order.couponCode})`
+              : ""}
           </span>
           <span>− {formatINR(order.discount)}</span>
         </div>

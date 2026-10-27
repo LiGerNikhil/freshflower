@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -14,7 +14,10 @@ import { useCart } from "@/components/providers/CartContext";
 import { ProductItemImage } from "@/components/sections/ProductItemImage";
 import { Button } from "@/components/ui/Button";
 import { deliveryAreas } from "@/lib/data";
-import { DELIVERY_CHARGE, DELIVERY_NOTE } from "@/lib/cart";
+import { DELIVERY_CHARGE, DELIVERY_NOTE, COUPON_STORAGE_KEY } from "@/lib/cart";
+import { formatDiscountINR } from "@/lib/discounts";
+import { useTieredDiscount } from "@/lib/use-tiered-discount";
+import { DiscountJourneySummary } from "@/components/sections/DiscountJourney";
 import { payWithRazorpay } from "@/lib/payments/checkout-client";
 
 const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
@@ -58,7 +61,21 @@ const emptyForm: CheckoutForm = {
 export default function CheckoutClient() {
   const router = useRouter();
   const { items, subtotal, itemCount, clearCart } = useCart();
-  const total = subtotal + DELIVERY_CHARGE;
+  const tier = useTieredDiscount(subtotal, "orders");
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    codes: string[];
+    value: number;
+    subtotal: number;
+  } | null>(null);
+  const tierActive = tier.discount > 0;
+  const couponIsCurrent = !tierActive && appliedCoupon?.subtotal === subtotal;
+  const couponCodes = couponIsCurrent ? appliedCoupon.codes : [];
+  const couponValue = couponIsCurrent ? appliedCoupon.value : 0;
+  const appliedDiscount = Math.min(
+    subtotal,
+    tierActive ? tier.discount : couponValue,
+  );
+  const total = Math.max(0, subtotal + DELIVERY_CHARGE - appliedDiscount);
   const [step, setStep] = useState(1);
   const [sameWhatsapp, setSameWhatsapp] = useState(true);
   const [form, setForm] = useState<CheckoutForm>(emptyForm);
@@ -70,6 +87,66 @@ export default function CheckoutClient() {
     deliveryAreas.find((area) => area.id === form.areaId);
   const update = (key: keyof CheckoutForm, value: string) =>
     setForm((current) => ({ ...current, [key]: value }));
+
+  // Revalidate the cart's saved code against the authoritative endpoint. The
+  // automatic reward always wins, so this is skipped while a tier is active.
+  useEffect(() => {
+    if (tierActive) return;
+
+    let saved: string[] = [];
+    try {
+      const parsed = JSON.parse(
+        window.sessionStorage.getItem(COUPON_STORAGE_KEY) ?? "[]",
+      );
+      if (Array.isArray(parsed)) {
+        saved = parsed.filter(
+          (code): code is string => typeof code === "string" && code.length > 0,
+        );
+      }
+    } catch {
+      try {
+        window.sessionStorage.removeItem(COUPON_STORAGE_KEY);
+      } catch {
+        /* storage can be unavailable */
+      }
+      return;
+    }
+    if (!saved.length) return;
+
+    let alive = true;
+    void (async () => {
+      try {
+        const response = await fetch("/api/coupons/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ codes: saved, subtotal }),
+        });
+        if (!alive) return;
+        const body = await response.json().catch(() => null);
+        if (!response.ok) return;
+        if (body?.source === "tiered") {
+          setAppliedCoupon({ codes: [], value: 0, subtotal });
+          window.sessionStorage.removeItem(COUPON_STORAGE_KEY);
+          return;
+        }
+        const codes: string[] = Array.isArray(body?.codes) ? body.codes : [];
+        setAppliedCoupon({
+          codes,
+          value: codes.length ? Number(body?.discount) || 0 : 0,
+          subtotal,
+        });
+        if (!codes.length) {
+          window.sessionStorage.removeItem(COUPON_STORAGE_KEY);
+        }
+      } catch {
+        /* checkout still revalidates server-side */
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [subtotal, tierActive]);
   const customerValid =
     form.name.trim().length > 1 &&
     /^\d{10}$/.test(form.mobile) &&
@@ -142,7 +219,8 @@ items: items.map((item) => ({
           deliverySlotId: defaultDeliverySlotId,
           deliveryDate: tomorrow,
           subtotal,
-          discount: 0,
+          coupons: tierActive ? [] : couponCodes,
+          discount: appliedDiscount,
           deliveryFee: DELIVERY_CHARGE,
           total,
 paymentMethod: form.payment,
@@ -154,6 +232,8 @@ paymentMethod: form.payment,
       if (!res.ok) throw new Error(body?.error ?? "Something went wrong, please try again.");
 const orderId: string = body.orderId;
       const orderNumber: string = body.orderNumber;
+      const serverDiscount = Number(body?.totals?.discount ?? appliedDiscount);
+      const serverTotal = Number(body?.totals?.total ?? total);
       // Keep the confirmation-page preview payload (its shape is unchanged).
       const order = {
         id: orderId,
@@ -179,8 +259,9 @@ const orderId: string = body.orderId;
         },
 payment: form.payment,
         subtotal,
+        discount: serverDiscount,
         deliveryFee: DELIVERY_CHARGE,
-        total,
+        total: serverTotal,
         deliveryNote: DELIVERY_NOTE,
         createdAt: new Date().toISOString(),
       };
@@ -188,6 +269,11 @@ payment: form.payment,
         `freshflower-order-${orderId}`,
         JSON.stringify(order),
       );
+      try {
+        window.sessionStorage.removeItem(COUPON_STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
       setPendingOrderId(orderId);
       await payWithRazorpay(orderId, { name: form.name, email: form.email, contact: form.mobile });
       clearCart();
@@ -415,6 +501,16 @@ if (!items.length)
                     <p className="mt-2 text-xs text-ink-soft">
                       {DELIVERY_NOTE}
                     </p>
+                    {appliedDiscount > 0 && (
+                      <div className="mt-3 flex justify-between font-semibold text-sage-ink">
+                        <span>
+                          {tierActive
+                            ? "Automatic cart reward"
+                            : `Coupon (${couponCodes.join(", ")})`}
+                        </span>
+                        <span>−{formatDiscountINR(appliedDiscount)}</span>
+                      </div>
+                    )}
                     <div className="mt-3 flex justify-between">
                       <span>Porter delivery charge</span>
                       <span>₹{DELIVERY_CHARGE.toLocaleString("en-IN")}</span>
@@ -451,11 +547,24 @@ if (!items.length)
             <h2 className="mt-3 font-display text-3xl">
               {itemCount} item{itemCount === 1 ? "" : "s"}
             </h2>
+            {tier.enabled && (
+              <DiscountJourneySummary result={tier} className="mt-4" />
+            )}
             <div className="mt-5 space-y-3 border-t border-ink/10 pt-5 text-sm">
               <div className="flex justify-between">
                 <span className="text-ink-soft">Flowers total</span>
                 <span>₹{subtotal.toLocaleString("en-IN")}</span>
               </div>
+              {appliedDiscount > 0 && (
+                <div className="flex justify-between font-semibold text-sage-ink">
+                  <span>
+                    {tierActive
+                      ? "Automatic cart reward"
+                      : `Coupon (${couponCodes.join(", ")})`}
+                  </span>
+                  <span>−{formatDiscountINR(appliedDiscount)}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-ink-soft">Porter delivery charge</span>
                 <span>₹{DELIVERY_CHARGE.toLocaleString("en-IN")}</span>

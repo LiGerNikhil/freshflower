@@ -30,6 +30,11 @@ import {
 import { useCustomerAuth } from "@/components/providers/CustomerAuthContext";
 import { DIWALI_PORTER_DELIVERY_FEE } from "@/lib/festivals";
 import { payWithRazorpay } from "@/lib/payments/checkout-client";
+import {
+  DiscountJourney,
+  DiscountJourneySummary,
+} from "@/components/sections/DiscountJourney";
+import { useTieredDiscount } from "@/lib/use-tiered-discount";
 import type {
   DeliveryArea,
   DiwaliBooking,
@@ -94,6 +99,7 @@ type BookingDraft = {
   id: string;
   reference: string;
   estimatedAmount: number;
+  discount: number;
   needsQuote: boolean;
   fingerprint: string;
 };
@@ -301,7 +307,9 @@ export function DiwaliBookingClient({
     0,
   );
   const deliveryFee = DIWALI_PORTER_DELIVERY_FEE;
-  const advanceTotal = estimate + deliveryFee;
+  const tier = useTieredDiscount(estimate, "diwali");
+  const appliedDiscount = Math.min(estimate, booking?.discount ?? tier.discount);
+  const advanceTotal = Math.max(0, estimate - appliedDiscount + deliveryFee);
 
   const fingerprint = useMemo(
     () =>
@@ -431,6 +439,7 @@ export function DiwaliBookingClient({
         id: String(body.booking.id),
         reference: String(body.reference),
         estimatedAmount: Number(body.estimatedAmount ?? 0),
+        discount: Number(body.discount ?? 0),
         needsQuote: Boolean(body.needsQuote),
         fingerprint,
       });
@@ -529,6 +538,11 @@ export function DiwaliBookingClient({
                 <dd className="mt-0.5 text-[11px] text-ink-soft">
                   Includes {inr(paidOrder?.deliveryFee ?? deliveryFee)} Porter delivery
                 </dd>
+                {Number(receipt.booking.discount ?? 0) > 0 && (
+                  <dd className="mt-0.5 text-[11px] text-sage-ink">
+                    Includes {inr(Number(receipt.booking.discount))} cart reward
+                  </dd>
+                )}
               </div>
               <div>
                 <dt className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink-soft">Payment status</dt>
@@ -904,6 +918,12 @@ export function DiwaliBookingClient({
                   <span className="text-ink-soft">Flower subtotal</span>
                   <span className="font-semibold tabular-nums">{inr(estimate)}</span>
                 </p>
+                {appliedDiscount > 0 && (
+                  <p className="flex items-center justify-between gap-3 text-sage-ink">
+                    <span>Automatic reward</span>
+                    <span className="font-semibold tabular-nums">−{inr(appliedDiscount)}</span>
+                  </p>
+                )}
                 <p className="flex items-center justify-between gap-3">
                   <span className="text-ink-soft">Porter delivery</span>
                   <span className="font-semibold tabular-nums">{inr(deliveryFee)}</span>
@@ -911,6 +931,10 @@ export function DiwaliBookingClient({
               </div>
             )}
           </section>
+
+          {selectedProducts.length > 0 && (
+            <DiscountJourney result={tier} className="mt-6" />
+          )}
 
           {selectedProducts.length > 0 && (
             <div
@@ -1201,11 +1225,18 @@ export function DiwaliBookingClient({
                 </li>
               ))}
             </ul>
+            <DiscountJourneySummary result={tier} tone="dark" className="mt-3" />
             <div className="mt-3 space-y-1.5 border-t border-ivory/15 pt-3 text-sm">
               <p className="flex items-center justify-between gap-3 text-xs text-ivory/60">
                 <span>Flower subtotal</span>
                 <span className="tabular-nums">{inr(estimate)}</span>
               </p>
+              {appliedDiscount > 0 && (
+                <p className="flex items-center justify-between gap-3 text-xs text-gold-soft">
+                  <span>Automatic reward</span>
+                  <span className="tabular-nums">−{inr(appliedDiscount)}</span>
+                </p>
+              )}
               <p className="flex items-center justify-between gap-3 text-xs text-ivory/60">
                 <span>Porter delivery</span>
                 <span className="tabular-nums">{inr(deliveryFee)}</span>
@@ -1292,6 +1323,12 @@ export function DiwaliBookingClient({
                   <span className="text-ink-soft">Flower subtotal</span>
                   <span className="font-semibold tabular-nums">{inr(estimate)}</span>
                 </p>
+                {appliedDiscount > 0 && (
+                  <p className="flex items-center justify-between gap-3 text-sage-ink">
+                    <span>Automatic reward</span>
+                    <span className="font-semibold tabular-nums">−{inr(appliedDiscount)}</span>
+                  </p>
+                )}
                 <p className="flex items-center justify-between gap-3">
                   <span className="text-ink-soft">Porter delivery</span>
                   <span className="font-semibold tabular-nums">{inr(deliveryFee)}</span>

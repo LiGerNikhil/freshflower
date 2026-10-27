@@ -14,6 +14,8 @@ interface OrderRecord {
   items: Array<{ name: string; quantity: number; price: number; image?: string; color?: string }>;
   subtotal?: number;
   deliveryFee?: number;
+  discount?: number;
+  couponCode?: string;
   total: number;
   payment?: "upi" | "cod" | "online";
   delivery: {
@@ -177,7 +179,8 @@ export default function OrderConfirmationClient({ orderId }: { orderId: string }
 
   const subtotal = order?.subtotal ?? order?.items.reduce((sum, item) => sum + item.price * item.quantity, 0) ?? 0;
   const deliveryFee = order?.deliveryFee ?? DELIVERY_CHARGE;
-  const total = payment?.order.total ?? order?.total ?? subtotal + deliveryFee;
+  const discount = Math.max(0, order?.discount ?? 0);
+  const total = payment?.order.total ?? order?.total ?? subtotal - discount + deliveryFee;
   const selectedAccount = payment?.selectedAccount ?? null;
   const isUpiOrder = payment?.order.paymentMethod === "upi" || order?.payment === "upi";
   const isOnlineOrder = payment?.order.paymentMethod === "online" || order?.payment === "online";
@@ -379,6 +382,9 @@ export default function OrderConfirmationClient({ orderId }: { orderId: string }
               </div>
               <div className="space-y-3 pt-5 text-sm">
                 <div className="flex justify-between"><span className="text-ink-soft">Flowers total</span><span>₹{subtotal.toLocaleString("en-IN")}</span></div>
+                {discount > 0 && (
+                  <div className="flex justify-between font-semibold text-sage-ink"><span>Cart reward</span><span>−₹{discount.toLocaleString("en-IN")}</span></div>
+                )}
                 <div className="flex justify-between"><span className="text-ink-soft">Porter delivery charge</span><span>₹{deliveryFee.toLocaleString("en-IN")}</span></div>
                 <p className="text-xs leading-5 text-ink-soft">{DELIVERY_NOTE}</p>
               </div>

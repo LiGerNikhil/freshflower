@@ -310,6 +310,8 @@ const DiwaliBookingSchema = new Schema(
     estimatedAmount: Number,
     itemsSubtotal: Number,
     deliveryFee: { type: Number, default: 0 },
+    discount: { type: Number, default: 0 },
+    discountLabel: String,
     needsQuote: { type: Boolean, default: false },
     status: {
       type: String,
@@ -647,6 +649,14 @@ BlogPostSchema.index({ slug: 1 }, { unique: true });
 BlogPostSchema.index({ status: 1, publishedAt: -1 });
 BlogPostSchema.index({ category: 1 });
 
+const CouponTierSchema = new Schema(
+  {
+    threshold: Number,
+    amount: Number,
+  },
+  { _id: false },
+);
+
 const CouponSchema = new Schema({
   _id: { type: String },
   code: { type: String, required: true, unique: true, uppercase: true },
@@ -660,6 +670,12 @@ const CouponSchema = new Schema({
   validFrom: Date,
   validUntil: Date,
   active: { type: Boolean, default: true },
+  // Automatic tiered cart reward (managed from /admin/coupons). Existing
+  // manual coupons simply leave these unset.
+  autoApply: { type: Boolean, default: false },
+  tiers: { type: [CouponTierSchema], default: undefined },
+  appliesToOrders: Boolean,
+  appliesToDiwali: Boolean,
 });
 
 CouponSchema.index({ active: 1 });

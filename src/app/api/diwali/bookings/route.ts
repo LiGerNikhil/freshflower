@@ -6,6 +6,8 @@ import { ApiError, jsonOk, parseOrThrow, readJson, safe } from "@/lib/api/helper
 import { diwaliBookingUpsertSchema } from "@/lib/validation";
 import { DIWALI_PORTER_DELIVERY_FEE, isFestivalCollectionLive } from "@/lib/festivals";
 import { getCustomerSession } from "@/lib/auth/customer-session";
+import { computeTieredDiscount, TIERED_DISCOUNT_CODE } from "@/lib/discounts";
+import { getTieredDiscountConfig } from "@/lib/server/tiered-discount";
 import type { FestivalCollection } from "@/lib/types";
 
 function todayInIndia(): string {
@@ -123,7 +125,12 @@ export async function POST(request: NextRequest) {
       });
     }
     const deliveryFee = DIWALI_PORTER_DELIVERY_FEE;
-    const estimatedAmount = itemsSubtotal + deliveryFee;
+    // The reward applies to the flower/booking value, never to the ₹299
+    // delivery charge or the advance/deposit itself.
+    const tierConfig = await getTieredDiscountConfig();
+    const tier = computeTieredDiscount(itemsSubtotal, tierConfig, "diwali");
+    const discount = Math.min(tier.discount, itemsSubtotal);
+    const estimatedAmount = Math.round((itemsSubtotal - discount + deliveryFee) * 100) / 100;
     const reference = `DIW-${Date.now().toString(36).toUpperCase()}-${crypto.randomInt(1000, 9999)}`;
     const booking = await DiwaliBookingModel.create({
       _id: `diwali-${crypto.randomUUID()}`,
@@ -142,6 +149,8 @@ export async function POST(request: NextRequest) {
       customRequirements: input.customRequirements,
       itemsSubtotal,
       deliveryFee,
+      discount,
+      discountLabel: discount > 0 ? TIERED_DISCOUNT_CODE : undefined,
       estimatedAmount,
       needsQuote,
       status: "awaiting_payment",
@@ -154,6 +163,7 @@ export async function POST(request: NextRequest) {
       status: "awaiting_payment",
       itemsSubtotal,
       deliveryFee,
+      discount,
       estimatedAmount,
       needsQuote,
       booking: { id: String(booking._id) },

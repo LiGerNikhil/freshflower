@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CouponsManager } from "@/components/admin/CouponsManager";
+import { TieredDiscountManager } from "@/components/admin/TieredDiscountManager";
 
 export const metadata: Metadata = {
   title: "Coupons",
@@ -7,5 +8,10 @@ export const metadata: Metadata = {
 };
 
 export default function AdminCouponsPage() {
-  return <CouponsManager />;
+  return (
+    <div>
+      <TieredDiscountManager />
+      <CouponsManager />
+    </div>
+  );
 }

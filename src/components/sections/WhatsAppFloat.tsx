@@ -42,9 +42,13 @@ export function WhatsAppFloat() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label={`Chat with us on WhatsApp (${settings.whatsappNumber})`}
-      className={`fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg shadow-emerald-900/20 transition-all duration-300 hover:scale-105 hover:shadow-xl ${
+      className={`fixed right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg shadow-emerald-900/20 transition-all duration-300 hover:scale-105 hover:shadow-xl ${
         visible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
       }`}
+      style={{
+        bottom:
+          "calc(var(--ff-cart-journey-height, 0px) + var(--ff-mobile-bottom-nav-height, env(safe-area-inset-bottom, 0px)) + 1.25rem)",
+      }}
     >
       <span className="absolute inset-0 -z-10 animate-ping rounded-full bg-[#25D366]/40" />
       <MessageCircle size={26} />

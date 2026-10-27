@@ -23,15 +23,20 @@ export function CouponsManager() {
     usePhase15();
   const [query, setQuery] = useState("");
 
+  const manualCoupons = useMemo(
+    () => coupons.filter((coupon) => !coupon.autoApply),
+    [coupons],
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return coupons;
-    return coupons.filter(
+    if (!q) return manualCoupons;
+    return manualCoupons.filter(
       (c) =>
         c.code.toLowerCase().includes(q) ||
         c.description.toLowerCase().includes(q),
     );
-  }, [coupons, query]);
+  }, [manualCoupons, query]);
 
   return (
     <div>
@@ -44,7 +49,8 @@ export function CouponsManager() {
             Coupons
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-soft">
-            {coupons.length} coupons · synced from the live database.
+            {manualCoupons.length} manual coupons · synced from the live database.
+            The automatic reward is configured above.
           </p>
         </div>
         <Link

@@ -16,6 +16,12 @@ import { deliveryAreas } from "@/lib/data";
 import { DELIVERY_CHARGE } from "@/lib/cart";
 import { getCustomerSession } from "@/lib/auth/customer-session";
 import { OrderStatus } from "@/lib/types";
+import {
+  TIERED_DISCOUNT_CODE,
+  computeTieredDiscount,
+  couponDiscount,
+} from "@/lib/discounts";
+import { getTieredDiscountConfig } from "@/lib/server/tiered-discount";
 
 type PaymentAccountDoc = {
   _id: string;
@@ -39,19 +45,8 @@ function randomOrderNumber(): string {
   return `FF-${10000 + crypto.randomInt(90000)}`;
 }
 
-function couponDiscount(
-  subtotal: number,
-  coupon: {
-    discountType: "percentage" | "flat";
-    discountValue: number;
-    maxDiscountCap?: number;
-  },
-): number {
-  if (coupon.discountType === "percentage") {
-    const raw = (subtotal * coupon.discountValue) / 100;
-    return Math.min(raw, coupon.maxDiscountCap ?? raw);
-  }
-  return Math.min(coupon.discountValue, coupon.maxDiscountCap ?? coupon.discountValue);
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 export async function POST(req: NextRequest) {
@@ -133,21 +128,37 @@ export async function POST(req: NextRequest) {
     }
 
     // ---- authoritative totals ------------------------------------------------
-    let discount = 0;
+    // The tier reward is recalculated from DB prices only. Client-supplied
+    // subtotal/discount/total are deliberately ignored. Only the highest
+    // eligible tier applies and it does not stack with manual coupons.
+    const tierConfig = await getTieredDiscountConfig();
+    const tier = computeTieredDiscount(subtotal, tierConfig, "orders");
+    let discount = tier.discount;
     const codes: string[] = [];
-    for (const code of input.coupons) {
-      const coupon = await getCouponByCode(code);
-      if (!coupon || !coupon.active) continue;
+
+    if (tier.discount > 0) {
+      codes.push(TIERED_DISCOUNT_CODE);
+    } else {
+      const seen = new Set<string>();
       const now = Date.now();
-      if (coupon.validFrom && new Date(coupon.validFrom).getTime() > now) continue;
-      if (coupon.validUntil && new Date(coupon.validUntil).getTime() < now) continue;
-      if (coupon.minOrderValue && subtotal < coupon.minOrderValue) continue;
-      discount += couponDiscount(subtotal, coupon);
-      codes.push(coupon.code);
+      for (const rawCode of input.coupons) {
+        const code = rawCode.trim().toUpperCase();
+        if (!code || code === TIERED_DISCOUNT_CODE || seen.has(code)) continue;
+        seen.add(code);
+
+        const coupon = await getCouponByCode(code);
+        if (!coupon || !coupon.active || coupon.autoApply) continue;
+        if (coupon.validFrom && new Date(coupon.validFrom).getTime() > now) continue;
+        if (coupon.validUntil && new Date(coupon.validUntil).getTime() < now) continue;
+        if (coupon.minOrderValue && subtotal < coupon.minOrderValue) continue;
+        discount += couponDiscount(subtotal, coupon);
+        codes.push(coupon.code);
+      }
     }
-    discount = Math.min(discount, subtotal);
+
+    discount = Math.min(roundMoney(discount), roundMoney(subtotal));
     const deliveryFee = DELIVERY_CHARGE;
-    const total = Math.round((subtotal - discount + deliveryFee) * 100) / 100;
+    const total = roundMoney(subtotal - discount + deliveryFee);
 
     // Customer identity comes only from the signed auth session.
     const customerId = session.customerId;

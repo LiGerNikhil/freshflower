@@ -368,6 +368,11 @@ export interface BlogPost {
   keywords?: string[];
 }
 
+export interface CouponTier {
+  threshold: number;
+  amount: number;
+}
+
 export interface Coupon {
   id: string;
   code: string;
@@ -381,6 +386,15 @@ export interface Coupon {
   validFrom: string;
   validUntil: string;
   active: boolean;
+  /**
+   * Reserved for the automatic tiered cart reward. Auto-apply coupons are not
+   * shown as regular coupon codes and never stack with a manual coupon.
+   */
+  autoApply?: boolean;
+  /** Tier ladder used when autoApply is true (highest eligible tier wins). */
+  tiers?: CouponTier[];
+  appliesToOrders?: boolean;
+  appliesToDiwali?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -598,6 +612,10 @@ export interface DiwaliBooking {
   itemsSubtotal?: number;
   /** Flat Porter delivery charge included in estimatedAmount/paymentAmount. */
   deliveryFee?: number;
+  /** Automatic tier reward applied to the flower subtotal (not the deposit). */
+  discount?: number;
+  /** Reserved marker, e.g. AUTO-TIER. */
+  discountLabel?: string;
   /** True when bulk quantities or custom notes mean the team must confirm pricing. */
   needsQuote?: boolean;
   status: DiwaliBookingStatus;

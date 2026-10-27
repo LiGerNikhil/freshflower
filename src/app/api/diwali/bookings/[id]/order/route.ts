@@ -4,6 +4,7 @@ import { dbConnect } from "@/lib/db/connect";
 import { jsonError, jsonOk, safe } from "@/lib/api/helpers";
 import { getCustomerSession } from "@/lib/auth/customer-session";
 import { DIWALI_PORTER_DELIVERY_FEE } from "@/lib/festivals";
+import { TIERED_DISCOUNT_CODE } from "@/lib/discounts";
 import { OrderStatus } from "@/lib/types";
 import type { DiwaliBooking } from "@/lib/types";
 
@@ -42,13 +43,25 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     const itemsSubtotal = Math.round(
       booking.items.reduce((sum, item) => sum + Number(item.price ?? 0) * item.quantity, 0),
     );
-    const amount = Math.round(
-      Number(booking.paymentAmount ?? booking.estimatedAmount ?? itemsSubtotal + DIWALI_PORTER_DELIVERY_FEE),
+    // Snapshot the reward that was quoted on the booking. Never recompute it
+    // here: that could double-apply the discount or change the amount after
+    // the customer already saw it.
+    const discount = Math.min(
+      Math.max(0, Math.round(Number(booking.discount ?? 0) * 100) / 100),
+      itemsSubtotal,
     );
+    const fallbackTotal =
+      Math.round((itemsSubtotal - discount + DIWALI_PORTER_DELIVERY_FEE) * 100) / 100;
+    const amount = Math.round(
+      Number(booking.paymentAmount ?? booking.estimatedAmount ?? fallbackTotal) * 100,
+    ) / 100;
     if (!Number.isFinite(amount) || amount < 1) {
       return jsonError("We could not compute an advance amount. Please contact us on WhatsApp.", 409);
     }
-    const deliveryFee = Math.max(0, amount - itemsSubtotal);
+    const deliveryFee = Math.max(
+      0,
+      Math.round((amount - itemsSubtotal + discount) * 100) / 100,
+    );
 
     const existing = await OrderModel.findOne({ diwaliBookingId: booking._id }).lean<{ _id: string; total: number; paymentStatus?: string }>();
     if (existing) {
@@ -92,7 +105,8 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
           })),
           subtotal: itemsSubtotal,
           deliveryFee,
-          discount: 0,
+          discount,
+          couponCode: discount > 0 ? TIERED_DISCOUNT_CODE : undefined,
           total: amount,
           status: OrderStatus.Received,
           deliveryAreaId: booking.deliveryAreaId,

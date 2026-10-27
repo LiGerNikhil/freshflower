@@ -113,6 +113,11 @@ export default async function AccountOrderDetailPage({
                   Includes ₹{order.deliveryFee.toLocaleString("en-IN")} Porter delivery
                 </dd>
               )}
+              {order.discount > 0 && (
+                <dd className="mt-0.5 text-[11px] text-sage-ink">
+                  Includes ₹{order.discount.toLocaleString("en-IN")} cart reward
+                </dd>
+              )}
             </div>
             <div>
               <dt className="text-[11px] font-bold uppercase tracking-wide text-ink-soft">Transaction ID</dt>

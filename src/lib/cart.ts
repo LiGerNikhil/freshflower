@@ -1,4 +1,5 @@
 export const CART_STORAGE_KEY = "freshflower-cart";
+export const COUPON_STORAGE_KEY = "freshflower-coupon-codes";
 
 // Business rule: update this value when delivery-charge policy changes.
 export const DELIVERY_CHARGE = 299;

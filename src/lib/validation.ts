@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { FESTIVAL_BADGES, HOMEPAGE_SECTION_IDS } from "@/lib/festivals";
+import { TIERED_DISCOUNT_ABSOLUTE_CAP } from "@/lib/discounts";
 
 /** Shared zod schemas for every write surface (admin + public). */
 
@@ -247,9 +248,27 @@ export const couponSchema = z.object({
   validFrom: z.string().datetime({ offset: true }).optional(),
   validUntil: z.string().datetime({ offset: true }).optional(),
   active: z.boolean().default(true),
+  autoApply: z.boolean().optional(),
+  appliesToOrders: z.boolean().optional(),
+  appliesToDiwali: z.boolean().optional(),
+  tiers: z
+    .array(
+      z.object({
+        threshold: z.number().finite().min(1).max(9_999_999),
+        amount: z.number().finite().min(1).max(TIERED_DISCOUNT_ABSOLUTE_CAP),
+      }),
+    )
+    .max(10)
+    .optional(),
 });
 
 export const couponPatchSchema = couponSchema.partial();
+
+/** Public, display-only check for manually entered coupon codes. */
+export const couponValidationSchema = z.object({
+  codes: z.array(z.string().trim().min(1).max(40)).max(10).default([]),
+  subtotal: z.number().finite().min(0).max(9_999_999),
+});
 
 export const reviewStatusSchema = z.object({
   status: z.enum(["pending", "approved", "rejected"]),

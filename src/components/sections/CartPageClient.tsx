@@ -1,48 +1,189 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Minus, Plus, Tag, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
 import { useCart } from "@/components/providers/CartContext";
 import { ProductItemImage } from "@/components/sections/ProductItemImage";
-import { coupons } from "@/lib/data";
-import { DELIVERY_CHARGE, DELIVERY_NOTE } from "@/lib/cart";
+import {
+  DiscountJourney,
+  DiscountJourneyBar,
+} from "@/components/sections/DiscountJourney";
+import { DELIVERY_CHARGE, DELIVERY_NOTE, COUPON_STORAGE_KEY } from "@/lib/cart";
+import { formatDiscountINR } from "@/lib/discounts";
+import { useTieredDiscount } from "@/lib/use-tiered-discount";
+
+interface CouponMessage {
+  kind: "success" | "error";
+  text: string;
+}
+
+/** Snapshot of a validated coupon, keyed by the subtotal it was quoted for. */
+interface AppliedCoupon {
+  codes: string[];
+  value: number;
+  subtotal: number;
+}
 
 export default function CartPageClient() {
   const { items, itemCount, subtotal, updateQuantity, removeItem } = useCart();
+  const tier = useTieredDiscount(subtotal, "orders");
   const [couponInput, setCouponInput] = useState("");
-  const [couponMessage, setCouponMessage] = useState<{
-    kind: "success" | "error";
-    text: string;
-  } | null>(null);
-  const [discount, setDiscount] = useState(0);
-  const total = subtotal + DELIVERY_CHARGE - discount;
-  const applyCoupon = () => {
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
+  const [couponMessage, setCouponMessage] = useState<CouponMessage | null>(null);
+  const [couponChecking, setCouponChecking] = useState(false);
+  const tierActive = tier.discount > 0;
+  // Derived during render: a quote only counts for the subtotal it was priced
+  // for, and never alongside the automatic reward (no stacking).
+  const couponIsCurrent =
+    !tierActive && appliedCoupon?.subtotal === subtotal;
+  const couponCodes = couponIsCurrent ? appliedCoupon.codes : [];
+  const couponValue = couponIsCurrent ? appliedCoupon.value : 0;
+  const appliedDiscount = Math.min(
+    subtotal,
+    tierActive ? tier.discount : couponValue,
+  );
+  const total = Math.max(0, subtotal + DELIVERY_CHARGE - appliedDiscount);
+
+  // Restore and re-price a saved code whenever the cart value changes. All
+  // state writes happen in async callbacks, so no cascading render happens
+  // while this effect runs.
+  useEffect(() => {
+    if (tierActive) return;
+
+    let codes: string[] = [];
+    try {
+      const saved = JSON.parse(
+        window.sessionStorage.getItem(COUPON_STORAGE_KEY) ?? "[]",
+      );
+      if (Array.isArray(saved)) {
+        codes = saved.filter(
+          (code): code is string => typeof code === "string" && code.length > 0,
+        );
+      }
+    } catch {
+      try {
+        window.sessionStorage.removeItem(COUPON_STORAGE_KEY);
+      } catch {
+        /* storage can be unavailable in private mode */
+      }
+      return;
+    }
+    if (!codes.length) return;
+
+    let alive = true;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const response = await fetch("/api/coupons/validate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ codes, subtotal }),
+          });
+          if (!alive) return;
+          const body = await response.json().catch(() => null);
+          if (!response.ok) return;
+          if (body?.source === "tiered") {
+            setAppliedCoupon({ codes: [], value: 0, subtotal });
+            setCouponMessage({
+              kind: "error",
+              text:
+                body?.message ??
+                "Automatic cart reward applied instead — coupon codes can't be combined.",
+            });
+            window.sessionStorage.removeItem(COUPON_STORAGE_KEY);
+            return;
+          }
+          const valid: string[] = Array.isArray(body?.codes) ? body.codes : [];
+          setAppliedCoupon({
+            codes: valid,
+            value: valid.length ? Number(body?.discount) || 0 : 0,
+            subtotal,
+          });
+          if (valid.length) {
+            window.sessionStorage.setItem(
+              COUPON_STORAGE_KEY,
+              JSON.stringify(valid),
+            );
+          } else {
+            window.sessionStorage.removeItem(COUPON_STORAGE_KEY);
+            setCouponMessage({
+              kind: "error",
+              text:
+                body?.message ?? "That code is no longer valid for this cart.",
+            });
+          }
+        } catch {
+          /* keep the last known value; checkout revalidates authoritatively */
+        }
+      })();
+    }, 250);
+
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, [subtotal, tierActive]);
+
+  const applyCoupon = async () => {
     const code = couponInput.trim().toUpperCase();
-    const coupon = coupons.find(
-      (item) =>
-        item.code === code &&
-        item.active &&
-        subtotal >= (item.minOrderValue ?? 0),
-    );
-    if (!coupon) {
-      setDiscount(0);
+    if (!code) {
+      setCouponMessage({ kind: "error", text: "Enter a coupon code first." });
+      return;
+    }
+    if (tierActive) {
       setCouponMessage({
         kind: "error",
-        text: "Invalid code or minimum order not reached.",
+        text: "Your automatic cart reward is already applied — coupon codes can't be combined.",
       });
       return;
     }
-    const value =
-      coupon.discountType === "percentage"
-        ? Math.round((subtotal * coupon.discountValue) / 100)
-        : coupon.discountValue;
-    setDiscount(Math.min(value, subtotal));
-    setCouponMessage({
-      kind: "success",
-      text: `${coupon.code} applied: ${coupon.description}`,
-    });
+    setCouponChecking(true);
+    try {
+      const response = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codes: [code], subtotal }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Could not check that coupon.");
+      }
+      if (body?.source === "tiered") {
+        setAppliedCoupon({ codes: [], value: 0, subtotal });
+        setCouponMessage({ kind: "error", text: body.message });
+        window.sessionStorage.removeItem(COUPON_STORAGE_KEY);
+        return;
+      }
+      const codes: string[] = Array.isArray(body?.codes) ? body.codes : [];
+      if (!codes.length) {
+        setAppliedCoupon({ codes: [], value: 0, subtotal });
+        setCouponMessage({
+          kind: "error",
+          text: body?.message ?? "Invalid code or minimum order not reached.",
+        });
+        window.sessionStorage.removeItem(COUPON_STORAGE_KEY);
+        return;
+      }
+      setAppliedCoupon({
+        codes,
+        value: Number(body?.discount) || 0,
+        subtotal,
+      });
+      setCouponMessage({
+        kind: "success",
+        text: body?.message ?? "Coupon applied.",
+      });
+      window.sessionStorage.setItem(COUPON_STORAGE_KEY, JSON.stringify(codes));
+      setCouponInput("");
+    } catch (cause) {
+      setCouponMessage({
+        kind: "error",
+        text: cause instanceof Error ? cause.message : "Could not check that coupon.",
+      });
+    } finally {
+      setCouponChecking(false);
+    }
   };
 
   if (!items.length)
@@ -83,6 +224,9 @@ export default function CartPageClient() {
             beautiful morning.
           </p>
         </div>
+      </section>
+      <section className="mx-auto max-w-7xl px-5 pt-10 md:px-10">
+        <DiscountJourney result={tier} />
       </section>
       <section className="mx-auto grid max-w-7xl gap-10 px-5 py-12 md:px-10 lg:grid-cols-[1fr_370px]">
         <div>
@@ -183,19 +327,29 @@ export default function CartPageClient() {
                   id="coupon"
                   value={couponInput}
                   onChange={(event) => setCouponInput(event.target.value)}
-                  placeholder="WELCOME10"
-                  className="min-w-0 flex-1 rounded-md border border-ink/10 bg-white/70 px-3 py-2.5 text-sm outline-none focus:border-gold"
+                  placeholder={tierActive ? "Automatic reward applied" : "WELCOME10"}
+                  disabled={tierActive || couponChecking}
+                  aria-describedby="coupon-help"
+                  className="min-w-0 flex-1 rounded-md border border-ink/10 bg-white/70 px-3 py-2.5 text-sm outline-none focus:border-gold disabled:cursor-not-allowed disabled:opacity-60"
                 />
                 <button
                   type="button"
-                  onClick={applyCoupon}
-                  className="rounded-md bg-ink px-3 py-2 text-xs font-semibold text-ivory"
+                  onClick={() => void applyCoupon()}
+                  disabled={tierActive || couponChecking}
+                  className="rounded-md bg-ink px-3 py-2 text-xs font-semibold text-ivory disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Apply
+                  {couponChecking ? "Checking…" : "Apply"}
                 </button>
               </div>
-              {couponMessage && (
+              {tierActive && (
+                <p id="coupon-help" className="mt-2 text-xs text-sage-ink">
+                  🎉 Your automatic cart reward is applied. Coupon codes can&apos;t be combined with it.
+                </p>
+              )}
+              {!tierActive && couponMessage && (
                 <p
+                  id="coupon-help"
+                  role={couponMessage.kind === "error" ? "alert" : "status"}
                   className={`mt-2 text-xs ${couponMessage.kind === "success" ? "text-sage-ink" : "text-red-700"}`}
                 >
                   {couponMessage.text}
@@ -208,9 +362,15 @@ export default function CartPageClient() {
                 <span>₹{DELIVERY_CHARGE.toLocaleString("en-IN")}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-ink-soft">Discount</span>
-                <span className={discount ? "text-sage-ink" : ""}>
-                  {discount ? `-₹${discount.toLocaleString("en-IN")}` : "—"}
+                <span className="text-ink-soft">
+                  {tierActive
+                    ? "Automatic reward"
+                    : couponCodes.length
+                      ? `Coupon (${couponCodes.join(", ")})`
+                      : "Discount"}
+                </span>
+                <span className={appliedDiscount ? "font-semibold text-sage-ink" : ""}>
+                  {appliedDiscount ? `−${formatDiscountINR(appliedDiscount)}` : "—"}
                 </span>
               </div>
               <div className="flex justify-between text-lg font-bold">
@@ -230,6 +390,7 @@ export default function CartPageClient() {
           </div>
         </aside>
       </section>
+      <DiscountJourneyBar result={tier} />
     </main>
   );
 }
