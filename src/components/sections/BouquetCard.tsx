@@ -1,16 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, type Variants } from "framer-motion";
-import { Flower2, Heart, Plus } from "lucide-react";
+import { Flower2, Heart, Plus, Search } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { HeroVideo } from "@/components/sections/HeroVideo";
 import { useCart } from "@/components/providers/CartContext";
 import { useWishlist } from "@/components/providers/WishlistContext";
+import { buildBouquetDocs, searchDocs } from "@/lib/search/engine";
 import { GRADIENT_TOKENS, isRemoteImage } from "@/lib/utils";
-import type { Bouquet } from "@/lib/types";
+import type { Bouquet, Flower, Occasion } from "@/lib/types";
 
 const reveal: Variants = {
   hidden: { opacity: 0, y: 18 },
@@ -121,7 +122,30 @@ export function BouquetCard({
   );
 }
 
-export function BouquetListing({ bouquets }: { bouquets: Bouquet[] }) {
+export function BouquetListing({
+  bouquets,
+  query = "",
+  flowers = [],
+  occasions = [],
+}: {
+  bouquets: Bouquet[];
+  query?: string;
+  flowers?: Flower[];
+  occasions?: Occasion[];
+}) {
+  const trimmedQuery = query.trim();
+  const visibleBouquets = useMemo(() => {
+    if (!trimmedQuery) return bouquets;
+    const hits = searchDocs(
+      buildBouquetDocs(bouquets, flowers, occasions),
+      trimmedQuery,
+    );
+    const rank = new Map(hits.map((hit, index) => [hit.id, index]));
+    return bouquets
+      .filter((bouquet) => rank.has(bouquet.id))
+      .sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
+  }, [bouquets, flowers, occasions, trimmedQuery]);
+
   return (
     <main className="min-h-screen bg-ivory">
       <section className="relative overflow-hidden bg-blush px-5 py-20 md:px-10 md:py-28">
@@ -141,30 +165,66 @@ export function BouquetListing({ bouquets }: { bouquets: Bouquet[] }) {
         </div>
       </section>
       <section className="mx-auto max-w-7xl px-5 py-16 md:px-10 md:py-24">
+        {trimmedQuery && (
+          <div className="mb-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink/10 bg-white/60 px-4 py-3">
+            <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <Search size={15} className="shrink-0 text-gold" />
+              Results for “{trimmedQuery}”
+            </p>
+            <Link
+              href="/bouquets"
+              className="rounded-md border border-ink/10 bg-white px-3 py-2 text-xs font-semibold text-ink-soft transition hover:border-ink/25 hover:text-ink"
+            >
+              Clear search
+            </Link>
+          </div>
+        )}
         <div className="mb-10 flex items-end justify-between">
           <div>
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-sage-ink">
               The studio edit
             </p>
-            <h2 className="text-4xl">Premium bouquets</h2>
+            <h2 className="text-4xl">
+              {trimmedQuery ? "Matching bouquets" : "Premium bouquets"}
+            </h2>
           </div>
           <span className="text-sm text-ink-soft">
-            {bouquets.length} arrangements
+            {visibleBouquets.length}{" "}
+            {visibleBouquets.length === 1 ? "arrangement" : "arrangements"}
           </span>
         </div>
-        <motion.div
-          variants={{
-            hidden: {},
-            visible: { transition: { staggerChildren: 0.08 } },
-          }}
-          initial="hidden"
-          animate="visible"
-          className="grid gap-x-5 gap-y-14 sm:grid-cols-2 lg:grid-cols-3"
-        >
-          {bouquets.map((bouquet) => (
-            <BouquetCard key={bouquet.id} bouquet={bouquet} />
-          ))}
-        </motion.div>
+        {visibleBouquets.length > 0 ? (
+          <motion.div
+            variants={{
+              hidden: {},
+              visible: { transition: { staggerChildren: 0.08 } },
+            }}
+            initial="hidden"
+            animate="visible"
+            className="grid gap-x-5 gap-y-14 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            {visibleBouquets.map((bouquet) => (
+              <BouquetCard key={bouquet.id} bouquet={bouquet} />
+            ))}
+          </motion.div>
+        ) : (
+          <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl bg-white/60 px-6 text-center">
+            <Flower2 size={45} strokeWidth={0.7} className="mb-5 text-gold" />
+            <h2 className="font-display text-3xl">
+              No bouquets matched “{trimmedQuery}”.
+            </h2>
+            <p className="mt-3 max-w-sm text-sm leading-6 text-ink-soft">
+              Try a broader term like roses, birthday or luxury, or browse the
+              full bouquet edit.
+            </p>
+            <Link
+              href="/bouquets"
+              className="mt-6 rounded-md bg-ink px-5 py-3 text-sm font-semibold text-ivory transition hover:bg-ink-soft"
+            >
+              Browse all bouquets
+            </Link>
+          </div>
+        )}
       </section>
       <CustomBouquetForm />
     </main>

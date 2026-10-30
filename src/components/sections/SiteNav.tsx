@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Heart, LockKeyhole, Menu, Package, ShoppingBag, UserRound, X } from "lucide-react";
 import { useCart } from "@/components/providers/CartContext";
 import { useCustomerAuth } from "@/components/providers/CustomerAuthContext";
+import { SearchTrigger } from "@/components/search/SearchDialog";
 
 const NAV_LINKS = [
   { label: "Shop", href: "/flowers" },
@@ -43,7 +44,7 @@ export function SiteNav() {
             width={224}
             height={56}
             priority
-            className="h-11 w-auto md:h-14"
+            className="h-9 w-auto sm:h-11 md:h-14"
           />
         </Link>
 
@@ -61,6 +62,7 @@ export function SiteNav() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <SearchTrigger />
           <Link
             href="/account"
             aria-label="Open customer dashboard"

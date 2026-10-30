@@ -44,13 +44,16 @@ export function ProductCard({
 }: ProductCardProps) {
   const { addItem } = useCart();
   const { has: isWishlisted, toggle: toggleWishlist } = useWishlist();
-  const status = !flower.inStock
-    ? { label: "Sold Out", tone: "blush" as const }
-    : flower.featured
-      ? { label: "Limited Stock", tone: "gold" as const }
-      : flower.availableToday
-        ? { label: "Available Today", tone: "sage" as const }
-        : { label: "Pre-order", tone: "lavender" as const };
+  const status =
+    flower.stockStatus === "sold-out" || !flower.inStock
+      ? { label: "Sold Out", tone: "blush" as const }
+      : flower.stockStatus === "limited"
+        ? { label: "Limited Stock", tone: "gold" as const }
+        : flower.stockStatus === "pre-order"
+          ? { label: "Pre-order", tone: "lavender" as const }
+          : flower.availableToday
+            ? { label: "Available Today", tone: "sage" as const }
+            : { label: "Pre-order", tone: "lavender" as const };
   const variants = flower.colorVariants ?? [];
   const displayPrice = lowestPrice(flower);
   const compareAtPrice = effectiveCompareAtPrice(flower);

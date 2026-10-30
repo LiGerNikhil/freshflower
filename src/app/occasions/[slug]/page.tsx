@@ -42,15 +42,21 @@ function stateFromParams(
   occasionId: string,
 ): CatalogState {
   const sortValue = first(params.sort);
-  const sort = ["popular", "price-asc", "price-desc", "new"].includes(
-    sortValue ?? "",
-  )
+  const sortValues = ["relevance", "popular", "price-asc", "price-desc", "new"];
+  const parsedSort = sortValues.includes(sortValue ?? "")
     ? (sortValue as CatalogState["sort"])
-    : "popular";
+    : undefined;
+  const query = first(params.q) ?? "";
+  const sort: CatalogState["sort"] =
+    parsedSort && (parsedSort !== "relevance" || query)
+      ? parsedSort
+      : query
+        ? "relevance"
+        : "popular";
   const min = Math.max(0, Number(first(params.min)) || 0);
   const max = Math.min(3000, Number(first(params.max)) || 3000);
   return {
-    query: first(params.q) ?? "",
+    query,
     categoryIds: parseList(params.category),
     sort,
     availability: parseList(

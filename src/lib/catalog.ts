@@ -1,6 +1,11 @@
 export const MAX_PRICE = 10000;
 
-export type SortValue = "popular" | "price-asc" | "price-desc" | "new";
+export type SortValue =
+  | "relevance"
+  | "popular"
+  | "price-asc"
+  | "price-desc"
+  | "new";
 export type Availability = "today" | "limited" | "preorder" | "soldout";
 export type UnitValue = "stems-6" | "stems-10" | "stems-12" | "plant";
 

@@ -9,5 +9,11 @@ export function FilteredFlowerCollection({
   flowers: Flower[];
   initialState: CatalogState;
 }) {
-  return <FlowersCatalogue flowers={flowers} initialState={initialState} />;
+  return (
+    <FlowersCatalogue
+      key={JSON.stringify(initialState)}
+      flowers={flowers}
+      initialState={initialState}
+    />
+  );
 }
