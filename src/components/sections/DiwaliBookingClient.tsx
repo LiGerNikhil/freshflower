@@ -116,6 +116,25 @@ function unitText(product: CampaignFlower): string {
   return product.unit?.trim() || "unit";
 }
 
+function colorSwatch(color: string): string {
+  const swatches: Record<string, string> = {
+    red: "#dc2626",
+    pink: "#ec9cae",
+    green: "#16a34a",
+    white: "#fffaf0",
+    orange: "#f97316",
+    yellow: "#eab308",
+    peach: "#ffcba4",
+    blue: "#2563eb",
+    purple: "#9333ea",
+    maroon: "#7f1d1d",
+    lavender: "#a78bfa",
+    cream: "#fffdd0",
+    burgundy: "#800020",
+  };
+  return swatches[color.trim().toLowerCase()] ?? "#a8a29e";
+}
+
 function formatLongDate(value: string): string {
   const date = new Date(`${value}T12:00:00+05:30`);
   if (Number.isNaN(date.getTime())) return value;
@@ -268,18 +287,18 @@ export function DiwaliBookingClient({
     }));
   }, [user]);
 
-  const variantsFor = (product: CampaignFlower): ColorChoice[] =>
-    (product.colorVariants ?? []).filter(
-      (variant) =>
-        !product.campaignSettings ||
-        (product.campaignSettings.eligibleVariants ?? []).includes(variant.color),
-    );
+  const variantsFor = (product: CampaignFlower): ColorChoice[] => product.colorVariants ?? [];
 
   const minFor = (product: CampaignFlower) => product.campaignSettings?.minQuantity ?? 1;
   const maxFor = (product: CampaignFlower) => product.campaignSettings?.maxQuantity ?? 99;
   const quantityFor = (product: CampaignFlower) => selected[product.id]?.quantity ?? minFor(product);
-  const activeVariantFor = (product: CampaignFlower) =>
-    selected[product.id]?.variant || variantsFor(product)[0]?.color || "";
+  const activeVariantFor = (product: CampaignFlower) => {
+    const variants = variantsFor(product);
+    const savedVariant = selected[product.id]?.variant;
+    return variants.find((variant) => variant.color === savedVariant)?.color
+      ?? variants[0]?.color
+      ?? "";
+  };
   const priceFor = (product: CampaignFlower) =>
     variantsFor(product).find((variant) => variant.color === activeVariantFor(product))?.price ??
     product.price;
@@ -784,20 +803,39 @@ export function DiwaliBookingClient({
 
                       <div className="mt-auto px-3 pb-3 sm:px-4 sm:pb-4">
                         {variants.length > 0 && (
-                          <label className="block text-[10px] font-bold uppercase tracking-[0.1em] text-ink-soft">
-                            Variant
-                            <select
-                              value={activeVariantFor(product)}
-                              onChange={(event) => updateProduct(product, { variant: event.target.value })}
-                              className={fieldClass}
-                            >
-                              {variants.map((variant) => (
-                                <option key={variant.color} value={variant.color}>
-                                  {variant.color} · {inr(variant.price)}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
+                          <fieldset>
+                            <legend className="text-[10px] font-bold uppercase tracking-[0.1em] text-ink-soft">
+                              Choose a color
+                            </legend>
+                            <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label={`${displayName} available colors`}>
+                              {variants.map((variant, index) => {
+                                const active = activeVariantFor(product) === variant.color;
+                                return (
+                                  <button
+                                    key={`${variant.color}-${index}`}
+                                    type="button"
+                                    aria-pressed={active}
+                                    onClick={() => updateProduct(product, { variant: variant.color })}
+                                    className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-1 ${
+                                      active
+                                        ? "border-ink bg-ink text-ivory shadow-sm"
+                                        : "border-ink/10 bg-white text-ink hover:border-ink/30"
+                                    }`}
+                                  >
+                                    <span
+                                      aria-hidden="true"
+                                      className="h-3 w-3 shrink-0 rounded-full border border-ink/15"
+                                      style={{ backgroundColor: colorSwatch(variant.color) }}
+                                    />
+                                    {variant.color}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <p className="mt-1.5 text-[10px] text-ink-soft">
+                              {activeVariantFor(product)} · {inr(price)}
+                            </p>
+                          </fieldset>
                         )}
 
                         <div className="flex items-center justify-between gap-2 pb-1.5 pt-2.5">

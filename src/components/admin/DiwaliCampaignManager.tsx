@@ -421,7 +421,19 @@ export function DiwaliCampaignManager() {
                   <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={setting.featured} onChange={(event) => patchProductSetting(product, { featured: event.target.checked })} />Feature product</label>
                   <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={setting.bulkOrderEligible} onChange={(event) => patchProductSetting(product, { bulkOrderEligible: event.target.checked })} />Bulk orders welcome</label>
                 </div>
-                {!!product.colorVariants?.length && <fieldset className="mt-3"><legend className="text-xs font-semibold">Eligible variants</legend><div className="mt-2 flex flex-wrap gap-3">{product.colorVariants.map((variant) => <label key={variant.color} className="flex items-center gap-1.5 text-xs"><input type="checkbox" checked={setting.eligibleVariants.includes(variant.color)} onChange={(event) => patchProductSetting(product, { eligibleVariants: event.target.checked ? [...setting.eligibleVariants, variant.color] : setting.eligibleVariants.filter((color) => color !== variant.color) })} />{variant.color}</label>)}</div></fieldset>}
+                {!!product.colorVariants?.length && (
+                  <div className="mt-3">
+                    <p className="text-xs font-semibold">Colors available to customers</p>
+                    <p className="mt-1 text-[11px] text-ink-soft">Synced from catalog variants and prices. Add or edit colors in the product catalog; they appear on Diwali booking cards automatically.</p>
+                    <ul className="mt-2 flex flex-wrap gap-1.5">
+                      {product.colorVariants.map((variant) => (
+                        <li key={variant.color} className="rounded-full border border-ink/10 bg-white px-2.5 py-1 text-[11px]">
+                          {variant.color} · {formatINR(variant.price)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </article>;
             })}
           </div>}

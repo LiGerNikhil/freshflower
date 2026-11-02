@@ -99,10 +99,7 @@ export async function POST(request: NextRequest) {
       const variants = Array.isArray(product.colorVariants) ? product.colorVariants : [];
       let selectedVariant: { color: string; price?: number; image?: string } | undefined;
       if (variants.length) {
-        const allowed = productSetting
-          ? productSetting.eligibleVariants
-          : variants.map((variant: { color: string }) => variant.color);
-        if (!requested.variant || !allowed.includes(requested.variant)) {
+        if (!requested.variant) {
           throw new ApiError(`Choose an available variant for ${product.name}.`, 400);
         }
         selectedVariant = variants.find((variant: { color: string }) => variant.color === requested.variant);

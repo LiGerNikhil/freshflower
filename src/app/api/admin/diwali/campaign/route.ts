@@ -5,7 +5,7 @@ import { ApiError, jsonOk, parseOrThrow, readJson, safe } from "@/lib/api/helper
 import { requireAdminRole, CONTENT_WRITE_ROLES } from "@/lib/admin/authorization";
 import { validateCollectionReferences } from "@/lib/admin/festival-writes";
 import { festivalCollectionUpsertSchema } from "@/lib/validation";
-import type { FestivalCollection, Flower } from "@/lib/types";
+import type { FestivalCollection } from "@/lib/types";
 
 const CAMPAIGN_ID = "festival-diwali";
 
@@ -54,7 +54,7 @@ export async function PUT(request: NextRequest) {
     const [activeAreaIds, products] = await Promise.all([
       DeliveryAreaModel.find(areaQuery).distinct("_id"),
       FlowerModel.find({ _id: { $in: campaign.productIds }, active: { $ne: false }, publicationStatus: { $ne: "draft" } })
-        .select({ _id: 1, colorVariants: 1 })
+        .select({ _id: 1 })
         .lean(),
     ]);
     if (advanceBooking.deliveryAreaIds.length && activeAreaIds.length !== advanceBooking.deliveryAreaIds.length) {
@@ -82,25 +82,6 @@ export async function PUT(request: NextRequest) {
       );
       if (!hasVisibleProduct) {
         throw new ApiError("Make at least one selected product visible for booking before publishing.");
-      }
-      const visibleProductHasInvalidVariants = campaign.productIds.some((productId) => {
-        const setting = advanceBooking.productSettings.find((item) => item.productId === productId);
-        if (setting?.visible === false) return false;
-        const product = products.find((item) => String(item._id) === productId);
-        return Boolean(product?.colorVariants?.length && setting && !setting.eligibleVariants.length);
-      });
-      if (visibleProductHasInvalidVariants) {
-        throw new ApiError("Each visible product with variants must have at least one eligible variant.");
-      }
-    }
-    const variantsByProduct = new Map(products.map((product) => [
-      String(product._id),
-      new Set((product.colorVariants ?? []).map((variant: { color: string }) => variant.color)),
-    ]));
-    for (const setting of advanceBooking.productSettings) {
-      const variants = variantsByProduct.get(setting.productId);
-      if (variants && setting.eligibleVariants.some((variant) => !variants.has(variant))) {
-        throw new ApiError("A selected product variant no longer exists. Refresh the campaign settings.");
       }
     }
 
