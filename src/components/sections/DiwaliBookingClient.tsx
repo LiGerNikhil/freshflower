@@ -8,7 +8,6 @@ import {
   ArrowLeft,
   ArrowRight,
   BadgeCheck,
-  CalendarDays,
   Check,
   CheckCircle2,
   CreditCard,
@@ -21,10 +20,9 @@ import {
   Minus,
   Phone,
   Plus,
+  Search,
   ShieldCheck,
   Sparkles,
-  Sunrise,
-  Truck,
   X,
 } from "lucide-react";
 import { useCustomerAuth } from "@/components/providers/CustomerAuthContext";
@@ -118,16 +116,6 @@ function unitText(product: CampaignFlower): string {
   return product.unit?.trim() || "unit";
 }
 
-function formatDayMonth(value: string): string {
-  const date = new Date(`${value}T12:00:00+05:30`);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "numeric",
-    month: "short",
-    timeZone: "Asia/Kolkata",
-  }).format(date);
-}
-
 function formatLongDate(value: string): string {
   const date = new Date(`${value}T12:00:00+05:30`);
   if (Number.isNaN(date.getTime())) return value;
@@ -216,6 +204,8 @@ export function DiwaliBookingClient({
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selected, setSelected] = useState<Record<string, { quantity: number; variant: string; inBooking: boolean }>>({});
+  const [productSearch, setProductSearch] = useState("");
+  const [showSelectedProducts, setShowSelectedProducts] = useState(false);
   const [customRequirements, setCustomRequirements] = useState("");
   const [form, setForm] = useState<FormState>(emptyForm);
   const [restored, setRestored] = useState(false);
@@ -615,50 +605,24 @@ export function DiwaliBookingClient({
   }
 
   const productImage = (product: CampaignFlower) => product.images[0] ?? "gradient-ivory";
+  const visibleProducts = products.filter((product) => {
+    if (showSelectedProducts && !selected[product.id]?.inBooking) return false;
+    const query = productSearch.trim().toLowerCase();
+    if (!query) return true;
+    const setting = product.campaignSettings;
+    return [
+      setting?.displayLabel,
+      setting?.promotionalDescription,
+      product.name,
+      product.shortDescription,
+      unitText(product),
+    ].some((value) => value?.toLowerCase().includes(query));
+  });
 
   return (
     <main className="min-h-screen bg-ivory text-ink">
       {step === 1 ? (
         <>
-          <section className="relative isolate overflow-hidden bg-ink px-4 pb-7 pt-8 text-ivory sm:px-6 sm:pb-10 sm:pt-12 md:px-10 md:py-14">
-            {campaign.bannerImage && (
-              <Image src={campaign.bannerImage} alt="" fill priority sizes="100vw" className="-z-20 object-cover" />
-            )}
-            <div className="absolute inset-0 -z-10 bg-gradient-to-r from-ink/95 via-ink/80 to-ink/45" />
-            <div className="mx-auto max-w-7xl">
-              <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gold-soft sm:text-xs">
-                <Sparkles size={14} aria-hidden="true" />
-                {config.announcement || "Diwali special · Advance bookings open"}
-              </p>
-              <h1 className="mt-3 max-w-4xl font-display text-[1.75rem] leading-[1.15] sm:mt-4 sm:text-5xl md:text-6xl">
-                {campaign.title}
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-ivory/80 sm:mt-4 sm:text-base sm:leading-7">
-                {config.description || campaign.subtitle}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-1.5 sm:mt-5 sm:gap-2">
-                {config.deliveryDates.slice(0, 4).map((date) => (
-                  <span key={date} className="inline-flex items-center gap-1.5 rounded-full border border-ivory/20 bg-ivory/10 px-2.5 py-1.5 text-[11px] font-semibold backdrop-blur-sm sm:px-3 sm:text-xs">
-                    <CalendarDays size={13} aria-hidden="true" /> {formatDayMonth(date)}
-                  </span>
-                ))}
-                {config.earlyMorningDelivery && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-ivory/20 bg-ivory/10 px-2.5 py-1.5 text-[11px] font-semibold backdrop-blur-sm sm:px-3 sm:text-xs">
-                    <Sunrise size={13} aria-hidden="true" /> Early morning
-                  </span>
-                )}
-                {campaign.whatsappBulkOrderEnabled && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-ivory/20 bg-ivory/10 px-2.5 py-1.5 text-[11px] font-semibold backdrop-blur-sm sm:px-3 sm:text-xs">
-                    <Truck size={13} aria-hidden="true" /> Bulk orders welcome
-                  </span>
-                )}
-              </div>
-              {campaign.lastOrderByText && (
-                <p className="mt-3 text-[11px] font-medium text-gold-soft/90 sm:text-xs">{campaign.lastOrderByText}</p>
-              )}
-            </div>
-          </section>
-
           <section aria-label="How advance booking works" className="border-b border-ink/10 bg-white/70">
             <ul className="mx-auto grid max-w-7xl grid-cols-3 divide-x divide-ink/10 px-2 py-3 sm:py-4">
               {[
@@ -698,18 +662,47 @@ export function DiwaliBookingClient({
           <StepIndicator step={1} />
 
           <section id="products" className="mt-7">
-            <div className="mb-4 sm:mb-6">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-sage-ink sm:text-xs">Step 1 · Choose flowers</p>
-              <div className="mt-1 flex flex-wrap items-end justify-between gap-2 sm:mt-2">
-                <h2 className="font-display text-2xl leading-tight sm:text-4xl">Diwali flowers</h2>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-sage/30 px-2.5 py-1 text-[10px] font-semibold text-sage-ink sm:text-xs">
-                  <Flower2 size={13} aria-hidden="true" />
-                  {products.length} {products.length === 1 ? "flower" : "flowers"} available
+            <div className="mb-4 rounded-2xl border border-sage/30 bg-gradient-to-br from-white via-white to-sage/15 p-4 shadow-sm sm:mb-6 sm:p-6">
+              <p className="inline-flex items-center gap-1.5 rounded-full bg-sage/30 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-sage-ink sm:text-xs">
+                <Sparkles size={13} aria-hidden="true" /> Step 1 · Choose your flowers
+              </p>
+              <div className="mt-2 flex flex-wrap items-end justify-between gap-2">
+                <div>
+                  <h2 className="font-display text-2xl leading-tight sm:text-4xl">Make Diwali bloom</h2>
+                  <p className="mt-1 max-w-2xl text-xs leading-5 text-ink-soft sm:text-sm">
+                    Pick your favourites and quantities. You can review everything before continuing.
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-ink/5 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-ink-soft shadow-sm sm:text-xs">
+                  <Flower2 size={13} className="text-sage-ink" aria-hidden="true" />
+                  {products.length} fresh {products.length === 1 ? "pick" : "picks"}
                 </span>
               </div>
-              <p className="mt-2 max-w-2xl text-xs leading-5 text-ink-soft sm:text-sm">
-                Live catalogue prices and options. Choose your flowers, then add delivery details on the next step.
-              </p>
+              <div className="mt-4 flex gap-2">
+                <label className="relative min-w-0 flex-1">
+                  <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft/60" aria-hidden="true" />
+                  <input
+                    type="search"
+                    value={productSearch}
+                    onChange={(event) => setProductSearch(event.target.value)}
+                    placeholder="Search marigold, mogra, lotus…"
+                    aria-label="Search Diwali flowers"
+                    className="min-h-11 w-full rounded-xl border border-ink/10 bg-white pl-9 pr-3 text-sm text-ink shadow-sm placeholder:text-ink-soft/60 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/25"
+                  />
+                </label>
+                <button
+                  type="button"
+                  aria-pressed={showSelectedProducts}
+                  onClick={() => setShowSelectedProducts((current) => !current)}
+                  className={`min-h-11 shrink-0 rounded-xl border px-3 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 ${
+                    showSelectedProducts
+                      ? "border-ink bg-ink text-ivory"
+                      : "border-ink/10 bg-white text-ink-soft hover:border-ink/25"
+                  }`}
+                >
+                  Selected{selectedProducts.length ? ` · ${selectedProducts.length}` : ""}
+                </button>
+              </div>
             </div>
 
             {error && (
@@ -719,8 +712,9 @@ export function DiwaliBookingClient({
             )}
 
             {products.length ? (
+              visibleProducts.length ? (
               <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
-                {products.map((product) => {
+                {visibleProducts.map((product) => {
                   const variants = variantsFor(product);
                   const choice = selected[product.id];
                   const inBooking = Boolean(choice?.inBooking);
@@ -736,13 +730,13 @@ export function DiwaliBookingClient({
                   return (
                     <article
                       key={product.id}
-                      className={`flex flex-col overflow-hidden rounded-2xl border bg-white shadow-[0_1px_2px_rgba(43,38,32,0.04)] transition ${
-                        inBooking ? "border-gold/60 ring-1 ring-gold/20" : "border-ink/10"
+                      className={`group flex flex-col overflow-hidden rounded-2xl border bg-white shadow-[0_2px_8px_rgba(43,38,32,0.04)] transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+                        inBooking ? "border-gold/70 bg-gradient-to-br from-white to-gold/10 ring-1 ring-gold/20" : "border-ink/10"
                       }`}
                     >
                       <div className="flex gap-3 p-3 sm:block sm:p-4">
                         <div
-                          className="relative h-[5.5rem] w-[5.5rem] shrink-0 overflow-hidden rounded-xl sm:aspect-[4/3] sm:h-auto sm:w-full"
+                          className="relative h-[7rem] w-[6.25rem] shrink-0 overflow-hidden rounded-xl bg-ivory-deep/40 sm:aspect-[4/3] sm:h-auto sm:w-full"
                           style={
                             !isRemoteImage(image)
                               ? { background: GRADIENT_TOKENS[image] ?? GRADIENT_TOKENS["gradient-ivory"] }
@@ -754,16 +748,15 @@ export function DiwaliBookingClient({
                               src={image}
                               alt={displayName}
                               fill
-                              sizes="(max-width: 640px) 88px, (max-width: 1024px) 45vw, 30vw"
+                              sizes="(max-width: 640px) 100px, (max-width: 1024px) 45vw, 30vw"
                               className="object-cover"
                             />
                           ) : (
                             <Flower2 size={34} strokeWidth={0.9} className="absolute inset-0 m-auto text-ink/25" aria-hidden="true" />
                           )}
                           {product.campaignSettings?.featured && (
-                            <span title="Featured" className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-gold text-ink shadow-sm sm:left-3 sm:top-3">
-                              <Sparkles size={12} aria-hidden="true" />
-                              <span className="sr-only">Featured flower</span>
+                            <span title="Featured" className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-1 text-[9px] font-bold text-ink shadow-sm sm:left-3 sm:top-3">
+                              <Sparkles size={11} className="text-gold" aria-hidden="true" /> Popular
                             </span>
                           )}
                           {inBooking && (
@@ -774,16 +767,16 @@ export function DiwaliBookingClient({
                           )}
                         </div>
 
-                        <div className="min-w-0 flex-1 sm:mt-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <h3 className="line-clamp-2 text-sm font-semibold leading-snug sm:text-base">{displayName}</h3>
-                            <p className="shrink-0 text-sm font-bold tabular-nums sm:text-base">{inr(price)}</p>
+                        <div className="flex min-w-0 flex-1 flex-col sm:mt-3">
+                          <div className="flex items-start justify-between gap-1.5">
+                            <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-ink sm:text-base">{displayName}</h3>
+                            <p className="shrink-0 rounded-lg bg-ivory px-2 py-1 text-xs font-bold tabular-nums text-ink sm:text-sm">{inr(price)}</p>
                           </div>
                           <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-ink-soft sm:text-xs sm:leading-5">{description}</p>
-                          <p className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-sage-ink sm:text-[11px]">
+                          <p className="mt-auto inline-flex flex-wrap items-center gap-1.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-sage-ink sm:text-[11px]">
                             {unit}
                             {product.campaignSettings?.bulkOrderEligible && (
-                              <span className="rounded-full bg-sage/30 px-1.5 py-0.5 text-[9px] font-bold normal-case tracking-normal">Bulk ok</span>
+                              <span className="rounded-full bg-sage/30 px-1.5 py-0.5 text-[9px] font-bold normal-case tracking-normal">Bulk friendly</span>
                             )}
                           </p>
                         </div>
@@ -819,7 +812,7 @@ export function DiwaliBookingClient({
                               aria-label={`Decrease quantity of ${displayName}`}
                               disabled={quantity <= min}
                               onClick={() => stepQuantity(product, -1)}
-                              className="flex h-11 w-11 items-center justify-center rounded-l-lg text-ink transition hover:bg-ivory-deep active:bg-ivory-deep disabled:cursor-not-allowed disabled:opacity-35"
+                              className="flex h-11 w-10 items-center justify-center rounded-l-lg text-ink transition hover:bg-ivory-deep active:bg-ivory-deep disabled:cursor-not-allowed disabled:opacity-35 sm:w-11"
                             >
                               <Minus size={16} aria-hidden="true" />
                             </button>
@@ -836,14 +829,14 @@ export function DiwaliBookingClient({
                                 if (!Number.isFinite(next)) return;
                                 updateProduct(product, { quantity: Math.min(max, Math.max(min, Math.round(next))) });
                               }}
-                              className="h-11 w-11 border-x border-ink/10 bg-transparent text-center text-sm font-bold tabular-nums text-ink focus:outline-none"
+                              className="h-11 w-9 border-x border-ink/10 bg-transparent text-center text-sm font-bold tabular-nums text-ink focus:outline-none sm:w-11"
                             />
                             <button
                               type="button"
                               aria-label={`Increase quantity of ${displayName}`}
                               disabled={quantity >= max}
                               onClick={() => stepQuantity(product, 1)}
-                              className="flex h-11 w-11 items-center justify-center rounded-r-lg text-ink transition hover:bg-ivory-deep active:bg-ivory-deep disabled:cursor-not-allowed disabled:opacity-35"
+                              className="flex h-11 w-10 items-center justify-center rounded-r-lg text-ink transition hover:bg-ivory-deep active:bg-ivory-deep disabled:cursor-not-allowed disabled:opacity-35 sm:w-11"
                             >
                               <Plus size={16} aria-hidden="true" />
                             </button>
@@ -854,7 +847,7 @@ export function DiwaliBookingClient({
                             aria-pressed={inBooking}
                             onClick={() => toggleProduct(product)}
                             className={`${cardButton} ${
-                              inBooking ? "border border-ink/15 bg-white text-ink hover:bg-ivory-deep" : "bg-ink text-ivory hover:bg-ink/90"
+                              inBooking ? "border border-ink/15 bg-white text-ink hover:bg-ivory-deep" : "bg-ink text-ivory shadow-sm hover:bg-ink/90"
                             }`}
                           >
                             {inBooking ? (
@@ -873,6 +866,28 @@ export function DiwaliBookingClient({
                   );
                 })}
               </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-ink/15 bg-white/70 px-4 py-10 text-center">
+                  <Flower2 size={28} className="mx-auto text-sage-ink/60" aria-hidden="true" />
+                  <p className="mt-2 text-sm font-semibold text-ink">
+                    {showSelectedProducts && selectedProducts.length === 0
+                      ? "No flowers selected yet"
+                      : "No flowers match that search"}
+                  </p>
+                  <p className="mt-1 text-xs text-ink-soft">
+                    {showSelectedProducts && selectedProducts.length === 0
+                      ? "Add flowers to your booking and they’ll appear here."
+                      : "Try another flower name or show all flowers."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setProductSearch(""); setShowSelectedProducts(false); }}
+                    className="mt-3 text-xs font-semibold text-sage-ink underline underline-offset-4"
+                  >
+                    Show all flowers
+                  </button>
+                </div>
+              )
             ) : (
               <p className="rounded-xl bg-white p-6 text-sm text-ink-soft">
                 The campaign has no currently available products. Please contact us on WhatsApp.
@@ -898,7 +913,7 @@ export function DiwaliBookingClient({
             {selectedProducts.length > 0 && (
               <ul className="mt-4 grid gap-2 border-t border-ink/10 pt-4 sm:grid-cols-2">
                 {selectedProducts.map((product) => (
-                  <li key={product.id} className="flex items-start justify-between gap-3 text-sm">
+                  <li key={product.id} className="flex min-w-0 items-start justify-between gap-3 text-sm">
                     <span className="min-w-0">
                       <span className="block truncate font-medium">
                         {quantityFor(product)} × {product.campaignSettings?.displayLabel || product.name}
