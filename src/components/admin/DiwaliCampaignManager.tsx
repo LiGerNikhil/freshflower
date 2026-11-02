@@ -72,6 +72,28 @@ function newCampaignDraft(): CampaignDraft {
   };
 }
 
+function campaignDraftFromCampaign(
+  campaign: FestivalCollection,
+  availableProductIds: Set<string>,
+): CampaignDraft {
+  const defaults = newCampaignDraft();
+  const productIds = campaign.productIds.filter((id) => availableProductIds.has(id));
+  return {
+    ...defaults,
+    ...campaign,
+    productIds,
+    startsAt: dateInput(campaign.startsAt),
+    endsAt: dateInput(campaign.endsAt),
+    advanceBooking: {
+      ...defaults.advanceBooking,
+      ...campaign.advanceBooking,
+      bookingCutoffAt: dateInput(campaign.advanceBooking?.bookingCutoffAt),
+      productSettings: (campaign.advanceBooking?.productSettings ?? [])
+        .filter((setting) => productIds.includes(setting.productId)),
+    },
+  };
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -99,6 +121,7 @@ function settingFor(campaign: CampaignDraft, product: CampaignProduct) {
 export function DiwaliCampaignManager() {
   const [payload, setPayload] = useState<CampaignAdminPayload | null>(null);
   const [draft, setDraft] = useState<CampaignDraft>(newCampaignDraft());
+  const [unavailableProductCount, setUnavailableProductCount] = useState(0);
   const [bookings, setBookings] = useState<DiwaliBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -124,17 +147,11 @@ export function DiwaliCampaignManager() {
     setPayload(campaignPayload);
     setBookings(bookingPayload);
     if (campaignPayload.campaign?.advanceBooking) {
-      setDraft({
-        ...newCampaignDraft(),
-        ...campaignPayload.campaign,
-        startsAt: dateInput(campaignPayload.campaign.startsAt),
-        endsAt: dateInput(campaignPayload.campaign.endsAt),
-        advanceBooking: {
-          ...newCampaignDraft().advanceBooking,
-          ...campaignPayload.campaign.advanceBooking,
-          bookingCutoffAt: dateInput(campaignPayload.campaign.advanceBooking.bookingCutoffAt),
-        },
-      } as CampaignDraft);
+      const availableProductIds = new Set(campaignPayload.products.map((product) => product.id));
+      setUnavailableProductCount(
+        campaignPayload.campaign.productIds.filter((id) => !availableProductIds.has(id)).length,
+      );
+      setDraft(campaignDraftFromCampaign(campaignPayload.campaign, availableProductIds));
     }
   }, []);
 
@@ -148,17 +165,11 @@ export function DiwaliCampaignManager() {
       setPayload(campaignPayload);
       setBookings(bookingPayload);
       if (campaignPayload.campaign?.advanceBooking) {
-        setDraft({
-          ...newCampaignDraft(),
-          ...campaignPayload.campaign,
-          startsAt: dateInput(campaignPayload.campaign.startsAt),
-          endsAt: dateInput(campaignPayload.campaign.endsAt),
-          advanceBooking: {
-            ...newCampaignDraft().advanceBooking,
-            ...campaignPayload.campaign.advanceBooking,
-            bookingCutoffAt: dateInput(campaignPayload.campaign.advanceBooking.bookingCutoffAt),
-          },
-        } as CampaignDraft);
+        const availableProductIds = new Set(campaignPayload.products.map((product) => product.id));
+        setUnavailableProductCount(
+          campaignPayload.campaign.productIds.filter((id) => !availableProductIds.has(id)).length,
+        );
+        setDraft(campaignDraftFromCampaign(campaignPayload.campaign, availableProductIds));
       }
     }).catch((cause: unknown) => {
       if (active) setError(cause instanceof Error ? cause.message : "Could not load Diwali campaign data.");
@@ -315,6 +326,12 @@ export function DiwaliCampaignManager() {
       </div>
       {error && <p role="alert" className="mb-4 rounded-md bg-blush px-4 py-3 text-sm text-red-800">{error}</p>}
       {success && <p role="status" className="mb-4 rounded-md bg-sage/40 px-4 py-3 text-sm text-sage-ink">{success}</p>}
+      {unavailableProductCount > 0 && (
+        <p role="status" className="mb-4 rounded-md border border-gold/30 bg-gold/10 px-4 py-3 text-sm text-ink">
+          {unavailableProductCount} selected {unavailableProductCount === 1 ? "product is" : "products are"} no longer active in the catalog.
+          {" "}They have been removed from this campaign draft so you can save banner changes. Saving will remove these unavailable products from the campaign.
+        </p>
+      )}
 
       <form onSubmit={saveCampaign} className="space-y-6">
         <section className="rounded-xl border border-ink/10 bg-white/80 p-5 shadow-sm md:p-7">
