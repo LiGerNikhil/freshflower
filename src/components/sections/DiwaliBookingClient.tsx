@@ -47,6 +47,21 @@ type CampaignProductSettings =
   NonNullable<FestivalCollection["advanceBooking"]>["productSettings"][number];
 type CampaignFlower = Flower & { campaignSettings?: CampaignProductSettings };
 type ColorChoice = NonNullable<Flower["colorVariants"]>[number];
+type ProductSelection = {
+  productId: string;
+  quantity: number;
+  variant: string;
+  inBooking: boolean;
+};
+type SelectedCampaignFlower = CampaignFlower & {
+  bookingVariant: string;
+  bookingQuantity: number;
+  selectionKey: string;
+};
+
+function selectionKey(productId: string, variant: string): string {
+  return JSON.stringify([productId, variant]);
+}
 
 const DRAFT_KEY = "diwali-booking-draft-v1";
 
@@ -222,7 +237,8 @@ export function DiwaliBookingClient({
   const { user, requireAuth } = useCustomerAuth();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [selected, setSelected] = useState<Record<string, { quantity: number; variant: string; inBooking: boolean }>>({});
+  const [selected, setSelected] = useState<Record<string, ProductSelection>>({});
+  const [activeVariants, setActiveVariants] = useState<Record<string, string>>({});
   const [productSearch, setProductSearch] = useState("");
   const [showSelectedProducts, setShowSelectedProducts] = useState(false);
   const [customRequirements, setCustomRequirements] = useState("");
@@ -241,13 +257,37 @@ export function DiwaliBookingClient({
       const raw = window.sessionStorage.getItem(DRAFT_KEY);
       if (raw) {
         const draft = JSON.parse(raw) as {
-          selected?: typeof selected;
+          selected?: Record<string, Partial<ProductSelection>>;
+          activeVariants?: Record<string, string>;
           customRequirements?: string;
           form?: Partial<FormState>;
         };
         if (draft.selected && typeof draft.selected === "object") {
+          const restoredSelections: Record<string, ProductSelection> = {};
+          const restoredVariants: Record<string, string> = {
+            ...(draft.activeVariants ?? {}),
+          };
+          for (const [savedKey, choice] of Object.entries(draft.selected)) {
+            const productId = choice.productId ?? savedKey;
+            const product = products.find((candidate) => candidate.id === productId);
+            if (!product) continue;
+            const variants = product.colorVariants ?? [];
+            const variant = typeof choice.variant === "string" ? choice.variant : "";
+            if (variants.length && !variants.some((option) => option.color === variant)) continue;
+            const quantity = typeof choice.quantity === "number" && Number.isFinite(choice.quantity)
+              ? Math.min(product.campaignSettings?.maxQuantity ?? 99, Math.max(product.campaignSettings?.minQuantity ?? 1, choice.quantity))
+              : product.campaignSettings?.minQuantity ?? 1;
+            restoredSelections[selectionKey(product.id, variant)] = {
+              productId: product.id,
+              quantity,
+              variant,
+              inBooking: choice.inBooking === true,
+            };
+            if (variant) restoredVariants[product.id] = variant;
+          }
           // eslint-disable-next-line react-hooks/set-state-in-effect
-          setSelected(draft.selected);
+          setSelected(restoredSelections);
+          setActiveVariants(restoredVariants);
         }
         if (typeof draft.customRequirements === "string") {
           setCustomRequirements(draft.customRequirements);
@@ -261,19 +301,19 @@ export function DiwaliBookingClient({
     } finally {
       setRestored(true);
     }
-  }, []);
+  }, [products]);
 
   useEffect(() => {
     if (!restored || receipt) return;
     try {
       window.sessionStorage.setItem(
         DRAFT_KEY,
-        JSON.stringify({ selected, customRequirements, form }),
+        JSON.stringify({ selected, activeVariants, customRequirements, form }),
       );
     } catch {
       // Private-mode storage failures are non-fatal.
     }
-  }, [restored, receipt, selected, customRequirements, form]);
+  }, [restored, receipt, selected, activeVariants, customRequirements, form]);
 
   // Pre-fill account details without overwriting anything typed before sign-in.
   useEffect(() => {
@@ -291,19 +331,34 @@ export function DiwaliBookingClient({
 
   const minFor = (product: CampaignFlower) => product.campaignSettings?.minQuantity ?? 1;
   const maxFor = (product: CampaignFlower) => product.campaignSettings?.maxQuantity ?? 99;
-  const quantityFor = (product: CampaignFlower) => selected[product.id]?.quantity ?? minFor(product);
-  const activeVariantFor = (product: CampaignFlower) => {
-    const variants = variantsFor(product);
-    const savedVariant = selected[product.id]?.variant;
-    return variants.find((variant) => variant.color === savedVariant)?.color
-      ?? variants[0]?.color
-      ?? "";
-  };
-  const priceFor = (product: CampaignFlower) =>
+  const activeVariantFor = (product: CampaignFlower | SelectedCampaignFlower) =>
+    "bookingVariant" in product
+      ? product.bookingVariant
+      : variantsFor(product).find((variant) => variant.color === activeVariants[product.id])?.color ?? "";
+  const choiceFor = (product: CampaignFlower, variant = activeVariantFor(product)) =>
+    selected[selectionKey(product.id, variant)];
+  const quantityFor = (product: CampaignFlower | SelectedCampaignFlower) =>
+    "bookingQuantity" in product
+      ? product.bookingQuantity
+      : choiceFor(product)?.quantity ?? minFor(product);
+  const priceFor = (product: CampaignFlower | SelectedCampaignFlower) =>
     variantsFor(product).find((variant) => variant.color === activeVariantFor(product))?.price ??
     product.price;
-
-  const selectedProducts = products.filter((product) => selected[product.id]?.inBooking);
+  const selectedProducts: SelectedCampaignFlower[] = Object.entries(selected).flatMap(
+    ([key, choice]) => {
+      if (!choice.inBooking) return [];
+      const product = products.find((candidate) => candidate.id === choice.productId);
+      if (!product) return [];
+      return [{
+        ...product,
+        bookingVariant: choice.variant,
+        bookingQuantity: choice.quantity,
+        selectionKey: key,
+      }];
+    },
+  );
+  const hasBookingItem = (product: CampaignFlower) =>
+    Object.values(selected).some((choice) => choice.productId === product.id && choice.inBooking);
   const itemCount = selectedProducts.reduce((sum, product) => sum + quantityFor(product), 0);
   const needsQuote =
     Boolean(customRequirements.trim()) ||
@@ -346,18 +401,22 @@ export function DiwaliBookingClient({
 
   function updateProduct(product: CampaignFlower, patch: Partial<{ quantity: number; variant: string }>) {
     invalidateBooking();
-    setSelected((current) => {
-      const previous = current[product.id];
-      return {
+    if (patch.variant !== undefined) {
+      setActiveVariants((current) => ({ ...current, [product.id]: patch.variant! }));
+    }
+    if (patch.quantity !== undefined) {
+      const variant = activeVariantFor(product);
+      const key = selectionKey(product.id, variant);
+      setSelected((current) => ({
         ...current,
-        [product.id]: {
-          quantity: previous?.quantity ?? minFor(product),
-          variant: previous?.variant ?? "",
-          inBooking: previous?.inBooking ?? false,
-          ...patch,
+        [key]: {
+          productId: product.id,
+          quantity: patch.quantity!,
+          variant,
+          inBooking: current[key]?.inBooking ?? false,
         },
-      };
-    });
+      }));
+    }
   }
 
   function stepQuantity(product: CampaignFlower, delta: number) {
@@ -369,13 +428,16 @@ export function DiwaliBookingClient({
 
   function toggleProduct(product: CampaignFlower) {
     invalidateBooking();
+    const variant = activeVariantFor(product);
+    const key = selectionKey(product.id, variant);
     setSelected((current) => {
-      const previous = current[product.id];
+      const previous = current[key];
       return {
         ...current,
-        [product.id]: {
+        [key]: {
+          productId: product.id,
           quantity: previous?.quantity ?? minFor(product),
-          variant: previous?.variant || variantsFor(product)[0]?.color || "",
+          variant,
           inBooking: !previous?.inBooking,
         },
       };
@@ -625,7 +687,7 @@ export function DiwaliBookingClient({
 
   const productImage = (product: CampaignFlower) => product.images[0] ?? "gradient-ivory";
   const visibleProducts = products.filter((product) => {
-    if (showSelectedProducts && !selected[product.id]?.inBooking) return false;
+    if (showSelectedProducts && !hasBookingItem(product)) return false;
     const query = productSearch.trim().toLowerCase();
     if (!query) return true;
     const setting = product.campaignSettings;
@@ -735,7 +797,7 @@ export function DiwaliBookingClient({
               <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
                 {visibleProducts.map((product) => {
                   const variants = variantsFor(product);
-                  const choice = selected[product.id];
+                  const choice = choiceFor(product);
                   const inBooking = Boolean(choice?.inBooking);
                   const quantity = quantityFor(product);
                   const min = minFor(product);
@@ -810,16 +872,21 @@ export function DiwaliBookingClient({
                             <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label={`${displayName} available colors`}>
                               {variants.map((variant, index) => {
                                 const active = activeVariantFor(product) === variant.color;
+                                const variantInBooking =
+                                  selected[selectionKey(product.id, variant.color)]?.inBooking === true;
                                 return (
                                   <button
                                     key={`${variant.color}-${index}`}
                                     type="button"
                                     aria-pressed={active}
+                                    aria-label={`${variant.color}${variantInBooking ? ", in booking" : ""}`}
                                     onClick={() => updateProduct(product, { variant: variant.color })}
                                     className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-1 ${
                                       active
                                         ? "border-ink bg-ink text-ivory shadow-sm"
-                                        : "border-ink/10 bg-white text-ink hover:border-ink/30"
+                                        : variantInBooking
+                                          ? "border-sage bg-sage/25 text-ink hover:border-sage-ink/40"
+                                          : "border-ink/10 bg-white text-ink hover:border-ink/30"
                                     }`}
                                   >
                                     <span
@@ -828,12 +895,15 @@ export function DiwaliBookingClient({
                                       style={{ backgroundColor: colorSwatch(variant.color) }}
                                     />
                                     {variant.color}
+                                    {variantInBooking && <Check size={12} aria-hidden="true" />}
                                   </button>
                                 );
                               })}
                             </div>
                             <p className="mt-1.5 text-[10px] text-ink-soft">
-                              {activeVariantFor(product)} · {inr(price)}
+                              {activeVariantFor(product)
+                                ? `${activeVariantFor(product)} · ${inr(price)}`
+                                : "Select a color"}
                             </p>
                           </fieldset>
                         )}
@@ -883,10 +953,11 @@ export function DiwaliBookingClient({
                           <button
                             type="button"
                             aria-pressed={inBooking}
+                            disabled={!inBooking && variants.length > 0 && !activeVariantFor(product)}
                             onClick={() => toggleProduct(product)}
                             className={`${cardButton} ${
                               inBooking ? "border border-ink/15 bg-white text-ink hover:bg-ivory-deep" : "bg-ink text-ivory shadow-sm hover:bg-ink/90"
-                            }`}
+                            } disabled:cursor-not-allowed disabled:opacity-45`}
                           >
                             {inBooking ? (
                               <>
@@ -951,13 +1022,13 @@ export function DiwaliBookingClient({
             {selectedProducts.length > 0 && (
               <ul className="mt-4 grid gap-2 border-t border-ink/10 pt-4 sm:grid-cols-2">
                 {selectedProducts.map((product) => (
-                  <li key={product.id} className="flex min-w-0 items-start justify-between gap-3 text-sm">
+                  <li key={product.selectionKey} className="flex min-w-0 items-start justify-between gap-3 text-sm">
                     <span className="min-w-0">
                       <span className="block truncate font-medium">
                         {quantityFor(product)} × {product.campaignSettings?.displayLabel || product.name}
                       </span>
                       <span className="text-[11px] text-ink-soft">
-                        {unitText(product)}{activeVariantFor(product) ? ` · ${activeVariantFor(product)}` : ""}
+                        {unitText(product)}{activeVariantFor(product) ? ` · Color: ${activeVariantFor(product)}` : ""}
                       </span>
                     </span>
                     <span className="shrink-0 font-semibold tabular-nums">{inr(priceFor(product) * quantityFor(product))}</span>
@@ -1264,11 +1335,11 @@ export function DiwaliBookingClient({
             </div>
             <ul className="mt-3 divide-y divide-ivory/10">
               {selectedProducts.map((product) => (
-                <li key={product.id} className="flex items-start gap-2 py-2.5 text-sm">
+                <li key={product.selectionKey} className="flex items-start gap-2 py-2.5 text-sm">
                   <div className="min-w-0 flex-1">
                     <p className="text-xs leading-5 text-ivory/90 sm:text-sm">
                       {quantityFor(product)} × {product.campaignSettings?.displayLabel || product.name}
-                      {activeVariantFor(product) ? ` (${activeVariantFor(product)})` : ""}
+                      {activeVariantFor(product) ? ` (Color: ${activeVariantFor(product)})` : ""}
                     </p>
                     <p className="text-[11px] text-ivory/50">{unitText(product)}</p>
                   </div>
@@ -1357,13 +1428,13 @@ export function DiwaliBookingClient({
 
               <ul className="mt-4 divide-y divide-ink/10 border-y border-ink/10">
                 {selectedProducts.map((product) => (
-                  <li key={product.id} className="flex items-start justify-between gap-3 py-2.5 text-sm">
+                  <li key={product.selectionKey} className="flex items-start justify-between gap-3 py-2.5 text-sm">
                     <span className="min-w-0">
                       <span className="block font-medium">
                         {quantityFor(product)} × {product.campaignSettings?.displayLabel || product.name}
                       </span>
                       <span className="text-[11px] text-ink-soft">
-                        {unitText(product)}{activeVariantFor(product) ? ` · ${activeVariantFor(product)}` : ""}
+                        {unitText(product)}{activeVariantFor(product) ? ` · Color: ${activeVariantFor(product)}` : ""}
                       </span>
                     </span>
                     <span className="shrink-0 font-semibold tabular-nums">{inr(priceFor(product) * quantityFor(product))}</span>

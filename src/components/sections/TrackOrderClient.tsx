@@ -211,7 +211,7 @@ export function TrackOrderClient({
                     × {item.quantity}
                     {item.color && (
                       <span className="ml-1.5 inline-flex rounded-full bg-ink/5 px-2 py-0.5 font-semibold text-ink">
-                        {item.color}
+                      Color: {item.color}
                       </span>
                     )}
                   </span>
