@@ -16,6 +16,7 @@ import { STATUS_LABELS, formatINR } from "@/lib/admin/analytics";
 import { formatAppDate, formatAppDateTime, isoDay } from "@/lib/utils";
 import { useOperations } from "@/components/providers/OperationsContext";
 import { OrderExportDialog } from "@/components/admin/OrderExportDialog";
+import { DeliveryDateExportDialog } from "@/components/admin/DeliveryDateExportDialog";
 import {
   OrderStatusBadge,
   PaymentStatusBadge,
@@ -38,6 +39,7 @@ export function OrdersManager() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
+  const [deliveryExportOpen, setDeliveryExportOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -131,14 +133,24 @@ export function OrdersManager() {
             out for delivery · {summary.paymentVerificationPending} payment verification pending.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setExportOpen(true)}
-          className="inline-flex min-h-10 items-center gap-2 rounded-md border border-ink/10 bg-white/80 px-4 py-2 text-sm font-semibold text-ink shadow-sm transition hover:border-gold/50 hover:bg-white"
-        >
-          <FileDown size={16} aria-hidden="true" />
-          Export Orders to PDF
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setExportOpen(true)}
+            className="inline-flex min-h-10 items-center gap-2 rounded-md border border-ink/10 bg-white/80 px-4 py-2 text-sm font-semibold text-ink shadow-sm transition hover:border-gold/50 hover:bg-white"
+          >
+            <FileDown size={16} aria-hidden="true" />
+            Export Orders to PDF
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeliveryExportOpen(true)}
+            className="inline-flex min-h-10 items-center gap-2 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-ivory shadow-sm transition hover:bg-ink/90"
+          >
+            <CalendarDays size={16} aria-hidden="true" />
+            Export Orders to PDF by Delivery Date
+          </button>
+        </div>
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -388,6 +400,10 @@ export function OrdersManager() {
         )}
       </div>
       <OrderExportDialog open={exportOpen} onClose={() => setExportOpen(false)} />
+      <DeliveryDateExportDialog
+        open={deliveryExportOpen}
+        onClose={() => setDeliveryExportOpen(false)}
+      />
     </div>
   );
 }

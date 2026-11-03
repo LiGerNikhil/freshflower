@@ -11,6 +11,15 @@ export interface OrderExportRange {
   endExclusive: Date;
 }
 
+export interface DeliveryDateExportRange {
+  from: string;
+  to: string;
+  filter: {
+    status: { $ne: string };
+    $or: Array<{ deliveryDate: { $gte: Date; $lt: Date } }>;
+  };
+}
+
 function isValidDay(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00.000Z`);
@@ -19,6 +28,34 @@ function isValidDay(value: string): boolean {
 
 function indiaMidnight(day: string): Date {
   return new Date(Date.parse(`${day}T00:00:00.000Z`) - INDIA_OFFSET_MS);
+}
+
+export function parseDeliveryDateExportRange(params: URLSearchParams): DeliveryDateExportRange {
+  const from = params.get("from") ?? "";
+  const to = params.get("to") ?? "";
+  if (!isValidDay(from) || !isValidDay(to)) {
+    throw new ApiError("Choose a valid delivery start date and end date.", 400);
+  }
+  if (from > to) {
+    throw new ApiError("Delivery start date must be on or before the end date.", 400);
+  }
+
+  const utcEnd = new Date(`${to}T00:00:00.000Z`);
+  utcEnd.setUTCDate(utcEnd.getUTCDate() + 1);
+  const istStart = indiaMidnight(from);
+  const istEnd = new Date(utcEnd.getTime() - INDIA_OFFSET_MS);
+
+  return {
+    from,
+    to,
+    filter: {
+      status: { $ne: "cancelled" },
+      $or: [
+        { deliveryDate: { $gte: new Date(`${from}T00:00:00.000Z`), $lt: utcEnd } },
+        { deliveryDate: { $gte: istStart, $lt: istEnd } },
+      ],
+    },
+  };
 }
 
 export function parseOrderExportRange(params: URLSearchParams): OrderExportRange {
