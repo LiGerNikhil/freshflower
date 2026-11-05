@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Mail, Phone, UserRound } from "lucide-react";
-import { useCustomerAuth } from "@/components/providers/CustomerAuthContext";
 import { Button } from "@/components/ui/Button";
 import EmailOtpDialog from "@/components/auth/EmailOtpDialog";
 
@@ -17,20 +16,28 @@ interface OtpState {
   next: () => void;
 }
 
+function safeReturnUrl(value: string | null, fallback: string): string {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return fallback;
+  const url = new URL(value, window.location.origin);
+  return url.origin === window.location.origin
+    ? `${url.pathname}${url.search}${url.hash}`
+    : fallback;
+}
+
 export default function LoginRegisterForm() {
   const [mode, setMode] = useState<Mode>("login");
   const [error, setError] = useState<string | null>(null);
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [otpState, setOtpState] = useState<OtpState | null>(null);
   const [otpKey, setOtpKey] = useState(0);
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const { refresh } = useCustomerAuth();
-  const returnUrl = searchParams.get("returnUrl") || "/account";
+  const returnUrl = searchParams.get("returnUrl");
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setSuccessNotice(null);
     setSubmitting(true);
     const form = new FormData(event.currentTarget);
     const payload =
@@ -66,12 +73,15 @@ export default function LoginRegisterForm() {
     }
     const email = String(form.get("email") ?? "").toLowerCase();
     if (mode === "register") {
-      await refresh();
       setOtpKey((value) => value + 1);
       setOtpState({
         email,
         note: body?.emailSent === false ? "We couldn't send the code right now. Tap Resend code once you're ready." : undefined,
-        next: () => router.push(returnUrl.startsWith("/") ? returnUrl : "/account"),
+        next: () => {
+          setOtpState(null);
+          setMode("login");
+          setSuccessNotice("Your email is verified. Please log in to continue.");
+        },
       });
       return;
     }
@@ -87,12 +97,11 @@ export default function LoginRegisterForm() {
               ? "Your verification code was sent recently. Check your inbox and spam folder."
               : "We couldn't send a fresh code right now. You can try resending below.",
         resendAfterSeconds: body.resendAfterSeconds ?? 0,
-        next: () => router.push("/cart"),
+        next: () => window.location.replace(safeReturnUrl(returnUrl, "/cart")),
       });
       return;
     }
-    void refresh();
-    router.push("/cart");
+    window.location.replace(safeReturnUrl(returnUrl, "/cart"));
   }
 
   return (
@@ -109,9 +118,8 @@ export default function LoginRegisterForm() {
             Your cart, wishlist, checkout, and order history are connected to your FreshFlower.zone account.
           </p>
           <div className="mt-6 rounded-2xl bg-white/60 p-4 text-sm text-ink-soft">
-            After a successful login, we&apos;ll take you straight to your
-            <span className="font-semibold text-ink"> cart</span> so you can
-            continue where you left off.
+            After a successful login, we&apos;ll return you to the page you were trying
+            to reach, or your cart.
           </div>
         </section>
 
@@ -124,6 +132,7 @@ export default function LoginRegisterForm() {
                 onClick={() => {
                   setMode(item);
                   setError(null);
+                  setSuccessNotice(null);
                 }}
                 className={`rounded-xl px-4 py-3 text-sm font-bold capitalize transition ${
                   mode === item ? "bg-ink text-ivory shadow" : "text-ink-soft hover:text-ink"
@@ -173,6 +182,11 @@ export default function LoginRegisterForm() {
                   Forgot password?
                 </Link>
               </div>
+            )}
+            {successNotice && (
+              <p role="status" className="rounded-xl bg-sage/40 p-3 text-sm font-semibold text-sage-ink">
+                {successNotice}
+              </p>
             )}
             {error && <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
             <Button type="submit" variant="gold" className="w-full" disabled={submitting}>

@@ -65,6 +65,7 @@ export function SiteNav() {
           <SearchTrigger />
           <Link
             href="/account"
+            prefetch={false}
             aria-label="Open customer dashboard"
             className="hidden items-center gap-2 rounded-full border border-gold/35 bg-white/70 px-4 py-2 text-xs font-bold text-ink transition hover:border-gold hover:bg-white md:inline-flex"
           >
@@ -110,6 +111,7 @@ export function SiteNav() {
             ))}
             <Link
               href="/account"
+              prefetch={false}
               onClick={() => setMenuOpen(false)}
               className="mb-2 flex items-center justify-between rounded-2xl border border-gold/30 bg-white/75 px-4 py-3 shadow-sm"
             >
@@ -137,6 +139,7 @@ export function SiteNav() {
                   <Link
                     key={href}
                     href={href}
+                    prefetch={false}
                     onClick={() => setMenuOpen(false)}
                     className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-ink-soft transition hover:bg-ivory hover:text-ink"
                   >

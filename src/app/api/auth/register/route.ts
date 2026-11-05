@@ -13,7 +13,6 @@ import {
   validatePassword,
 } from "@/lib/auth/customer-passwords";
 import { sendEmailOtp } from "@/lib/auth/customer-email";
-import { setCustomerSessionCookie } from "@/lib/auth/customer-session";
 
 const registerSchema = z.object({
   email: z.string().trim().email(),
@@ -91,9 +90,7 @@ export async function POST(req: NextRequest) {
         },
       ).lean();
       const emailSentExisting = await deliverOtp(customerId, input.name.trim());
-      const responseExisting = jsonOk({ ok: true, customerId, requiresEmailVerification: true, emailSent: emailSentExisting }, 201);
-      await setCustomerSessionCookie(responseExisting, customerId);
-      return responseExisting;
+      return jsonOk({ ok: true, customerId, requiresEmailVerification: true, emailSent: emailSentExisting }, 201);
     } else {
       customerId = `cust-${Date.now().toString(36)}${crypto.randomInt(1000)}`;
       await CustomerModel.create({
@@ -114,9 +111,7 @@ export async function POST(req: NextRequest) {
         totalOrders: 0,
       });
       const emailSent = await deliverOtp(customerId, input.name.trim());
-      const response = jsonOk({ ok: true, customerId, requiresEmailVerification: true, emailSent }, 201);
-      await setCustomerSessionCookie(response, customerId);
-      return response;
+      return jsonOk({ ok: true, customerId, requiresEmailVerification: true, emailSent }, 201);
     }
 
   });

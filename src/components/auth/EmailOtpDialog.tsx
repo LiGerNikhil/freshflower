@@ -111,7 +111,7 @@ export default function EmailOtpDialog({
         setStatus("success");
         setMessage("Email verified.");
         await refresh();
-        setTimeout(onVerified, 450);
+        onVerified();
         return;
       }
       setStatus("error");
