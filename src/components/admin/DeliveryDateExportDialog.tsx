@@ -87,7 +87,7 @@ export function DeliveryDateExportDialog({
           <CalendarDays size={14} /> Customer-selected delivery dates
         </p>
         <p className="mb-3 text-xs leading-5 text-ink-soft">
-          Includes all matching orders except cancelled orders. Payment and order statuses are shown in the report.
+          The stock summary counts paid orders only. The checkbox order details remain unchanged and include all matching non-cancelled orders.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-xs font-semibold text-ink-soft">

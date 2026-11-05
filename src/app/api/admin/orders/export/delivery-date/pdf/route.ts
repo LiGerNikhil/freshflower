@@ -67,13 +67,14 @@ type DeliverySummary = {
   overview: Array<{ totalOrders: number; totalRevenue: number }>;
   products: Array<{
     _id: {
+      productId: string;
       name: string;
       color: string;
       unitLabel: string;
       productType: string;
     };
     totalQuantity: number;
-    orderLines: number;
+    orderCount: number;
   }>;
 };
 
@@ -176,14 +177,37 @@ function exportFilename(from: string, to: string): string {
   return `FreshFlower_Delivery_Orders_${from}_to_${to}.pdf`;
 }
 
+function selectedDeliveryDateMatch(from: string, to: string, timeZone: string) {
+  const date = { $dateToString: { format: "%Y-%m-%d", date: "$deliveryDate", timezone: timeZone } };
+  const time = { $dateToString: { format: "%H:%M:%S.%L", date: "$deliveryDate", timezone: timeZone } };
+
+  return {
+    $expr: {
+      $and: [
+        { $gte: [date, from] },
+        { $lte: [date, to] },
+        { $eq: [time, "00:00:00.000"] },
+      ],
+    },
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     await requireAdminRole(request, [AdminRole.OrderManager]);
     const range = parseDeliveryDateExportRange(request.nextUrl.searchParams);
     await dbConnect();
 
+    const paidStockFilter = {
+      status: { $ne: "cancelled" },
+      paymentStatus: { $in: ["paid", "successful"] },
+      $or: [
+        selectedDeliveryDateMatch(range.from, range.to, "Asia/Kolkata"),
+        selectedDeliveryDateMatch(range.from, range.to, "UTC"),
+      ],
+    };
     const [summary] = await OrderModel.aggregate<DeliverySummary>([
-      { $match: range.filter },
+      { $match: paidStockFilter },
       {
         $facet: {
           overview: [
@@ -201,22 +225,37 @@ export async function GET(request: NextRequest) {
             {
               $group: {
                 _id: {
+                  orderId: "$_id",
+                  productId: "$items.productId",
                   name: "$items.name",
                   color: { $ifNull: ["$items.color", ""] },
                   unitLabel: { $ifNull: ["$items.unitLabel", ""] },
                   productType: { $ifNull: ["$items.productType", ""] },
                 },
                 totalQuantity: { $sum: "$items.quantity" },
-                orderLines: { $sum: 1 },
               },
             },
-            { $sort: { "_id.name": 1, "_id.color": 1, "_id.unitLabel": 1 } },
+            {
+              $group: {
+                _id: {
+                  productId: "$_id.productId",
+                  name: "$_id.name",
+                  color: "$_id.color",
+                  unitLabel: "$_id.unitLabel",
+                  productType: "$_id.productType",
+                },
+                totalQuantity: { $sum: "$totalQuantity" },
+                orderCount: { $sum: 1 },
+              },
+            },
+            { $sort: { "_id.name": 1, "_id.color": 1, "_id.unitLabel": 1, "_id.productId": 1 } },
           ],
         },
       },
     ]).exec();
     const overview = summary?.overview[0] ?? { totalOrders: 0, totalRevenue: 0 };
     const productSummary = summary?.products ?? [];
+    const totalItemQuantity = productSummary.reduce((total, product) => total + product.totalQuantity, 0);
 
     const logoPath = path.join(process.cwd(), "public", "assets", "images", "logo.png");
     const stream = new PassThrough();
@@ -275,31 +314,58 @@ export async function GET(request: NextRequest) {
       doc.text(continued ? "PRODUCT STOCK REQUIREMENT (CONTINUED)" : "PRODUCT STOCK REQUIREMENT", LEFT, cursorY, {
         lineBreak: false,
       });
-      cursorY += 16;
+      cursorY += 14;
+      doc.font("Helvetica-Bold").fontSize(7.5).fillColor("#29251f");
+      doc.text("BUY/PREPARE TOTAL QTY ONLY. DO NOT MULTIPLY BY ORDERS.", LEFT, cursorY, {
+        lineBreak: false,
+      });
+      cursorY += 11;
+      doc.font("Helvetica").fontSize(7).fillColor("#645e55");
+      doc.text(
+        "TOTAL QTY = combined pieces/units. ORDERS = number of separate paid orders needing this variant.",
+        LEFT,
+        cursorY,
+        { lineBreak: false },
+      );
+      cursorY += 12;
       doc.font("Helvetica-Bold").fontSize(8).fillColor("#86703f");
       doc.text("PRODUCT / VARIANT", LEFT, cursorY, { lineBreak: false });
       doc.text("TOTAL QTY", PAGE_WIDTH - RIGHT - 116, cursorY, { width: 65, align: "right", lineBreak: false });
-      doc.text("ORDER LINES", PAGE_WIDTH - RIGHT - 44, cursorY, { width: 44, align: "right", lineBreak: false });
+      doc.text("ORDERS", PAGE_WIDTH - RIGHT - 44, cursorY, { width: 44, align: "right", lineBreak: false });
       cursorY += 7;
       doc.moveTo(LEFT, cursorY).lineTo(PAGE_WIDTH - RIGHT, cursorY).lineWidth(0.6).strokeColor("#d8d1c5").stroke();
       cursorY += 7;
     }
 
     drawHeader();
-    doc.font("Helvetica-Bold").fontSize(12).fillColor("#29251f");
-    doc.text("TOTAL STOCK TO PREPARE", LEFT, cursorY, { lineBreak: false });
-    cursorY += 20;
-    doc.font("Helvetica").fontSize(9).fillColor("#29251f");
-    doc.text(`Non-cancelled orders: ${overview.totalOrders}`, LEFT, cursorY, { lineBreak: false });
-    doc.text(`Order value: ${formatRupees(overview.totalRevenue)}`, LEFT + 220, cursorY, {
-      lineBreak: false,
+    doc.roundedRect(LEFT, cursorY, CONTENT_WIDTH, 78, 8).fill("#f8f3e8");
+    doc.font("Helvetica-Bold").fontSize(9).fillColor("#86703f");
+    doc.text("PAID ORDERS ONLY - STOCK REQUIREMENT", LEFT + 12, cursorY + 10, { lineBreak: false });
+    doc.moveTo(LEFT + 12, cursorY + 27)
+      .lineTo(PAGE_WIDTH - RIGHT - 12, cursorY + 27)
+      .lineWidth(0.5)
+      .strokeColor("#e2d7c2")
+      .stroke();
+
+    const metricColumns = [
+      { label: "PAID ORDERS", value: String(overview.totalOrders) },
+      { label: "TOTAL PRODUCT UNITS", value: String(totalItemQuantity) },
+      { label: "PAID ORDER VALUE", value: formatRupees(overview.totalRevenue) },
+    ];
+    const metricWidth = (CONTENT_WIDTH - 24) / metricColumns.length;
+    metricColumns.forEach((metric, index) => {
+      const x = LEFT + 12 + metricWidth * index;
+      doc.font("Helvetica").fontSize(7).fillColor("#645e55");
+      doc.text(metric.label, x, cursorY + 36, { width: metricWidth - 8, lineBreak: false });
+      doc.font("Helvetica-Bold").fontSize(11).fillColor("#29251f");
+      doc.text(metric.value, x, cursorY + 49, { width: metricWidth - 8, lineBreak: false });
     });
-    cursorY += 18;
+    cursorY += 92;
 
     drawTableHeader();
     if (productSummary.length === 0) {
       doc.font("Helvetica").fontSize(9).fillColor("#645e55");
-      doc.text("No non-cancelled orders or product quantities found for these delivery dates.", LEFT, cursorY, {
+      doc.text("No paid product quantities found for these delivery dates.", LEFT, cursorY, {
         width: CONTENT_WIDTH,
       });
       cursorY += 24;
@@ -326,7 +392,7 @@ export async function GET(request: NextRequest) {
           align: "right",
           lineBreak: false,
         });
-        doc.text(String(product.orderLines), PAGE_WIDTH - RIGHT - 44, cursorY, {
+        doc.text(String(product.orderCount), PAGE_WIDTH - RIGHT - 44, cursorY, {
           width: 44,
           align: "right",
           lineBreak: false,
@@ -338,9 +404,12 @@ export async function GET(request: NextRequest) {
     }
 
     doc.font("Helvetica").fontSize(8).fillColor("#645e55");
-    doc.text("Quantities are summed from the saved order item quantities, grouped by historical product name, color, and unit.", LEFT, cursorY + 4, {
-      width: CONTENT_WIDTH,
-    });
+    doc.text(
+      "Quantities are summed from paid orders' saved item quantities, grouped by product, color, type, and unit. Only exact midnight dates in the selected IST or legacy UTC date format are counted.",
+      LEFT,
+      cursorY + 4,
+      { width: CONTENT_WIDTH },
+    );
 
     addPage();
     doc.font("Helvetica-Bold").fontSize(12).fillColor("#29251f");

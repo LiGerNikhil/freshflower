@@ -162,6 +162,17 @@ function formatLongDate(value: string): string {
   }).format(date);
 }
 
+function todayInIndia(): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 function formatDateTime(value?: string): string {
   if (!value) return "—";
   const date = new Date(value);
@@ -234,6 +245,9 @@ export function DiwaliBookingClient({
   whatsappNumber: string;
 }) {
   const config = campaign.advanceBooking!;
+  const availableDeliveryDates = config.deliveryDates
+    .filter((date) => date >= todayInIndia())
+    .sort();
   const { user, requireAuth } = useCustomerAuth();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -1182,12 +1196,12 @@ export function DiwaliBookingClient({
                   <select
                     required
                     name="deliveryDate"
-                    value={form.deliveryDate}
+                    value={availableDeliveryDates.includes(form.deliveryDate) ? form.deliveryDate : ""}
                     onChange={(event) => updateField("deliveryDate", event.target.value)}
                     className={fieldClass}
                   >
                     <option value="" disabled>Select a date</option>
-                    {config.deliveryDates.map((date) => (
+                    {availableDeliveryDates.map((date) => (
                       <option key={date} value={date}>{formatLongDate(date)}</option>
                     ))}
                   </select>
