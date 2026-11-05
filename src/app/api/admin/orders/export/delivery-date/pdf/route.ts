@@ -2,7 +2,7 @@ import { PassThrough, Readable } from "node:stream";
 import path from "node:path";
 import PDFDocument from "pdfkit";
 import { NextRequest } from "next/server";
-import { OrderModel } from "@/lib/db/models";
+import { CustomerModel, OrderModel } from "@/lib/db/models";
 import { dbConnect } from "@/lib/db/connect";
 import { requireAdminRole } from "@/lib/admin/authorization";
 import { parseDeliveryDateExportRange } from "@/lib/admin/order-export";
@@ -28,6 +28,8 @@ const BATCH_SIZE = 100;
 type DeliveryOrder = {
   _id: string;
   orderNumber: string;
+  customerId: string;
+  createdAt: Date;
   items: Array<{
     productId: string;
     name: string;
@@ -35,6 +37,21 @@ type DeliveryOrder = {
     quantity: number;
   }>;
   deliveryDate: Date;
+  deliveryAddress?: {
+    line1?: string;
+    line2?: string;
+    city?: string;
+    pincode?: string;
+    landmark?: string;
+  };
+};
+
+type DeliveryCustomer = {
+  _id: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
 };
 
 type DeliveryProductQuantity = {
@@ -88,6 +105,29 @@ function formatDeliveryRange(from: string, to: string): string {
   return from === to
     ? formatRangeDay(from)
     : `${formatRangeDay(from)} to ${formatRangeDay(to)}`;
+}
+
+function customerName(customer?: DeliveryCustomer): string {
+  return (
+    customer?.name ||
+    [customer?.firstName, customer?.lastName].filter(Boolean).join(" ") ||
+    "Name not available"
+  );
+}
+
+function deliveryAddress(order: DeliveryOrder): string {
+  const address = order.deliveryAddress;
+  if (!address) return "Address not available";
+  return [
+    address.line1,
+    address.line2,
+    address.landmark ? `Landmark: ${address.landmark}` : undefined,
+    address.city,
+    address.pincode,
+  ]
+    .map((part) => part?.trim())
+    .filter((part): part is string => Boolean(part))
+    .join(", ") || "Address not available";
 }
 
 function wrapText(
@@ -344,10 +384,13 @@ export async function GET(request: NextRequest) {
     const cursor = OrderModel.find(paidOrderFilter)
       .select({
         orderNumber: 1,
+        customerId: 1,
+        createdAt: 1,
         items: 1,
         deliveryDate: 1,
+        deliveryAddress: 1,
       })
-      .sort({ deliveryDate: 1, orderNumber: 1, _id: 1 })
+      .sort({ deliveryDate: 1, createdAt: 1, orderNumber: 1, _id: 1 })
       .lean<DeliveryOrder[]>()
       .cursor();
 
@@ -376,6 +419,16 @@ export async function GET(request: NextRequest) {
             batch.push(order);
           }
           if (!batch.length) break;
+
+          const customerIds = [...new Set(batch.map((order) => order.customerId))];
+          const customers = customerIds.length
+            ? await CustomerModel.find({ _id: { $in: customerIds } })
+                .select({ name: 1, firstName: 1, lastName: 1, phone: 1 })
+                .lean<DeliveryCustomer[]>()
+            : [];
+          const customersById = new Map(
+            customers.map((customer) => [String(customer._id), customer]),
+          );
 
           for (const order of batch) {
             const orderItems = order.items.filter((item) =>
@@ -410,21 +463,34 @@ export async function GET(request: NextRequest) {
               }
             }
 
+            const customer = customersById.get(String(order.customerId));
             const rows: Array<{ text: string; style: TextStyle }> = [
               {
                 text: `Order ${order.orderNumber}  |  Delivery: ${formatIndiaDate(order.deliveryDate)}`,
                 style: { font: "Helvetica-Bold", size: 10, color: "#29251f", gapAfter: 4 },
               },
+              {
+                text: `Ordered on: ${formatIndiaDate(order.createdAt, true)} IST  |  Payment: PAID`,
+                style: { font: "Helvetica", size: 8.5, color: "#645e55", gapAfter: 3 },
+              },
+              {
+                text: `Customer: ${customerName(customer)}  |  Mobile: ${customer?.phone ?? "Not available"}`,
+                style: { font: "Helvetica", size: 8.5, color: "#29251f", gapAfter: 3 },
+              },
+              {
+                text: `Address: ${deliveryAddress(order)}`,
+                style: { font: "Helvetica", size: 8.5, color: "#29251f", gapAfter: 4 },
+              },
               ...[...orderQuantities.values()].map((item) => ({
-                  text: `${item.quantity} x ${item.name}${item.color ? ` | Color: ${item.color}` : ""}`,
-                  style: {
-                    font: "Helvetica" as const,
-                    size: 9,
-                    color: "#29251f",
-                    gapAfter: 3,
-                    indent: 8,
-                  },
-                })),
+                text: `${item.quantity} x ${item.name}${item.color ? ` | Color: ${item.color}` : ""}`,
+                style: {
+                  font: "Helvetica" as const,
+                  size: 9,
+                  color: "#29251f",
+                  gapAfter: 3,
+                  indent: 8,
+                },
+              })),
             ];
             const wrapped = rows.map(({ text, style }) => ({
               style,
