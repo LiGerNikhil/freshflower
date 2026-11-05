@@ -25,25 +25,20 @@ export function DeliveryDateExportDialog({
   open: boolean;
   onClose: () => void;
 }) {
-  const [dateFrom, setDateFrom] = useState(indiaDay);
-  const [dateTo, setDateTo] = useState(indiaDay);
+  const [deliveryDate, setDeliveryDate] = useState(indiaDay);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
 
   async function downloadPdf() {
-    if (!dateFrom || !dateTo) {
-      setError("Choose both a delivery start date and end date.");
-      return;
-    }
-    if (dateFrom > dateTo) {
-      setError("Start date must be on or before the end date.");
+    if (!deliveryDate) {
+      setError("Choose a delivery date.");
       return;
     }
 
     setDownloading(true);
     setError("");
     try {
-      const query = new URLSearchParams({ from: dateFrom, to: dateTo });
+      const query = new URLSearchParams({ date: deliveryDate });
       const response = await fetch(`/api/admin/orders/export/delivery-date/pdf?${query}`, {
         cache: "no-store",
       });
@@ -56,7 +51,7 @@ export function DeliveryDateExportDialog({
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = objectUrl;
-      link.download = `FreshFlower_Delivery_Orders_${dateFrom}_to_${dateTo}.pdf`;
+      link.download = `FreshFlower_Delivery_Orders_${deliveryDate}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -75,7 +70,7 @@ export function DeliveryDateExportDialog({
           <FileText size={14} /> Stock planning report
         </p>
         <h2 className="mt-2 font-display text-2xl text-ink sm:text-3xl">
-          Export orders by delivery date
+          Download daily delivery orders
         </h2>
         <p className="mt-1 text-sm leading-6 text-ink-soft">
           See the total quantity to prepare for each Diwali product and color, then the quantity in each order.
@@ -84,33 +79,20 @@ export function DeliveryDateExportDialog({
 
       <div className="mt-5 rounded-xl border border-ink/10 bg-ivory/70 p-4">
         <p className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-ink-soft">
-          <CalendarDays size={14} /> Delivery dates (India time)
+          <CalendarDays size={14} /> Delivery date (India time)
         </p>
         <p className="mb-3 text-xs leading-5 text-ink-soft">
           Only paid orders and products shown on the Diwali booking page are included.
         </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-xs font-semibold text-ink-soft">
-            Delivery date from
-            <input
-              type="date"
-              value={dateFrom}
-              max={dateTo || undefined}
-              onChange={(event) => setDateFrom(event.target.value)}
-              className={inputClass}
-            />
-          </label>
-          <label className="text-xs font-semibold text-ink-soft">
-            Delivery date to
-            <input
-              type="date"
-              value={dateTo}
-              min={dateFrom || undefined}
-              onChange={(event) => setDateTo(event.target.value)}
-              className={inputClass}
-            />
-          </label>
-        </div>
+        <label className="block text-xs font-semibold text-ink-soft">
+          Select one delivery date
+          <input
+            type="date"
+            value={deliveryDate}
+            onChange={(event) => setDeliveryDate(event.target.value)}
+            className={inputClass}
+          />
+        </label>
       </div>
 
       {error && (
@@ -129,12 +111,12 @@ export function DeliveryDateExportDialog({
         </button>
         <button
           type="button"
-          disabled={downloading || !dateFrom || !dateTo}
+          disabled={downloading || !deliveryDate}
           onClick={() => void downloadPdf()}
           className="inline-flex min-h-10 items-center gap-2 rounded-md bg-gold px-4 py-2 text-sm font-bold text-ink transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-          {downloading ? "Preparing PDF…" : "Download delivery-date PDF"}
+          {downloading ? "Preparing PDF…" : "Download daily PDF"}
         </button>
       </div>
     </Modal>

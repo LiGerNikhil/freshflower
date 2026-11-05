@@ -101,12 +101,6 @@ function formatRangeDay(value: string): string {
   return formatIndiaDate(`${value}T12:00:00.000Z`);
 }
 
-function formatDeliveryRange(from: string, to: string): string {
-  return from === to
-    ? formatRangeDay(from)
-    : `${formatRangeDay(from)} to ${formatRangeDay(to)}`;
-}
-
 function customerName(customer?: DeliveryCustomer): string {
   return (
     customer?.name ||
@@ -153,8 +147,8 @@ function wrapText(
   return lines.length ? lines : [""];
 }
 
-function exportFilename(from: string, to: string): string {
-  return `FreshFlower_Delivery_Orders_${from}_to_${to}.pdf`;
+function exportFilename(date: string): string {
+  return `FreshFlower_Delivery_Orders_${date}.pdf`;
 }
 
 export async function GET(request: NextRequest) {
@@ -257,7 +251,7 @@ export async function GET(request: NextRequest) {
     const logoPath = path.join(process.cwd(), "public", "assets", "images", "logo.png");
     const stream = new PassThrough();
     const doc = new PDFDocument({ size: "A4", margin: 0, compress: true });
-    const filename = exportFilename(range.from, range.to);
+    const filename = exportFilename(range.date);
     doc.info.Title = "FreshFlower.zone Diwali Delivery Plan";
     doc.info.Author = "FreshFlower.zone";
     doc.pipe(stream);
@@ -275,7 +269,7 @@ export async function GET(request: NextRequest) {
       doc.font("Helvetica-Bold").fontSize(14).fillColor("#29251f");
       doc.text("DIWALI DELIVERY PLAN", 154, 19, { lineBreak: false });
       doc.font("Helvetica").fontSize(9).fillColor("#645e55");
-      doc.text(`Delivery date: ${formatDeliveryRange(range.from, range.to)}`, 154, 39, {
+      doc.text(`Delivery date: ${formatRangeDay(range.date)}`, 154, 39, {
         lineBreak: false,
       });
       doc.text("Full day: 12 AM to next 12 AM IST | Paid orders only", 154, 53, {
