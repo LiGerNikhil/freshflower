@@ -177,37 +177,15 @@ function exportFilename(from: string, to: string): string {
   return `FreshFlower_Delivery_Orders_${from}_to_${to}.pdf`;
 }
 
-function selectedDeliveryDateMatch(from: string, to: string, timeZone: string) {
-  const date = { $dateToString: { format: "%Y-%m-%d", date: "$deliveryDate", timezone: timeZone } };
-  const time = { $dateToString: { format: "%H:%M:%S.%L", date: "$deliveryDate", timezone: timeZone } };
-
-  return {
-    $expr: {
-      $and: [
-        { $gte: [date, from] },
-        { $lte: [date, to] },
-        { $eq: [time, "00:00:00.000"] },
-      ],
-    },
-  };
-}
-
 export async function GET(request: NextRequest) {
   try {
     await requireAdminRole(request, [AdminRole.OrderManager]);
     const range = parseDeliveryDateExportRange(request.nextUrl.searchParams);
     await dbConnect();
 
-    const paidStockFilter = {
-      status: { $ne: "cancelled" },
-      paymentStatus: { $in: ["paid", "successful"] },
-      $or: [
-        selectedDeliveryDateMatch(range.from, range.to, "Asia/Kolkata"),
-        selectedDeliveryDateMatch(range.from, range.to, "UTC"),
-      ],
-    };
+    const paidOrderFilter = { ...range.filter, paymentStatus: "paid" };
     const [summary] = await OrderModel.aggregate<DeliverySummary>([
-      { $match: paidStockFilter },
+      { $match: paidOrderFilter },
       {
         $facet: {
           overview: [
@@ -322,7 +300,7 @@ export async function GET(request: NextRequest) {
       cursorY += 11;
       doc.font("Helvetica").fontSize(7).fillColor("#645e55");
       doc.text(
-        "TOTAL QTY = combined pieces/units. ORDERS = number of separate paid orders needing this variant.",
+        "TOTAL QTY = combined product units customers ordered; prepare this number only. Do not multiply by ORDERS.",
         LEFT,
         cursorY,
         { lineBreak: false },
@@ -349,7 +327,7 @@ export async function GET(request: NextRequest) {
 
     const metricColumns = [
       { label: "PAID ORDERS", value: String(overview.totalOrders) },
-      { label: "TOTAL PRODUCT UNITS", value: String(totalItemQuantity) },
+      { label: "TOTAL QTY TO PREPARE", value: String(totalItemQuantity) },
       { label: "PAID ORDER VALUE", value: formatRupees(overview.totalRevenue) },
     ];
     const metricWidth = (CONTENT_WIDTH - 24) / metricColumns.length;
@@ -371,11 +349,14 @@ export async function GET(request: NextRequest) {
       cursorY += 24;
     } else {
       for (const product of productSummary) {
+        const productName = product._id.name || "Unnamed product";
         const labelParts = [
-          product._id.name || "Unnamed product",
+          productName,
           product._id.color ? `Color: ${product._id.color}` : undefined,
-          product._id.unitLabel || undefined,
-          product._id.productType ? `(${product._id.productType})` : undefined,
+          product._id.unitLabel &&
+          !productName.toLocaleLowerCase().includes(product._id.unitLabel.toLocaleLowerCase())
+            ? `Pack/size: ${product._id.unitLabel}`
+            : undefined,
         ].filter(Boolean);
         const lines = wrapText(doc, labelParts.join(" | "), CONTENT_WIDTH - 175, "Helvetica", 8.5);
         const rowHeight = Math.max(13, lines.length * 11);
@@ -405,7 +386,7 @@ export async function GET(request: NextRequest) {
 
     doc.font("Helvetica").fontSize(8).fillColor("#645e55");
     doc.text(
-      "Quantities are summed from paid orders' saved item quantities, grouped by product, color, type, and unit. Only exact midnight dates in the selected IST or legacy UTC date format are counted.",
+      "Quantities are summed from paid orders' saved item quantities, grouped by product, color, and pack/size.",
       LEFT,
       cursorY + 4,
       { width: CONTENT_WIDTH },
@@ -416,7 +397,7 @@ export async function GET(request: NextRequest) {
     doc.text("ORDER DETAILS", LEFT, cursorY, { lineBreak: false });
     cursorY += 22;
 
-    const cursor = OrderModel.find(range.filter)
+    const cursor = OrderModel.find(paidOrderFilter)
       .select({
         orderNumber: 1,
         customerId: 1,
