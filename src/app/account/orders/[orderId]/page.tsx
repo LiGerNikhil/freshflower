@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, BadgeCheck, CreditCard, ShieldCheck } from "lucide-react";
 import { OrderStatusStepper } from "@/components/sections/OrderStatusStepper";
+import { OrderDeliverySchedule } from "@/components/sections/OrderDeliverySchedule";
 import { ProductItemImage } from "@/components/sections/ProductItemImage";
 import { AccountShell } from "@/components/sections/AccountShell";
 import { getAccountPageData } from "@/lib/account/account-page-data";
@@ -69,12 +70,19 @@ export default async function AccountOrderDetailPage({
               ₹{order.total.toLocaleString("en-IN")}
             </p>
           </div>
-          <p className="text-sm text-ink-soft">
-            Delivery {formatAppDate(order.deliveryDate, { dateStyle: "medium" })}
-          </p>
         </div>
         <div className="mt-10">
-          <OrderStatusStepper status={order.status} />
+          <OrderStatusStepper
+            status={order.status}
+            paymentMethod={order.paymentMethod}
+            paymentStatus={order.paymentStatus}
+          />
+        </div>
+        <div className="mt-6">
+          <OrderDeliverySchedule
+            deliveryDate={order.deliveryDate}
+            slotLabel={order.deliveryTimePreference}
+          />
         </div>
       </div>
       {order.paymentMethod === "online" && (

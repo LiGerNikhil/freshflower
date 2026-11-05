@@ -8,10 +8,31 @@ export function cn(...inputs: ClassValue[]) {
 /** Google Maps listing share link (office: Ghazipur Flower Market). */
 export const GOOGLE_MAPS_URL = "https://share.google/DyRUEeYiTtzBUQCWm";
 
-/** Local ISO date string, offset days from today (e.g. 1 = tomorrow). */
+export const APP_TIME_ZONE = "Asia/Kolkata";
+
+export function appDateKey(value?: string | Date | null): string | null {
+  const date = parseAppDate(value);
+  if (!date) return null;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value;
+  const year = part("year");
+  const month = part("month");
+  const day = part("day");
+  return year && month && day ? `${year}-${month}-${day}` : null;
+}
+
+/** India-local ISO date string, offset days from today (e.g. 1 = tomorrow). */
 export function isoDay(offset = 0): string {
-  const date = new Date();
-  date.setDate(date.getDate() + offset);
+  const today = appDateKey(new Date());
+  if (!today) throw new Error("Could not determine today's date.");
+  const [year, month, day] = today.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + offset));
   return date.toISOString().slice(0, 10);
 }
 
@@ -20,7 +41,7 @@ export function parseAppDate(value?: string | Date | null): Date | null {
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
 
   const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value)
-    ? `${value}T00:00:00`
+    ? `${value}T12:00:00.000Z`
     : value;
   const date = new Date(normalized);
   return Number.isNaN(date.getTime()) ? null : date;
@@ -39,7 +60,10 @@ export function formatAppDate(
   // `timeStyle`/`hour`/... throw "Invalid option" on toLocaleDateString, so
   // delegate to toLocaleString when a caller asks for a time component.
   const wantsTime = TIME_BEARING_KEYS.some((key) => options[key] !== undefined);
-  return wantsTime ? date.toLocaleString("en-IN", options) : date.toLocaleDateString("en-IN", options);
+  const indiaOptions = { ...options, timeZone: APP_TIME_ZONE };
+  return wantsTime
+    ? date.toLocaleString("en-IN", indiaOptions)
+    : date.toLocaleDateString("en-IN", indiaOptions);
 }
 
 export function formatAppDateTime(
@@ -48,7 +72,9 @@ export function formatAppDateTime(
   fallback = "Date pending",
 ): string {
   const date = parseAppDate(value);
-  return date ? date.toLocaleString("en-IN", options) : fallback;
+  return date
+    ? date.toLocaleString("en-IN", { ...options, timeZone: APP_TIME_ZONE })
+    : fallback;
 }
 
 /** Converts a product/category name into a URL-safe slug ("Red Rose (12)" → "red-rose-12"). */

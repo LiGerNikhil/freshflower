@@ -46,6 +46,7 @@ import type {
   WholesaleEnquiry,
 } from "@/lib/types";
 import { isFestivalCollectionLive } from "@/lib/festivals";
+import { appDateKey } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Serialization
@@ -60,7 +61,11 @@ export function serialize<T>(doc: WithMeta | null): T | null {
   // Normalize every Date field back to an ISO string (createdAt/updatedAt,
   // deliveryDate, publishedAt, validFrom/validUntil, enquiry eventDate …).
   for (const [key, value] of Object.entries(rest)) {
-    if (value instanceof Date) out[key] = value.toISOString();
+    if (value instanceof Date) {
+      out[key] = key === "deliveryDate"
+        ? appDateKey(value) ?? value.toISOString()
+        : value.toISOString();
+    }
   }
   if (typeof rest.createdAt === "number" || rest.createdAt instanceof Date) {
     out.createdAt = new Date(rest.createdAt as number | Date).toISOString();
@@ -304,13 +309,11 @@ export async function getSlotUsage(
   deliveryDate: string,
 ): Promise<number> {
   await dbConnect();
-  const start = new Date(deliveryDate);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setHours(23, 59, 59, 999);
+  const start = new Date(`${deliveryDate}T00:00:00+05:30`);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
   const count = await OrderModel.countDocuments({
     deliverySlotId: slotId,
-    deliveryDate: { $gte: start, $lte: end },
+    deliveryDate: { $gte: start, $lt: end },
     status: { $ne: "cancelled" },
   });
   return count;

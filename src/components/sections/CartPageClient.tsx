@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight, Minus, Plus, Tag, Trash2 } from "lucide-react";
 import { useCart } from "@/components/providers/CartContext";
 import { ProductItemImage } from "@/components/sections/ProductItemImage";
+import { DiwaliAccent } from "@/components/sections/DiwaliAccent";
 import {
   DiscountJourney,
   DiscountJourneyBar,
@@ -196,6 +197,7 @@ export default function CartPageClient() {
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.22em] text-sage-ink">
             Your cart is waiting
           </p>
+          <DiwaliAccent className="mb-5" />
           <h1 className="text-5xl">Nothing here yet.</h1>
           <p className="mt-4 max-w-md text-sm leading-7 text-ink-soft">
             Choose a few fresh stems and we&apos;ll keep them safe here while
@@ -223,6 +225,7 @@ export default function CartPageClient() {
             {itemCount} item{itemCount === 1 ? "" : "s"} selected for a more
             beautiful morning.
           </p>
+          <DiwaliAccent className="mt-6" />
         </div>
       </section>
       <section className="mx-auto max-w-7xl px-5 pt-10 md:px-10">

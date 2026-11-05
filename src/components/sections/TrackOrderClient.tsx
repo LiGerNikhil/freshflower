@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, MapPin, PackageSearch, Search } from "lucide-react";
+import { MapPin, PackageSearch, Search } from "lucide-react";
 import { deliveryAreas, deliverySlots } from "@/lib/data";
 import { OrderStatusStepper } from "@/components/sections/OrderStatusStepper";
+import { OrderDeliverySchedule } from "@/components/sections/OrderDeliverySchedule";
 import { ProductItemImage } from "@/components/sections/ProductItemImage";
 import { PaymentStatusBadge } from "@/components/admin/OrderStatusBadge";
 import { formatINR } from "@/lib/admin/analytics";
 import { OrderStatus, type Order } from "@/lib/types";
-import { formatAppDate } from "@/lib/utils";
+import { formatAppDateTime } from "@/lib/utils";
 
 type TrackResult = { order: Order; customerName: string };
 
@@ -166,28 +167,24 @@ export function TrackOrderClient({
             </div>
           ) : (
             <div className="mt-6">
-              <OrderStatusStepper status={order.status} />
+              <OrderStatusStepper
+                status={order.status}
+                paymentMethod={order.paymentMethod}
+                paymentStatus={order.paymentStatus}
+              />
             </div>
           )}
 
-          <div className="mt-8 grid gap-6 sm:grid-cols-2">
-            <div className="rounded-lg border border-ink/10 bg-ivory-deep/40 p-4">
-              <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-ink-soft">
-                <CalendarDays size={13} /> Delivery
-              </p>
-              <p className="mt-2 text-sm font-medium text-ink">
-                {formatAppDate(
-                  order.deliveryDate,
-                  { weekday: "long", day: "numeric", month: "long" },
-                  "Delivery date pending",
-                )}
-              </p>
-              <p className="text-sm text-ink-soft">
-                {slot?.label ?? order.deliverySlotId ?? ""} ·{" "}
-                {slot?.isMorningExpress ? "Morning express · " : ""}
-                {area?.name ?? "Delhi NCR"}
-              </p>
-            </div>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            <OrderDeliverySchedule
+              deliveryDate={order.deliveryDate}
+              slotLabel={
+                order.deliveryTimePreference ??
+                slot?.label ??
+                (slot?.isMorningExpress ? "Morning express" : undefined)
+              }
+              areaName={area?.name ?? "Delhi NCR"}
+            />
             <div className="rounded-lg border border-ink/10 bg-ivory-deep/40 p-4">
               <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-ink-soft">
                 <MapPin size={13} /> Address
@@ -228,7 +225,12 @@ export function TrackOrderClient({
           </div>
 
           <p className="mt-5 text-xs text-ink-soft">
-            Last updated {new Date(order.updatedAt).toLocaleString("en-IN")}. This
+            Last updated{" "}
+            {formatAppDateTime(order.updatedAt, {
+              dateStyle: "medium",
+              timeStyle: "short",
+            })}
+            . This
             page reflects live status changes made from the FreshFlower admin.
           </p>
         </div>

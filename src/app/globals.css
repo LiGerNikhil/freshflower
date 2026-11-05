@@ -53,6 +53,199 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.01em;
 }
 
+.diwali-accent {
+  position: relative;
+  display: inline-flex;
+  min-height: 4.25rem;
+  align-items: center;
+  gap: 0.75rem;
+  overflow: hidden;
+  border: 1px solid rgb(201 162 75 / 28%);
+  border-radius: 999px;
+  background:
+    radial-gradient(ellipse at 85% 50%, rgb(227 205 147 / 32%), transparent 58%),
+    linear-gradient(115deg, #fffdf8, #f8efdc);
+  padding: 0.7rem 1rem 0.7rem 0.65rem;
+  box-shadow: 0 12px 30px -22px rgb(87 57 16 / 55%);
+}
+
+.diwali-accent__lights {
+  position: absolute;
+  inset: 0.25rem 1.8rem auto 1.8rem;
+  display: flex;
+  justify-content: space-around;
+  pointer-events: none;
+}
+
+.diwali-accent__lights span {
+  width: 0.25rem;
+  height: 0.25rem;
+  border-radius: 50%;
+  background: #d7a93e;
+  box-shadow: 0 0 0.45rem rgb(215 169 62 / 65%);
+  animation: diwali-twinkle 2.8s ease-in-out infinite alternate;
+}
+
+.diwali-accent__lights span:nth-child(2n) {
+  background: #c76547;
+  animation-delay: 0.8s;
+}
+
+.diwali-accent__lights span:nth-child(3n) {
+  background: #82916a;
+  animation-delay: 1.4s;
+}
+
+.diwali-accent__button {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgb(201 162 75 / 35%);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 78%);
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+}
+
+.diwali-accent__button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 16px -8px rgb(144 94 24 / 65%);
+}
+
+.diwali-accent__button:focus-visible {
+  outline: 2px solid #9a6b1f;
+  outline-offset: 3px;
+}
+
+.diwali-accent__button.is-lit {
+  background: #fff8df;
+  box-shadow: 0 0 1.25rem rgb(231 173 64 / 35%);
+}
+
+.diwali-accent__icon {
+  width: 2rem;
+  height: 2rem;
+}
+
+.diwali-accent__flame {
+  fill: #e4a344;
+  opacity: 0.28;
+  transform-origin: 50% 23px;
+  transition:
+    opacity 180ms ease,
+    filter 180ms ease;
+}
+
+.diwali-accent__button.is-lit .diwali-accent__flame {
+  opacity: 1;
+  filter: drop-shadow(0 0 4px rgb(242 159 50 / 75%));
+  animation: diwali-flame 1.5s ease-in-out infinite alternate;
+}
+
+.diwali-accent__bowl {
+  fill: #b8613d;
+  stroke: #8d452f;
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
+
+.diwali-accent__bowl-detail {
+  stroke: #f2c56b;
+  stroke-linecap: round;
+  stroke-width: 1.4;
+}
+
+.diwali-accent__wick {
+  stroke: #8d452f;
+  stroke-linecap: round;
+  stroke-width: 1.5;
+}
+
+.diwali-accent__copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  white-space: nowrap;
+}
+
+.diwali-accent__title {
+  color: #684728;
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  line-height: 1.1;
+}
+
+.diwali-accent__hint {
+  color: #776a58;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+}
+
+.diwali-accent__star {
+  align-self: flex-start;
+  color: #bd8b35;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.diwali-accent__spark {
+  position: absolute;
+  z-index: 2;
+  width: 0.3rem;
+  height: 0.3rem;
+  border: 1px solid #d59b39;
+  opacity: 0;
+  pointer-events: none;
+  transform: rotate(45deg) scale(0.3);
+}
+
+.diwali-accent__button.is-lit .diwali-accent__spark {
+  animation: diwali-spark 700ms ease-out both;
+}
+
+.diwali-accent__spark--one {
+  top: 0.15rem;
+  right: 0.15rem;
+}
+
+.diwali-accent__spark--two {
+  top: 0.2rem;
+  left: 0.1rem;
+  animation-delay: 90ms !important;
+}
+
+.diwali-accent__spark--three {
+  right: 0.1rem;
+  bottom: 0.25rem;
+  animation-delay: 180ms !important;
+}
+
+@keyframes diwali-twinkle {
+  from { opacity: 0.45; }
+  to { opacity: 1; }
+}
+
+@keyframes diwali-flame {
+  from { transform: scale(0.96) rotate(-2deg); }
+  to { transform: scale(1.04) rotate(2deg); }
+}
+
+@keyframes diwali-spark {
+  0% { opacity: 0; transform: translate(0, 0) rotate(45deg) scale(0.3); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: translate(0.35rem, -0.4rem) rotate(45deg) scale(1.2); }
+}
+
 /* ==========================================================================
    Glassmorphism primitives — used for nav, quick-view, floating cards, modals
    ========================================================================== */

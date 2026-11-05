@@ -28,18 +28,6 @@ export async function POST(request: NextRequest) {
     return jsonError("Invalid email or password.", 401);
   }
 
-  if (!process.env.ADMIN_SESSION_SECRET && (await verifyPassword(password, adminPasswords[ADMIN_EMAIL]))) {
-    const response = NextResponse.json({ ok: true, user: adminUsers[0] });
-    response.cookies.set(ADMIN_SESSION_COOKIE, await createAdminSessionToken(), {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: ADMIN_SESSION_TTL_SECONDS,
-    });
-    return response;
-  }
-
   let storedPassword = adminPasswords[ADMIN_EMAIL];
   let inactive = false;
   try {

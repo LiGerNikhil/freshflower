@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { LoaderCircle, MailCheck, RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useCustomerAuth } from "@/components/providers/CustomerAuthContext";
@@ -11,6 +11,8 @@ interface EmailOtpDialogProps {
   onClose: () => void;
   onVerified: () => void;
   initialNote?: string;
+  initialCooldownSeconds?: number;
+  sendOnOpen?: boolean;
 }
 
 export default function EmailOtpDialog({
@@ -19,6 +21,8 @@ export default function EmailOtpDialog({
   onClose,
   onVerified,
   initialNote,
+  initialCooldownSeconds,
+  sendOnOpen = false,
 }: EmailOtpDialogProps) {
   const otpInput = useRef<HTMLInputElement>(null);
   const { refresh } = useCustomerAuth();
@@ -26,7 +30,10 @@ export default function EmailOtpDialog({
   const [status, setStatus] = useState<"idle" | "verifying" | "error" | "success">("idle");
   const [message, setMessage] = useState<string | null>(initialNote ?? null);
   const [resending, setResending] = useState(false);
-  const [cooldown, setCooldown] = useState(initialNote ? 0 : 60);
+  const [cooldown, setCooldown] = useState(
+    initialCooldownSeconds ?? (initialNote ? 0 : 60),
+  );
+  const autoSentForEmail = useRef<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -39,6 +46,49 @@ export default function EmailOtpDialog({
     const timer = setInterval(() => setCooldown((value) => Math.max(0, value - 1)), 1000);
     return () => clearInterval(timer);
   }, [cooldown]);
+
+  const resend = useCallback(async () => {
+    if (resending || cooldown > 0) return;
+    setResending(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/auth/resend-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (response.ok) {
+        setMessage("A fresh code was sent to your email.");
+        setCooldown(60);
+        setStatus("idle");
+        setOtp("");
+        otpInput.current?.focus();
+      } else if (response.status === 429) {
+        const seconds = Number(String(body?.error ?? "").match(/(\d+)s/)?.[1] ?? 60);
+        setCooldown(seconds);
+        setMessage(body?.error ?? "Please wait before requesting a new code.");
+      } else {
+        setStatus("error");
+        setMessage(body?.error ?? "We could not send the code right now. Please try again shortly.");
+      }
+    } catch {
+      setStatus("error");
+      setMessage("Something went wrong. Please try again.");
+    } finally {
+      setResending(false);
+    }
+  }, [cooldown, email, resending]);
+
+  useEffect(() => {
+    if (!open) {
+      autoSentForEmail.current = null;
+      return;
+    }
+    if (!sendOnOpen || autoSentForEmail.current === email) return;
+    autoSentForEmail.current = email;
+    void resend();
+  }, [email, open, resend, sendOnOpen]);
 
   if (!open) return null;
 
@@ -71,39 +121,6 @@ export default function EmailOtpDialog({
     } catch {
       setStatus("error");
       setMessage("Something went wrong. Please try again.");
-    }
-  }
-
-  async function resend() {
-    if (resending || cooldown > 0) return;
-    setResending(true);
-    setMessage(null);
-    try {
-      const response = await fetch("/api/auth/resend-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      if (response.ok) {
-        setMessage("A fresh code was sent to your email.");
-        setCooldown(60);
-        setStatus("idle");
-        setOtp("");
-        otpInput.current?.focus();
-      } else if (response.status === 429) {
-        const seconds = Number(String(body?.error ?? "").match(/(\d+)s/)?.[1] ?? 60);
-        setCooldown(seconds);
-        setMessage(body?.error ?? "Please wait before requesting a new code.");
-      } else {
-        setStatus("error");
-        setMessage(body?.error ?? "We could not send the code right now. Please try again shortly.");
-      }
-    } catch {
-      setStatus("error");
-      setMessage("Something went wrong. Please try again.");
-    } finally {
-      setResending(false);
     }
   }
 

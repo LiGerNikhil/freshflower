@@ -13,6 +13,7 @@ type Mode = "login" | "register";
 interface OtpState {
   email: string;
   note?: string;
+  resendAfterSeconds?: number;
   next: () => void;
 }
 
@@ -50,7 +51,13 @@ export default function LoginRegisterForm() {
       body: JSON.stringify(payload),
     });
     const body = (await response.json().catch(() => null)) as
-      | { error?: string; emailSent?: boolean; customer?: { emailVerified?: boolean } }
+      | {
+          error?: string;
+          emailSent?: boolean;
+          verificationEmailStatus?: "sent" | "already-sent" | "failed";
+          resendAfterSeconds?: number;
+          customer?: { emailVerified?: boolean };
+        }
       | null;
     setSubmitting(false);
     if (!response.ok) {
@@ -69,9 +76,17 @@ export default function LoginRegisterForm() {
       return;
     }
     if (body?.customer?.emailVerified === false) {
+      const emailStatus = body.verificationEmailStatus;
       setOtpKey((value) => value + 1);
       setOtpState({
         email,
+        note:
+          emailStatus === "sent"
+            ? "We just sent a fresh verification code. Check your inbox and spam folder."
+            : emailStatus === "already-sent"
+              ? "Your verification code was sent recently. Check your inbox and spam folder."
+              : "We couldn't send a fresh code right now. You can try resending below.",
+        resendAfterSeconds: body.resendAfterSeconds ?? 0,
         next: () => router.push("/cart"),
       });
       return;
@@ -149,6 +164,16 @@ export default function LoginRegisterForm() {
               Password
               <input name="password" type="password" required minLength={8} className="mt-2 w-full rounded-xl border border-ink/10 bg-white p-3 outline-none focus:border-gold" />
             </label>
+            {mode === "login" && (
+              <div className="flex justify-end">
+                <Link
+                  href="/forgot-password?type=customer"
+                  className="min-h-11 inline-flex items-center text-sm font-semibold text-sage-ink underline-offset-4 hover:text-ink hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+            )}
             {error && <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
             <Button type="submit" variant="gold" className="w-full" disabled={submitting}>
               {submitting ? "Please wait..." : mode === "login" ? "Login" : "Create account"}
@@ -166,6 +191,7 @@ export default function LoginRegisterForm() {
         onClose={() => setOtpState(null)}
         onVerified={() => otpState?.next()}
         initialNote={otpState?.note}
+        initialCooldownSeconds={otpState?.resendAfterSeconds}
       />
     </main>
   );

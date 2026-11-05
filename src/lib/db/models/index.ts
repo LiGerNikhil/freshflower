@@ -838,6 +838,19 @@ const AdminCredentialSchema = new Schema(
   { timestamps: true },
 );
 
+const PasswordResetTokenSchema = new Schema(
+  {
+    _id: { type: String },
+    accountType: { type: String, enum: ["customer", "admin"], required: true },
+    email: { type: String, required: true },
+    tokenHash: { type: String, required: true },
+    expiresAt: { type: Date, required: true },
+  },
+  { timestamps: true },
+);
+
+PasswordResetTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
 // Guard against hot-reload re-registration.
 const register = <T>(name: string, schema: Schema): Model<T> =>
   (models[name] as Model<T> | undefined) ?? model<T>(name, schema);
@@ -869,6 +882,10 @@ export const AdminUserModel = register<any>("AdminUser", AdminUserSchema);
 export const AdminCredentialModel = register<any>(
   "AdminCredential",
   AdminCredentialSchema,
+);
+export const PasswordResetTokenModel = register<any>(
+  "PasswordResetToken",
+  PasswordResetTokenSchema,
 );
 export const HomepageConfigModel = register<any>(
   "HomepageConfig",

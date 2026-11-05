@@ -65,28 +65,38 @@ export function AdminAuthProvider({
 
   const login = useCallback<AdminAuthValue["login"]>(
     async (email, password) => {
-      const response = await fetch("/api/admin/auth/login", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      if (!response.ok) {
+      try {
+        const response = await fetch("/api/admin/auth/login", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        if (!response.ok) {
+          const body = (await response.json().catch(() => null)) as
+            | { error?: string }
+            | null;
+          return {
+            ok: false,
+            error: body?.error ?? "Invalid email or password.",
+          };
+        }
+        const me = await fetch("/api/admin/auth/me", { credentials: "same-origin" });
+        if (!me.ok) return { ok: false, error: "Could not verify admin permissions." };
+        const body = (await me.json()) as { user: AdminUser };
+        const next: AdminSession = {
+          user: body.user,
+          loggedInAt: new Date().toISOString(),
+        };
+        setSession(next);
+        window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next));
+        return { ok: true };
+      } catch {
         return {
           ok: false,
-          error: "Invalid email or password.",
+          error: "We couldn't reach the sign-in service. Please try again.",
         };
       }
-      const me = await fetch("/api/admin/auth/me", { credentials: "same-origin" });
-      if (!me.ok) return { ok: false, error: "Could not verify admin permissions." };
-      const body = (await me.json()) as { user: AdminUser };
-      const next: AdminSession = {
-        user: body.user,
-        loggedInAt: new Date().toISOString(),
-      };
-      setSession(next);
-      window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next));
-      return { ok: true };
     },
     [],
   );

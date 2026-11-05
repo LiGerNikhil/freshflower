@@ -25,6 +25,12 @@ type EmailTemplate =
       name: string;
     }
   | {
+      type: "password-reset";
+      name: string;
+      accountType: "customer" | "admin";
+      resetUrl: string;
+    }
+  | {
       type: "payment-verification-required";
       orderNumber: string;
       customerName: string;
@@ -103,6 +109,18 @@ function baseLayout({ title, body }: { title: string; body: string }) {
 }
 
 function renderTemplate(template: EmailTemplate): { subject: string; html: string; text: string } {
+  if (template.type === "password-reset") {
+    const accountLabel = template.accountType === "admin" ? "admin" : "customer";
+    return {
+      subject: "Reset your FreshFlower.zone password",
+      text: `Hi ${template.name}, use this link to reset your ${accountLabel} account password. This link expires in 30 minutes and can only be used once: ${template.resetUrl}\n\nIf you did not request a password reset, you can ignore this email.`,
+      html: baseLayout({
+        title: "Reset your password",
+        body: `<p>Hi ${escapeHtml(template.name)},</p><p>We received a request to reset the password for your ${accountLabel} account.</p><p><a href="${escapeHtml(template.resetUrl)}" style="display:inline-block;background:#d6aa5a;color:#1f1b16;text-decoration:none;border-radius:10px;padding:13px 20px;font-weight:700;">Reset password</a></p><p>This secure link expires in 30 minutes and can only be used once.</p><p>If you did not request a password reset, you can safely ignore this email.</p>`,
+      }),
+    };
+  }
+
   if (template.type === "email-otp") {
     const expiryMinutes = 15;
     return {
@@ -203,9 +221,9 @@ export async function sendEmail({ to, template, attachments }: SendEmailInput) {
     port: 587,
     secure: false,
     requireTLS: true,
-    connectionTimeout: 10_000,
-    greetingTimeout: 10_000,
-    socketTimeout: 10_000,
+    connectionTimeout: 15_000,
+    greetingTimeout: 15_000,
+    socketTimeout: 30_000,
     auth: { user, pass },
   });
   const rendered = renderTemplate(template);

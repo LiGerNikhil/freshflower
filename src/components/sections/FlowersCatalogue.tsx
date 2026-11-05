@@ -15,6 +15,7 @@ import {
 import { ProductCard } from "@/components/sections/ProductCard";
 import { HeroVideo } from "@/components/sections/HeroVideo";
 import { QuickViewDialog } from "@/components/sections/QuickViewDialog";
+import { DiwaliAccent } from "@/components/sections/DiwaliAccent";
 import { useCart } from "@/components/providers/CartContext";
 import { useCustomerAuth } from "@/components/providers/CustomerAuthContext";
 import { categories as fallbackCategories } from "@/lib/data/categories";
@@ -214,6 +215,7 @@ export default function FlowersCatalogue({
               Fresh stems, thoughtful bunches, and small luxuries for every kind
               of day in Delhi NCR.
             </p>
+            <DiwaliAccent className="mt-6" />
           </motion.div>
         </div>
       </section>

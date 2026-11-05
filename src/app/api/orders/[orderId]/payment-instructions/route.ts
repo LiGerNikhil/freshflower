@@ -3,6 +3,7 @@ import { OrderModel, PaymentAccountModel, PaymentAttemptModel } from "@/lib/db/m
 import { dbConnect } from "@/lib/db/connect";
 import { getCustomerSession } from "@/lib/auth/customer-session";
 import { jsonError, jsonOk, readJson, safe } from "@/lib/api/helpers";
+import { appDateKey } from "@/lib/utils";
 
 type PaymentAccountSnapshot = {
   accountId: string;
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ orde
         id: String(order._id), orderNumber: order.orderNumber, items: order.items,
         subtotal: order.subtotal, deliveryFee: order.deliveryFee, total: order.total,
         payment: order.paymentMethod,
-        delivery: { date: order.deliveryDate ? new Date(order.deliveryDate).toISOString().slice(0, 10) : "", address: order.deliveryAddress?.line1 ?? "", city: order.deliveryAddress?.city ?? "" },
+        delivery: { date: appDateKey(order.deliveryDate) ?? "", address: order.deliveryAddress?.line1 ?? "", city: order.deliveryAddress?.city ?? "" },
       },
       order: {
         id: String(order._id),

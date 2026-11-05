@@ -17,6 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { AccountShell } from "@/components/sections/AccountShell";
+import { DiwaliAccent } from "@/components/sections/DiwaliAccent";
 import { OrderStatusStepper } from "@/components/sections/OrderStatusStepper";
 import { ProductItemImage } from "@/components/sections/ProductItemImage";
 import { useCart } from "@/components/providers/CartContext";
@@ -24,7 +25,7 @@ import { useWishlist } from "@/components/providers/WishlistContext";
 import EmailOtpDialog from "@/components/auth/EmailOtpDialog";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { GRADIENT_TOKENS, isRemoteImage } from "@/lib/utils";
+import { formatAppDate, GRADIENT_TOKENS, isRemoteImage } from "@/lib/utils";
 import { resolveProductImage } from "@/lib/product-media";
 import type { Address, Customer, Flower, Order, Review } from "@/lib/types";
 
@@ -84,6 +85,8 @@ export default function AccountContent({
         key={`${otpEmail ?? "closed"}-${otpKey}`}
         email={otpEmail ?? ""}
         open={Boolean(otpEmail)}
+        sendOnOpen
+        initialCooldownSeconds={0}
         onClose={() => setOtpEmail(null)}
         onVerified={() => {
           setVerifiedLocally(true);
@@ -203,6 +206,7 @@ function Orders({ orders, flowers }: { orders: Order[]; flowers: Flower[] }) {
   };
   return (
     <div className="space-y-4">
+      <DiwaliAccent />
       {orders.map((order) => (
         <Link
           key={order.id}
@@ -229,7 +233,12 @@ function Orders({ orders, flowers }: { orders: Order[]; flowers: Flower[] }) {
                 {order.items.length > 1 && ` + ${order.items.length - 1} more`}
               </h2>
               <p className="mt-1 text-sm text-ink-soft">
-                {order.deliveryDate} · ₹{order.total.toLocaleString("en-IN")}
+                {formatAppDate(
+                  order.deliveryDate,
+                  { weekday: "short", day: "numeric", month: "short" },
+                  "Delivery date pending",
+                )}{" "}
+                · ₹{order.total.toLocaleString("en-IN")}
               </p>
             </div>
             <Badge
@@ -245,7 +254,11 @@ function Orders({ orders, flowers }: { orders: Order[]; flowers: Flower[] }) {
             </Badge>
           </div>
           <div className="mt-6">
-            <OrderStatusStepper status={order.status} />
+            <OrderStatusStepper
+              status={order.status}
+              paymentMethod={order.paymentMethod}
+              paymentStatus={order.paymentStatus}
+            />
           </div>
           <div className="mt-5 flex flex-wrap gap-2 border-t border-ink/10 pt-4">
             {order.source === "diwali" ? (

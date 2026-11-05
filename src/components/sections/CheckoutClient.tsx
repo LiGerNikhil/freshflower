@@ -19,10 +19,9 @@ import { formatDiscountINR } from "@/lib/discounts";
 import { useTieredDiscount } from "@/lib/use-tiered-discount";
 import { DiscountJourneySummary } from "@/components/sections/DiscountJourney";
 import { payWithRazorpay } from "@/lib/payments/checkout-client";
+import { isoDay } from "@/lib/utils";
 
-const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
-  .toISOString()
-  .slice(0, 10);
+const tomorrow = isoDay(1);
 const defaultDeliverySlotId = "slot-10-11";
 const estimatedDeliveryLabel = "Estimated delivery by Tomorrow 11:00 AM";
 const checkoutRequestStorageKey = "freshflower-checkout-request-id";

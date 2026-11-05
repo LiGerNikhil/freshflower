@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, Clipboard, Clock3, Download, Loader2, MapPin, QrCode, Upload } from "lucide-react";
+import { Check, ChevronDown, Clipboard, Download, Loader2, MapPin, QrCode, Upload } from "lucide-react";
 import { useCart } from "@/components/providers/CartContext";
 import { ProductItemImage } from "@/components/sections/ProductItemImage";
+import { DiwaliAccent } from "@/components/sections/DiwaliAccent";
+import { OrderDeliverySchedule } from "@/components/sections/OrderDeliverySchedule";
 import { DELIVERY_CHARGE, DELIVERY_NOTE } from "@/lib/cart";
 import { payWithRazorpay } from "@/lib/payments/checkout-client";
 
@@ -343,6 +345,7 @@ export default function OrderConfirmationClient({ orderId }: { orderId: string }
             </div>
             <p className="mt-6 text-xs font-bold uppercase tracking-[0.22em] text-sage-ink">{isOnlineOrder && !isPaid ? "Awaiting payment" : "Booking received"}</p>
             <h1 className="mt-3 font-display text-4xl md:text-5xl">{isPaid ? "Order confirmed." : isOnlineOrder ? "Complete your payment." : "Order created successfully."}</h1>
+            <DiwaliAccent className="mx-auto mt-5" />
             <p className="mt-4 text-sm leading-7 text-ink-soft">
               Order <strong className="text-ink">{payment?.order.orderNumber ?? order?.orderNumber ?? orderId}</strong> is saved.
               {isOnlineOrder ? (isPaid ? " Payment received. We will prepare your flowers." : " It is not confirmed yet — complete your Razorpay payment to confirm this order.") : isUpiOrder
@@ -353,14 +356,11 @@ export default function OrderConfirmationClient({ orderId }: { orderId: string }
 
           {order && (
             <div className="mt-6 rounded-xl bg-white/70 p-6 text-left">
-              <div className="flex items-start gap-3 border-b border-ink/10 pb-5">
-                <Clock3 className="mt-1 text-gold" size={20} />
-                <div>
-                  <p className="font-semibold">{order.delivery.date} · {order.delivery.slotLabel}</p>
-                  <p className="mt-1 text-sm text-ink-soft">{order.delivery.areaName}</p>
-                  <p className="mt-2 text-xs font-semibold text-sage-ink">Your order will be delivered by Porter.</p>
-                </div>
-              </div>
+              <OrderDeliverySchedule
+                deliveryDate={order.delivery.date}
+                slotLabel={order.delivery.slotLabel}
+                areaName={order.delivery.areaName}
+              />
               <div className="flex items-start gap-3 border-b border-ink/10 py-5">
                 <MapPin className="mt-1 text-gold" size={20} />
                 <div>

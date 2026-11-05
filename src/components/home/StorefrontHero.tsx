@@ -4,6 +4,7 @@ import { CategoryQuickNav } from "@/components/home/CategoryQuickNav";
 import { CollectionBento } from "@/components/home/CollectionBento";
 import { HeroProductRail } from "@/components/home/HeroProductRail";
 import { DiwaliCampaignBanner } from "@/components/home/DiwaliCampaignBanner";
+import { DiwaliAccent } from "@/components/sections/DiwaliAccent";
 import type { Category, FestivalCollection, Flower } from "@/lib/types";
 
 interface StorefrontHeroProps {
@@ -56,6 +57,7 @@ export function StorefrontHero({
               <h1 className="mt-1 font-display text-[1.65rem] leading-tight text-ink sm:text-3xl lg:text-4xl">
                 Shop by category
               </h1>
+              <DiwaliAccent className="mt-4" />
             </div>
             <Link
               href="/categories"

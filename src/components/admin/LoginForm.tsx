@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogIn, ShieldAlert } from "lucide-react";
 import { useAdminAuth } from "@/components/providers/AdminAuthContext";
@@ -17,15 +18,18 @@ export function LoginForm() {
     event.preventDefault();
     setError(null);
     setSubmitting(true);
-    // Simulate a network round-trip before resolving the dummy session.
-    await new Promise((resolve) => setTimeout(resolve, 450));
-    const result = await login(email, password);
-    setSubmitting(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
+    try {
+      const result = await login(email, password);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      router.replace("/admin");
+    } catch {
+      setError("We couldn't sign you in. Check your connection and try again.");
+    } finally {
+      setSubmitting(false);
     }
-    router.replace("/admin");
   }
 
   return (
@@ -35,9 +39,9 @@ export function LoginForm() {
           FreshFlower.zone
         </p>
         <h1 className="mt-2 font-display text-3xl">Admin access</h1>
-        <div className="mx-auto mt-3 inline-flex items-center gap-1.5 rounded-full bg-blush px-3 py-1 text-[11px] font-semibold text-ink-soft">
+        <div className="mx-auto mt-3 inline-flex items-center gap-1.5 rounded-full bg-sage px-3 py-1 text-[11px] font-semibold text-sage-ink">
           <ShieldAlert size={13} className="text-gold" />
-          Client-side auth only
+          Secure administrator access
         </div>
       </div>
 
@@ -77,6 +81,14 @@ export function LoginForm() {
             placeholder="••••••••"
             className="w-full rounded-lg border border-ink/10 bg-ivory px-3.5 py-2.5 text-sm text-ink outline-none transition placeholder:text-ink-soft/50 focus:border-gold"
           />
+        </div>
+        <div className="flex justify-end">
+          <Link
+            href="/forgot-password?type=admin"
+            className="min-h-11 inline-flex items-center text-sm font-semibold text-sage-ink underline-offset-4 hover:text-ink hover:underline"
+          >
+            Forgot password?
+          </Link>
         </div>
 
         {error && (
