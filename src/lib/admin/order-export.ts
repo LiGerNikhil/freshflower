@@ -16,7 +16,7 @@ export interface DeliveryDateExportRange {
   to: string;
   filter: {
     status: { $ne: string };
-    $or: Array<{ deliveryDate: { $gte: Date; $lt: Date } }>;
+    deliveryDate: { $gte: Date; $lt: Date };
   };
 }
 
@@ -40,20 +40,17 @@ export function parseDeliveryDateExportRange(params: URLSearchParams): DeliveryD
     throw new ApiError("Delivery start date must be on or before the end date.", 400);
   }
 
-  const utcEnd = new Date(`${to}T00:00:00.000Z`);
-  utcEnd.setUTCDate(utcEnd.getUTCDate() + 1);
+  const dayAfterEnd = new Date(`${to}T00:00:00.000Z`);
+  dayAfterEnd.setUTCDate(dayAfterEnd.getUTCDate() + 1);
   const istStart = indiaMidnight(from);
-  const istEnd = new Date(utcEnd.getTime() - INDIA_OFFSET_MS);
+  const istEnd = indiaMidnight(dayAfterEnd.toISOString().slice(0, 10));
 
   return {
     from,
     to,
     filter: {
       status: { $ne: "cancelled" },
-      $or: [
-        { deliveryDate: { $gte: new Date(`${from}T00:00:00.000Z`), $lt: utcEnd } },
-        { deliveryDate: { $gte: istStart, $lt: istEnd } },
-      ],
+      deliveryDate: { $gte: istStart, $lt: istEnd },
     },
   };
 }

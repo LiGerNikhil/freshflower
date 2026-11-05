@@ -2,12 +2,16 @@ import { PassThrough, Readable } from "node:stream";
 import path from "node:path";
 import PDFDocument from "pdfkit";
 import { NextRequest } from "next/server";
-import { CustomerModel, DeliverySlotModel, OrderModel } from "@/lib/db/models";
+import { OrderModel } from "@/lib/db/models";
 import { dbConnect } from "@/lib/db/connect";
 import { requireAdminRole } from "@/lib/admin/authorization";
 import { parseDeliveryDateExportRange } from "@/lib/admin/order-export";
-import { safe } from "@/lib/api/helpers";
-import { AdminRole } from "@/lib/types";
+import { ApiError, safe } from "@/lib/api/helpers";
+import {
+  getLiveFestivalCollectionBySlug,
+  getPublishedFlowers,
+} from "@/lib/db/repositories";
+import { AdminRole, type Flower } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -24,58 +28,29 @@ const BATCH_SIZE = 100;
 type DeliveryOrder = {
   _id: string;
   orderNumber: string;
-  customerId: string;
   items: Array<{
+    productId: string;
     name: string;
     color?: string;
     quantity: number;
-    unitLabel?: string;
-    price: number;
   }>;
-  total: number;
-  status: string;
-  paymentStatus?: string;
-  createdAt: Date;
   deliveryDate: Date;
-  deliverySlotId?: string;
-  deliveryTimePreference?: string;
-  deliveryAddress?: {
-    line1?: string;
-    line2?: string;
-    city?: string;
-    pincode?: string;
-    landmark?: string;
-  };
 };
 
-type DeliveryCustomer = {
-  _id: string;
-  name?: string;
-  firstName?: string;
-  lastName?: string;
-  phone?: string;
+type DeliveryProductQuantity = {
+  _id: { productId: string; color: string };
+  totalQuantity: number;
 };
 
-type DeliverySlot = {
-  _id: string;
-  label?: string;
-  startTime?: string;
-  endTime?: string;
+type DeliveryProductInfo = {
+  name: string;
+  colors: Map<string, string>;
 };
 
-type DeliverySummary = {
-  overview: Array<{ totalOrders: number; totalRevenue: number }>;
-  products: Array<{
-    _id: {
-      productId: string;
-      name: string;
-      color: string;
-      unitLabel: string;
-      productType: string;
-    };
-    totalQuantity: number;
-    orderCount: number;
-  }>;
+type ProductQuantity = {
+  name: string;
+  color: string;
+  totalQuantity: number;
 };
 
 type TextStyle = {
@@ -95,10 +70,6 @@ function pdfSafeText(value: string): string {
     .replace(/[^\x20-\xFF]/g, "?");
 }
 
-function formatRupees(amount: number): string {
-  return `INR ${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(amount)}`;
-}
-
 function formatIndiaDate(value: Date | string, includeTime = false): string {
   return new Intl.DateTimeFormat("en-IN", {
     timeZone: "Asia/Kolkata",
@@ -109,12 +80,14 @@ function formatIndiaDate(value: Date | string, includeTime = false): string {
   }).format(new Date(value));
 }
 
-function formatDeliveryDate(value: Date): string {
-  const date = new Date(value);
-  if (date.getUTCHours() === 18 && date.getUTCMinutes() === 30) {
-    return formatIndiaDate(date);
-  }
-  return date.toISOString().slice(0, 10);
+function formatRangeDay(value: string): string {
+  return formatIndiaDate(`${value}T12:00:00.000Z`);
+}
+
+function formatDeliveryRange(from: string, to: string): string {
+  return from === to
+    ? formatRangeDay(from)
+    : `${formatRangeDay(from)} to ${formatRangeDay(to)}`;
 }
 
 function wrapText(
@@ -140,39 +113,6 @@ function wrapText(
   return lines.length ? lines : [""];
 }
 
-function customerName(customer?: DeliveryCustomer): string {
-  return (
-    customer?.name ||
-    [customer?.firstName, customer?.lastName].filter(Boolean).join(" ") ||
-    "Customer unavailable"
-  );
-}
-
-function deliverySlotLabel(order: DeliveryOrder, slot?: DeliverySlot): string {
-  return (
-    order.deliveryTimePreference ||
-    slot?.label ||
-    [slot?.startTime, slot?.endTime].filter(Boolean).join(" - ") ||
-    order.deliverySlotId ||
-    "Not specified"
-  );
-}
-
-function deliveryAddress(order: DeliveryOrder): string {
-  const address = order.deliveryAddress;
-  if (!address) return "Address unavailable";
-  return [
-    address.line1,
-    address.line2,
-    address.landmark ? `Landmark: ${address.landmark}` : undefined,
-    address.city,
-    address.pincode,
-  ]
-    .map((part) => part?.trim())
-    .filter((part): part is string => Boolean(part))
-    .join(", ") || "Address unavailable";
-}
-
 function exportFilename(from: string, to: string): string {
   return `FreshFlower_Delivery_Orders_${from}_to_${to}.pdf`;
 }
@@ -183,63 +123,102 @@ export async function GET(request: NextRequest) {
     const range = parseDeliveryDateExportRange(request.nextUrl.searchParams);
     await dbConnect();
 
-    const paidOrderFilter = { ...range.filter, paymentStatus: "paid" };
-    const [summary] = await OrderModel.aggregate<DeliverySummary>([
-      { $match: paidOrderFilter },
-      {
-        $facet: {
-          overview: [
-            {
-              $group: {
-                _id: null,
-                totalOrders: { $sum: 1 },
-                totalRevenue: { $sum: "$total" },
-              },
+    const campaign = await getLiveFestivalCollectionBySlug("diwali");
+    if (!campaign?.advanceBooking) {
+      throw new ApiError("The Diwali product list is not available.", 409);
+    }
+
+    const productSettings = new Map(
+      campaign.advanceBooking.productSettings.map((setting) => [setting.productId, setting]),
+    );
+    const listedProductIds = [...new Set(campaign.productIds)].filter(
+      (productId) => productSettings.get(productId)?.visible !== false,
+    );
+    const allFlowers = await getPublishedFlowers();
+    const flowersById = new Map(allFlowers.map((flower) => [flower.id, flower]));
+    const listedProducts = listedProductIds
+      .map((productId) => flowersById.get(productId))
+      .filter(
+        (flower): flower is Flower =>
+          Boolean(flower?.inStock && flower.stockStatus !== "sold-out"),
+      );
+    const productInfoById = new Map<string, DeliveryProductInfo>(
+      listedProducts.map((product) => {
+        const productId = product.id;
+        const displayLabel = productSettings.get(productId)?.displayLabel?.trim();
+        return [
+          productId,
+          {
+            name: displayLabel || product.name,
+            colors: new Map(
+              (product.colorVariants ?? []).map((variant) => [
+                variant.color.trim().toLocaleLowerCase(),
+                variant.color.trim(),
+              ]),
+            ),
+          },
+        ];
+      }),
+    );
+    const diwaliProductIds = [...productInfoById.keys()];
+    const paidOrderFilter = {
+      ...range.filter,
+      paymentStatus: "paid",
+      items: { $elemMatch: { productId: { $in: diwaliProductIds } } },
+    };
+    const [productTotals, orderCount] = await Promise.all([
+      OrderModel.aggregate<DeliveryProductQuantity>([
+        { $match: paidOrderFilter },
+        { $unwind: "$items" },
+        { $match: { "items.productId": { $in: diwaliProductIds } } },
+        {
+          $group: {
+            _id: {
+              productId: "$items.productId",
+              color: { $ifNull: ["$items.color", ""] },
             },
-            { $project: { _id: 0, totalOrders: 1, totalRevenue: 1 } },
-          ],
-          products: [
-            { $unwind: "$items" },
-            {
-              $group: {
-                _id: {
-                  orderId: "$_id",
-                  productId: "$items.productId",
-                  name: "$items.name",
-                  color: { $ifNull: ["$items.color", ""] },
-                  unitLabel: { $ifNull: ["$items.unitLabel", ""] },
-                  productType: { $ifNull: ["$items.productType", ""] },
-                },
-                totalQuantity: { $sum: "$items.quantity" },
-              },
-            },
-            {
-              $group: {
-                _id: {
-                  productId: "$_id.productId",
-                  name: "$_id.name",
-                  color: "$_id.color",
-                  unitLabel: "$_id.unitLabel",
-                  productType: "$_id.productType",
-                },
-                totalQuantity: { $sum: "$totalQuantity" },
-                orderCount: { $sum: 1 },
-              },
-            },
-            { $sort: { "_id.name": 1, "_id.color": 1, "_id.unitLabel": 1, "_id.productId": 1 } },
-          ],
+            totalQuantity: { $sum: "$items.quantity" },
+          },
         },
-      },
-    ]).exec();
-    const overview = summary?.overview[0] ?? { totalOrders: 0, totalRevenue: 0 };
-    const productSummary = summary?.products ?? [];
-    const totalItemQuantity = productSummary.reduce((total, product) => total + product.totalQuantity, 0);
+        { $sort: { "_id.productId": 1, "_id.color": 1 } },
+      ]).exec(),
+      OrderModel.countDocuments(paidOrderFilter).exec(),
+    ]);
+
+    const productTotalsByNameAndColor = new Map<string, ProductQuantity>();
+    for (const total of productTotals) {
+      const productInfo = productInfoById.get(total._id.productId);
+      if (!productInfo) continue;
+
+      const savedColor = total._id.color.trim();
+      const color =
+        productInfo.colors.get(savedColor.toLocaleLowerCase()) ?? savedColor;
+      const key = JSON.stringify([
+        productInfo.name.toLocaleLowerCase(),
+        color.toLocaleLowerCase(),
+      ]);
+      const existing = productTotalsByNameAndColor.get(key);
+      if (existing) {
+        existing.totalQuantity += total.totalQuantity;
+      } else {
+        productTotalsByNameAndColor.set(key, {
+          name: productInfo.name,
+          color,
+          totalQuantity: total.totalQuantity,
+        });
+      }
+    }
+    const productSummary = [...productTotalsByNameAndColor.values()].sort(
+      (first, second) =>
+        first.name.localeCompare(second.name, "en") ||
+        first.color.localeCompare(second.color, "en"),
+    );
 
     const logoPath = path.join(process.cwd(), "public", "assets", "images", "logo.png");
     const stream = new PassThrough();
     const doc = new PDFDocument({ size: "A4", margin: 0, compress: true });
     const filename = exportFilename(range.from, range.to);
-    doc.info.Title = "FreshFlower.zone Delivery Date Stock Report";
+    doc.info.Title = "FreshFlower.zone Diwali Delivery Plan";
     doc.info.Author = "FreshFlower.zone";
     doc.pipe(stream);
     doc.on("error", (error: Error) => {
@@ -254,11 +233,15 @@ export async function GET(request: NextRequest) {
     function drawHeader() {
       doc.image(logoPath, LEFT, 23, { fit: [92, 40] });
       doc.font("Helvetica-Bold").fontSize(14).fillColor("#29251f");
-      doc.text("DELIVERY DATE STOCK REPORT", 154, 19, { lineBreak: false });
+      doc.text("DIWALI DELIVERY PLAN", 154, 19, { lineBreak: false });
       doc.font("Helvetica").fontSize(9).fillColor("#645e55");
-      doc.text(`Delivery dates: ${range.from} to ${range.to}`, 154, 39, { lineBreak: false });
-      doc.text("Customer-selected delivery dates", 154, 53, { lineBreak: false });
-      doc.text(`Generated ${generatedAt} IST`, 154, 67, { lineBreak: false });
+      doc.text(`Delivery date: ${formatDeliveryRange(range.from, range.to)}`, 154, 39, {
+        lineBreak: false,
+      });
+      doc.text("Full day: 12 AM to next 12 AM IST | Paid orders only", 154, 53, {
+        lineBreak: false,
+      });
+      doc.text(`Made ${generatedAt} IST`, 154, 67, { lineBreak: false });
       doc.moveTo(LEFT, 88).lineTo(PAGE_WIDTH - RIGHT, 88).lineWidth(0.7).strokeColor("#e7e1d7").stroke();
     }
 
@@ -269,7 +252,7 @@ export async function GET(request: NextRequest) {
         .strokeColor("#e7e1d7")
         .stroke();
       doc.font("Helvetica").fontSize(8).fillColor("#81796f");
-      doc.text("FreshFlower.zone - Delivery Date Stock Report", LEFT, PAGE_HEIGHT - 27, {
+      doc.text("FreshFlower.zone - Diwali Delivery Plan", LEFT, PAGE_HEIGHT - 27, {
         lineBreak: false,
       });
       doc.text(`Page ${pageNumber}`, PAGE_WIDTH - RIGHT - 55, PAGE_HEIGHT - 27, {
@@ -289,92 +272,61 @@ export async function GET(request: NextRequest) {
 
     function drawTableHeader(continued = false) {
       doc.font("Helvetica-Bold").fontSize(8).fillColor("#645e55");
-      doc.text(continued ? "PRODUCT STOCK REQUIREMENT (CONTINUED)" : "PRODUCT STOCK REQUIREMENT", LEFT, cursorY, {
+      doc.text(continued ? "PRODUCTS TO PREPARE (CONTINUED)" : "PRODUCTS TO PREPARE", LEFT, cursorY, {
         lineBreak: false,
       });
-      cursorY += 14;
-      doc.font("Helvetica-Bold").fontSize(7.5).fillColor("#29251f");
-      doc.text("BUY/PREPARE TOTAL QTY ONLY. DO NOT MULTIPLY BY ORDERS.", LEFT, cursorY, {
-        lineBreak: false,
-      });
-      cursorY += 11;
-      doc.font("Helvetica").fontSize(7).fillColor("#645e55");
-      doc.text(
-        "TOTAL QTY = combined product units customers ordered; prepare this number only. Do not multiply by ORDERS.",
-        LEFT,
-        cursorY,
-        { lineBreak: false },
-      );
-      cursorY += 12;
+      cursorY += 16;
       doc.font("Helvetica-Bold").fontSize(8).fillColor("#86703f");
-      doc.text("PRODUCT / VARIANT", LEFT, cursorY, { lineBreak: false });
-      doc.text("TOTAL QTY", PAGE_WIDTH - RIGHT - 116, cursorY, { width: 65, align: "right", lineBreak: false });
-      doc.text("ORDERS", PAGE_WIDTH - RIGHT - 44, cursorY, { width: 44, align: "right", lineBreak: false });
+      doc.text("PRODUCT", LEFT, cursorY, { lineBreak: false });
+      doc.text("COLOR", LEFT + CONTENT_WIDTH - 145, cursorY, { lineBreak: false });
+      doc.text("QTY NEEDED", PAGE_WIDTH - RIGHT - 58, cursorY, {
+        width: 58,
+        align: "right",
+        lineBreak: false,
+      });
       cursorY += 7;
       doc.moveTo(LEFT, cursorY).lineTo(PAGE_WIDTH - RIGHT, cursorY).lineWidth(0.6).strokeColor("#d8d1c5").stroke();
       cursorY += 7;
     }
 
     drawHeader();
-    doc.roundedRect(LEFT, cursorY, CONTENT_WIDTH, 78, 8).fill("#f8f3e8");
-    doc.font("Helvetica-Bold").fontSize(9).fillColor("#86703f");
-    doc.text("PAID ORDERS ONLY - STOCK REQUIREMENT", LEFT + 12, cursorY + 10, { lineBreak: false });
-    doc.moveTo(LEFT + 12, cursorY + 27)
-      .lineTo(PAGE_WIDTH - RIGHT - 12, cursorY + 27)
-      .lineWidth(0.5)
-      .strokeColor("#e2d7c2")
-      .stroke();
-
-    const metricColumns = [
-      { label: "PAID ORDERS", value: String(overview.totalOrders) },
-      { label: "TOTAL QTY TO PREPARE", value: String(totalItemQuantity) },
-      { label: "PAID ORDER VALUE", value: formatRupees(overview.totalRevenue) },
-    ];
-    const metricWidth = (CONTENT_WIDTH - 24) / metricColumns.length;
-    metricColumns.forEach((metric, index) => {
-      const x = LEFT + 12 + metricWidth * index;
-      doc.font("Helvetica").fontSize(7).fillColor("#645e55");
-      doc.text(metric.label, x, cursorY + 36, { width: metricWidth - 8, lineBreak: false });
-      doc.font("Helvetica-Bold").fontSize(11).fillColor("#29251f");
-      doc.text(metric.value, x, cursorY + 49, { width: metricWidth - 8, lineBreak: false });
-    });
-    cursorY += 92;
-
     drawTableHeader();
     if (productSummary.length === 0) {
       doc.font("Helvetica").fontSize(9).fillColor("#645e55");
-      doc.text("No paid product quantities found for these delivery dates.", LEFT, cursorY, {
+      doc.text("No matching product quantities for these dates.", LEFT, cursorY, {
         width: CONTENT_WIDTH,
       });
       cursorY += 24;
     } else {
       for (const product of productSummary) {
-        const productName = product._id.name || "Unnamed product";
-        const labelParts = [
-          productName,
-          product._id.color ? `Color: ${product._id.color}` : undefined,
-          product._id.unitLabel &&
-          !productName.toLocaleLowerCase().includes(product._id.unitLabel.toLocaleLowerCase())
-            ? `Pack/size: ${product._id.unitLabel}`
-            : undefined,
-        ].filter(Boolean);
-        const lines = wrapText(doc, labelParts.join(" | "), CONTENT_WIDTH - 175, "Helvetica", 8.5);
-        const rowHeight = Math.max(13, lines.length * 11);
+        const productLines = wrapText(doc, product.name, CONTENT_WIDTH - 175, "Helvetica", 8.5);
+        const colorLines = wrapText(
+          doc,
+          product.color || "No color",
+          82,
+          "Helvetica",
+          8.5,
+        );
+        const rowHeight = Math.max(
+          13,
+          productLines.length * 11,
+          colorLines.length * 11,
+        );
         if (cursorY + rowHeight > CONTENT_BOTTOM) {
           addPage();
           drawTableHeader(true);
         }
         doc.font("Helvetica").fontSize(8.5).fillColor("#29251f");
-        lines.forEach((line, index) => {
+        productLines.forEach((line, index) => {
           doc.text(line, LEFT, cursorY + index * 11, { lineBreak: false });
         });
-        doc.text(String(product.totalQuantity), PAGE_WIDTH - RIGHT - 116, cursorY, {
-          width: 65,
-          align: "right",
-          lineBreak: false,
+        colorLines.forEach((line, index) => {
+          doc.text(line, LEFT + CONTENT_WIDTH - 145, cursorY + index * 11, {
+            lineBreak: false,
+          });
         });
-        doc.text(String(product.orderCount), PAGE_WIDTH - RIGHT - 44, cursorY, {
-          width: 44,
+        doc.text(String(product.totalQuantity), PAGE_WIDTH - RIGHT - 58, cursorY, {
+          width: 58,
           align: "right",
           lineBreak: false,
         });
@@ -384,34 +336,18 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    doc.font("Helvetica").fontSize(8).fillColor("#645e55");
-    doc.text(
-      "Quantities are summed from paid orders' saved item quantities, grouped by product, color, and pack/size.",
-      LEFT,
-      cursorY + 4,
-      { width: CONTENT_WIDTH },
-    );
-
     addPage();
-    doc.font("Helvetica-Bold").fontSize(12).fillColor("#29251f");
-    doc.text("ORDER DETAILS", LEFT, cursorY, { lineBreak: false });
+    doc.font("Helvetica-Bold").fontSize(11).fillColor("#29251f");
+    doc.text("ORDER QUANTITIES", LEFT, cursorY, { lineBreak: false });
     cursorY += 22;
 
     const cursor = OrderModel.find(paidOrderFilter)
       .select({
         orderNumber: 1,
-        customerId: 1,
         items: 1,
-        total: 1,
-        status: 1,
-        paymentStatus: 1,
-        createdAt: 1,
         deliveryDate: 1,
-        deliverySlotId: 1,
-        deliveryTimePreference: 1,
-        deliveryAddress: 1,
       })
-      .sort({ deliveryDate: 1, createdAt: 1, _id: 1 })
+      .sort({ deliveryDate: 1, orderNumber: 1, _id: 1 })
       .lean<DeliveryOrder[]>()
       .cursor();
 
@@ -425,6 +361,13 @@ export async function GET(request: NextRequest) {
 
     void (async () => {
       try {
+        if (orderCount === 0) {
+          doc.font("Helvetica").fontSize(9).fillColor("#645e55");
+          doc.text("No matching orders for these dates.", LEFT, cursorY, {
+            width: CONTENT_WIDTH,
+          });
+        }
+
         while (true) {
           const batch: DeliveryOrder[] = [];
           for (let index = 0; index < BATCH_SIZE; index += 1) {
@@ -434,57 +377,54 @@ export async function GET(request: NextRequest) {
           }
           if (!batch.length) break;
 
-          const customerIds = [...new Set(batch.map((order) => order.customerId))];
-          const customers = customerIds.length
-            ? await CustomerModel.find({ _id: { $in: customerIds } })
-                .select({ name: 1, firstName: 1, lastName: 1, phone: 1 })
-                .lean<DeliveryCustomer[]>()
-            : [];
-          const customersById = new Map(customers.map((customer) => [String(customer._id), customer]));
-          const slotIds = [...new Set(batch.map((order) => order.deliverySlotId).filter((id): id is string => Boolean(id)))];
-          const slots = slotIds.length
-            ? await DeliverySlotModel.find({ _id: { $in: slotIds } })
-                .select({ label: 1, startTime: 1, endTime: 1 })
-                .lean<DeliverySlot[]>()
-            : [];
-          const slotsById = new Map(slots.map((slot) => [String(slot._id), slot]));
-
           for (const order of batch) {
-            const customer = customersById.get(String(order.customerId));
-            const slot = slotsById.get(String(order.deliverySlotId));
+            const orderItems = order.items.filter((item) =>
+              productInfoById.has(String(item.productId)),
+            );
+            if (!orderItems.length) continue;
+
+            const orderQuantities = new Map<
+              string,
+              { name: string; color: string; quantity: number }
+            >();
+            for (const item of orderItems) {
+              const productInfo = productInfoById.get(String(item.productId));
+              if (!productInfo) continue;
+
+              const savedColor = item.color?.trim() ?? "";
+              const color =
+                productInfo.colors.get(savedColor.toLocaleLowerCase()) ?? savedColor;
+              const key = JSON.stringify([
+                productInfo.name.toLocaleLowerCase(),
+                color.toLocaleLowerCase(),
+              ]);
+              const existing = orderQuantities.get(key);
+              if (existing) {
+                existing.quantity += item.quantity;
+              } else {
+                orderQuantities.set(key, {
+                  name: productInfo.name,
+                  color,
+                  quantity: item.quantity,
+                });
+              }
+            }
+
             const rows: Array<{ text: string; style: TextStyle }> = [
               {
-                text: `[ ]  Order ${order.orderNumber}`,
-                style: { font: "Helvetica-Bold", size: 12, color: "#29251f", gapAfter: 5 },
+                text: `Order ${order.orderNumber}  |  Delivery: ${formatIndiaDate(order.deliveryDate)}`,
+                style: { font: "Helvetica-Bold", size: 10, color: "#29251f", gapAfter: 4 },
               },
-              {
-                text: `Delivery: ${formatDeliveryDate(order.deliveryDate)} | Slot: ${deliverySlotLabel(order, slot)}`,
-                style: { font: "Helvetica", size: 9, color: "#29251f", gapAfter: 3 },
-              },
-              {
-                text: `Customer: ${customerName(customer)} | Phone: ${customer?.phone ?? "-"}`,
-                style: { font: "Helvetica", size: 9, color: "#29251f", gapAfter: 3 },
-              },
-              {
-                text: `Address: ${deliveryAddress(order)}`,
-                style: { font: "Helvetica", size: 9, color: "#29251f", gapAfter: 3 },
-              },
-              {
-                text: `Placed: ${formatIndiaDate(order.createdAt, true)} | Status: ${order.status} | Payment: ${order.paymentStatus ?? "not specified"}`,
-                style: { font: "Helvetica", size: 8.5, color: "#645e55", gapAfter: 5 },
-              },
-              {
-                text: "ITEMS",
-                style: { font: "Helvetica-Bold", size: 8.5, color: "#86703f", gapAfter: 2 },
-              },
-              ...order.items.map((item) => ({
-                text: `- ${item.quantity} x ${item.name}${item.color ? ` | Color: ${item.color}` : ""}${item.unitLabel ? ` | ${item.unitLabel}` : ""} | ${formatRupees(item.price)} each`,
-                style: { font: "Helvetica" as const, size: 8.5, color: "#29251f", gapAfter: 2, indent: 8 },
-              })),
-              {
-                text: `Order total: ${formatRupees(order.total)}`,
-                style: { font: "Helvetica-Bold", size: 9, color: "#29251f", gapAfter: 5 },
-              },
+              ...[...orderQuantities.values()].map((item) => ({
+                  text: `${item.quantity} x ${item.name}${item.color ? ` | Color: ${item.color}` : ""}`,
+                  style: {
+                    font: "Helvetica" as const,
+                    size: 9,
+                    color: "#29251f",
+                    gapAfter: 3,
+                    indent: 8,
+                  },
+                })),
             ];
             const wrapped = rows.map(({ text, style }) => ({
               style,

@@ -78,16 +78,16 @@ export function DeliveryDateExportDialog({
           Export orders by delivery date
         </h2>
         <p className="mt-1 text-sm leading-6 text-ink-soft">
-          The PDF starts with total product and color quantities to help plan flower stock, followed by each order and its delivery details.
+          See the total quantity to prepare for each Diwali product and color, then the quantity in each order.
         </p>
       </div>
 
       <div className="mt-5 rounded-xl border border-ink/10 bg-ivory/70 p-4">
         <p className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-ink-soft">
-          <CalendarDays size={14} /> Customer-selected delivery dates
+          <CalendarDays size={14} /> Delivery dates (India time)
         </p>
         <p className="mb-3 text-xs leading-5 text-ink-soft">
-          Only paid orders appear in both the stock summary and checkbox order details. Pending, unpaid, refunded, and cancelled orders are excluded.
+          Only paid orders and products shown on the Diwali booking page are included.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-xs font-semibold text-ink-soft">
